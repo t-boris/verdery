@@ -170,7 +170,9 @@ const responseSchema = z.object({
       // Optional deliberately: a line whose bearing could not be read must
       // still be returned, because the figure recovers a missing direction
       // and cannot recover a missing side.
-      bearing: bearingSchema.optional(),
+      // Gemini may represent an unread bearing as either an omitted property
+      // or JSON null. Both mean exactly the same thing at this boundary.
+      bearing: bearingSchema.nullish(),
       distanceFeet: z.number().positive(),
       sourceLabel: z.string(),
     }),
@@ -239,8 +241,11 @@ function needsCorrection(outcome: PlatExtractionAdapterOutcome): boolean {
 function needsBoundaryCorrection(outcome: PlatExtractionAdapterOutcome): boolean {
   if (outcome.kind !== 'extracted') return false;
   const callCount = outcome.plat.boundaryCalls.length;
-  const outlineCount = outcome.plat.lotPageOutline.length;
-  return callCount < 4 || callCount !== outlineCount;
+  // A curved frontage is one surveyed chord call but may need several page
+  // points to trace its visible arc. Comparing those counts therefore rejects
+  // a valid plat. Four calls remains the minimum parcel safeguard; closure is
+  // checked independently from the printed calls by the mapping domain.
+  return callCount < 4;
 }
 
 function boundaryCorrectionInstruction(outcome: PlatExtractionAdapterOutcome): string {

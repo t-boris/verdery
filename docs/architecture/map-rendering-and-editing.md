@@ -507,11 +507,13 @@ What review shows, because it is what a person needs in order to disbelieve the 
   polygon, which bounds every object placed by that fit;
 - each object's own **confidence**, its category, and its size.
 
-The outline and calls cross-check one another before a reading reaches review. A complete parcel
-must have one boundary call per visible outline edge. A first pass with fewer than four calls or a
-call/edge-count mismatch is read again with an explicit missing-edge correction; a second mismatch
-fails instead of closing the remaining lines into a new triangle. A geometrically closed boundary
-is not preselected when its walked area differs from the sheet's stated area by more than 15%.
+The printed calls and visible outline are independent evidence before a reading reaches review. A
+first pass with fewer than four boundary calls is read again with an explicit missing-edge
+correction; it is never closed into a new triangle. Their counts are deliberately not compared: one
+surveyed chord can describe a curved frontage that needs several page points to trace visibly.
+Completeness is checked by the independently walked traverse and its closure error. A geometrically
+closed boundary is not preselected when its walked area differs from the sheet's stated area by more
+than 15%.
 
 Each proposal arrives as the geometry its category actually holds (section 5): an outline for a
 structure or a zone, a centre line for a path or a fence, a trunk position for a tree. Extraction

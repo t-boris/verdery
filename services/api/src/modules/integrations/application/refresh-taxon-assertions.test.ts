@@ -230,6 +230,45 @@ describe('RefreshTaxonAssertions', () => {
 
     expect(result).toEqual({ outcome: 'unavailable', reason: 'providerFailed' });
   });
+
+  it('rejects a malformed provider payload before writing any assertions', async () => {
+    const { refresh, adapter, facts, distributionAssertions } = harness();
+    adapter.setFactsBehavior({
+      kind: 'succeed',
+      value: [
+        {
+          factKey: 'growth_habit',
+          value: 'Tree',
+          unit: null,
+          confidence: null,
+          geographicScope: null,
+        },
+        {
+          // Provider extraction may report this field, but the domain
+          // requires toxicity claims to be human-authored.
+          factKey: 'toxicity',
+          value: 'None',
+          unit: null,
+          confidence: null,
+          geographicScope: null,
+        },
+      ],
+    });
+    adapter.setDistributionBehavior({
+      kind: 'succeed',
+      value: [{ region: 'L48', rawStatus: 'native', confidence: null }],
+    });
+
+    const result = await refresh.execute({
+      taxonomyReferenceId: TAXONOMY_ID,
+      providerKey: PROVIDER_KEY,
+    });
+
+    expect(result).toEqual({ outcome: 'unavailable', reason: 'providerReturnedInvalidData' });
+    expect(facts.assertions).toEqual([]);
+    expect(distributionAssertions.assertions).toEqual([]);
+  });
+
   it('stores every image the provider offers, refused ones marked refused', async () => {
     const { refresh, adapter, mediaAssets } = harness({});
     adapter.mediaBehavior = {
@@ -281,6 +320,39 @@ describe('RefreshTaxonAssertions', () => {
     });
 
     expect(result.outcome).toBe('refreshed');
+    expect(mediaAssets.assets.size).toBe(0);
+  });
+
+  it('discards a malformed media batch without keeping earlier assets', async () => {
+    const { refresh, adapter, mediaAssets } = harness({});
+    adapter.mediaBehavior = {
+      kind: 'succeed',
+      value: [
+        {
+          providerAssetId: '1:0',
+          sourceUrl: 'https://example.org/usable.jpg',
+          rawLicence: 'http://creativecommons.org/publicdomain/zero/1.0/',
+          rightsHolder: null,
+          creator: 'A. Botanist',
+          observedAt: null,
+        },
+        {
+          providerAssetId: '1:1',
+          sourceUrl: '',
+          rawLicence: 'http://creativecommons.org/publicdomain/zero/1.0/',
+          rightsHolder: null,
+          creator: 'A. Botanist',
+          observedAt: null,
+        },
+      ],
+    };
+
+    const result = await refresh.execute({
+      taxonomyReferenceId: TAXONOMY_ID,
+      providerKey: PROVIDER_KEY,
+    });
+
+    expect(result).toMatchObject({ outcome: 'refreshed', mediaWritten: 0 });
     expect(mediaAssets.assets.size).toBe(0);
   });
 });

@@ -180,6 +180,12 @@ returns clear unlabelled linework with an empty label instead of dropping it. Pr
 remain strict transcription; visual classification is confined to these reviewable shapes and
 always carries model confidence.
 
+A curved frontage has one printed chord call but may have several visual page points along its arc.
+The adapter therefore does not require boundary-call count to equal page-outline point count;
+survey completeness is decided by the minimum-call safeguard and the independently computed
+traverse closure. An unread bearing may be encoded by the constrained model as an omitted property
+or JSON `null`; both normalize to the same explicit missing-bearing value.
+
 Aerial tracing requires one already-aligned, saved survey lot. There is no county-specific adapter,
 parcel aggregator, provider cascade or image-inferred lot. The API fetches a 1024 px, north-up USGS
 export covering 160 m around the saved lot center and asks Vertex only for normalized

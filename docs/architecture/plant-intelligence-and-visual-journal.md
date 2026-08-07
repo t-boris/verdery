@@ -235,6 +235,12 @@ envelope even before either lifecycle has produced content: `profile` is `null` 
 empty array. This lets clients distinguish an available catalog resource with incomplete knowledge
 from a transport failure while facts and imagery continue to populate independently.
 
+Cache-aside enrichment validates a provider's complete normalized fact/distribution batch before
+writing any assertion. A domain-invalid provider field is classified as
+`providerReturnedInvalidData`; it is never exposed as `request.invalid`, never makes the catalog
+read fail, and never leaves the valid prefix of that same provider response stored. Media batches
+use the same validate-before-write boundary.
+
 ## 8. Visual Plant Journal
 
 ### 8.1 Observation Unit

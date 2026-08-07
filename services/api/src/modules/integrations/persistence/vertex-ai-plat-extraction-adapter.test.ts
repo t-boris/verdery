@@ -174,6 +174,19 @@ describe('parsePlatExtractionResponse', () => {
     expect(outcome.plat.statedAreaSquareFeet).toBeNull();
   });
 
+  it('accepts JSON null when the model cannot read one bearing', () => {
+    const boundaryCalls = CASCADE_WAY.boundaryCalls.map((call, index) =>
+      index === 3 ? { ...call, bearing: null } : call,
+    );
+    const outcome = parsePlatExtractionResponse(
+      responseWith(JSON.stringify({ ...CASCADE_WAY, boundaryCalls })),
+    );
+
+    expect(outcome.kind).toBe('extracted');
+    if (outcome.kind !== 'extracted') return;
+    expect(outcome.plat.boundaryCalls[3]?.bearing).toBeNull();
+  });
+
   it('says so when the page is not a plat at all', () => {
     const outcome = parsePlatExtractionResponse(
       responseWith(JSON.stringify({ ...CASCADE_WAY, notAPlat: true })),
@@ -259,6 +272,31 @@ describe('VertexAiPlatExtractionAdapter', () => {
     expect(JSON.stringify(generateContent.mock.calls[1]?.[0])).toContain(
       'Do not close fewer lines into a new',
     );
+  });
+
+  it('does not reject a curved frontage traced with extra page points', async () => {
+    const curvedOutline = [
+      ...CASCADE_WAY.lotPageOutline.slice(0, 3),
+      [0.42, 0.32],
+      CASCADE_WAY.lotPageOutline[3],
+    ];
+    const generateContent = vi
+      .fn()
+      .mockResolvedValue(
+        responseWith(JSON.stringify({ ...CASCADE_WAY, lotPageOutline: curvedOutline })),
+      );
+    const adapter = new VertexAiPlatExtractionAdapter(
+      { models: { generateContent } },
+      CONFIGURATION,
+    );
+
+    const outcome = await adapter.extractPlat({ page: PAGE }, new AbortController().signal);
+
+    expect(outcome.kind).toBe('extracted');
+    expect(generateContent).toHaveBeenCalledTimes(1);
+    if (outcome.kind !== 'extracted') return;
+    expect(outcome.plat.boundaryCalls).toHaveLength(4);
+    expect(outcome.plat.lotPageOutline).toHaveLength(5);
   });
 
   it('makes a second whole-sheet pass when the first pass loses every drawn object', async () => {

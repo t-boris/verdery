@@ -51,7 +51,9 @@ import { InternalError, ValidationError } from '../../../platform/errors/applica
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import { createPlantDistributionAssertion } from '../domain/plant-distribution-assertion.js';
+import type { PlantDistributionAssertion } from '../domain/plant-distribution-assertion.js';
 import { createPlantFactAssertion } from '../domain/plant-fact-assertion.js';
+import type { PlantFactAssertion } from '../domain/plant-fact-assertion.js';
 import { createPlantTaxonomyMapping } from '../domain/plant-taxonomy-mapping.js';
 import type { PlantTaxonomyMapping } from '../domain/plant-taxonomy-mapping.js';
 import type { PlantDistributionAssertionRepository } from './plant-distribution-assertion-repository.js';
@@ -61,6 +63,7 @@ import {
   parseProviderLicense,
   presentationIneligibility,
 } from '../domain/plant-media-asset.js';
+import type { PlantMediaAsset } from '../domain/plant-media-asset.js';
 import type { PlantFactAssertionRepository } from './plant-fact-assertion-repository.js';
 import type {
   NormalizedMediaCandidate,
@@ -182,8 +185,13 @@ export class RefreshTaxonAssertions {
     };
     const review = { reviewStatus: 'awaiting_horticultural_review' as const };
 
-    for (const fact of factsCall.value) {
-      await this.facts.insert(
+    let factAssertions: readonly PlantFactAssertion[];
+    let distributionAssertions: readonly PlantDistributionAssertion[];
+    try {
+      // Validate the complete provider payload before writing any part of it.
+      // A provider-contract rejection is an integration outcome, never an
+      // invalid user request and never a half-written refresh.
+      factAssertions = factsCall.value.map((fact) =>
         createPlantFactAssertion({
           id: this.generateId(),
           rawProviderTaxonId: mapping.providerTaxonId,
@@ -198,10 +206,7 @@ export class RefreshTaxonAssertions {
           now,
         }),
       );
-    }
-
-    for (const distribution of distributionCall.value) {
-      await this.distributionAssertions.insert(
+      distributionAssertions = distributionCall.value.map((distribution) =>
         createPlantDistributionAssertion({
           id: this.generateId(),
           rawProviderTaxonId: mapping.providerTaxonId,
@@ -214,6 +219,18 @@ export class RefreshTaxonAssertions {
           now,
         }),
       );
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        return { outcome: 'unavailable', reason: 'providerReturnedInvalidData' };
+      }
+      throw error;
+    }
+
+    for (const assertion of factAssertions) {
+      await this.facts.insert(assertion);
+    }
+    for (const assertion of distributionAssertions) {
+      await this.distributionAssertions.insert(assertion);
     }
 
     // Imagery is fetched LAST and its failure does not fail the refresh: the
@@ -267,13 +284,12 @@ export class RefreshTaxonAssertions {
     }
 
     const now = this.clock.now();
-    let written = 0;
-    for (const candidate of mediaCall.value) {
-      const license = parseProviderLicense(candidate.rawLicence);
-      const ineligibility = presentationIneligibility(license, candidate.rightsHolder);
-      await this.mediaAssets.upsert(
-        registration.metadata.providerKey,
-        createPlantMediaAsset({
+    let assets: readonly PlantMediaAsset[];
+    try {
+      assets = mediaCall.value.map((candidate) => {
+        const license = parseProviderLicense(candidate.rawLicence);
+        const ineligibility = presentationIneligibility(license, candidate.rightsHolder);
+        return createPlantMediaAsset({
           id: this.generateId(),
           rawProviderTaxonId: providerTaxonId,
           mediaId: null,
@@ -291,12 +307,20 @@ export class RefreshTaxonAssertions {
           // A refused image is stored as refused, not dropped.
           ingestionState: ineligibility === null ? 'discovered' : 'rejected',
           now,
-        }),
-      );
-      written += 1;
+        });
+      });
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        return 0;
+      }
+      throw error;
     }
 
-    return written;
+    for (const asset of assets) {
+      await this.mediaAssets.upsert(registration.metadata.providerKey, asset);
+    }
+
+    return assets.length;
   }
 
   /** Finds the live mapping, or resolves and persists one via `searchTaxa` — mirrors `MapPlantTaxonomy.execute`'s own resolution steps against this module's OTHER registry type. */
