@@ -1178,6 +1178,10 @@ export interface paths {
          *     unset until the suggestion is confirmed via `ConfirmPlantIdentification`
          *     — identification never auto-confirms.
          *
+         *     The original photo has no client-facing identification size limit. The
+         *     API selects a generated analysis rendition and returns a retryable `503`
+         *     while that rendition is being prepared.
+         *
          *     Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
          */
         post: operations["addPlantFromPhoto"];
@@ -1558,6 +1562,12 @@ export interface paths {
          *     candidate is a lower-stakes, not-yet-real-plant record, edited or
          *     deleted like any other candidate field if the guess is wrong.
          *
+         *     The original upload has no identification-size threshold. The command
+         *     uses a generated analysis rendition when the original exceeds the vision
+         *     transport's internal limit, and returns a retryable response while that
+         *     rendition is still being prepared. It never creates an unidentified
+         *     candidate as a fallback.
+         *
          *     Source: implementation-plan.md work package P11-API-01; ADR-0015.
          */
         post: operations["addCandidateFromPhoto"];
@@ -1737,6 +1747,32 @@ export interface paths {
         get: operations["listCandidatePhotos"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/plant-candidates/{candidateId}/identify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                candidateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Identify an existing candidate from its primary photo
+         * @description Re-runs species identification using the candidate's primary photo and
+         *     applies a confident name, taxonomy match, and variety to the candidate.
+         *     The original photo is preserved at full quality. AI input uses the best
+         *     generated analysis source, so original upload size is not a product limit.
+         */
+        post: operations["identifyCandidateFromPhoto"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9826,6 +9862,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getPlant: {
@@ -10377,6 +10414,8 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getCandidate: {
@@ -10651,6 +10690,48 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    identifyCandidateFromPhoto: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Client-generated UUIDv7. The same key with a semantically identical
+                 *     request returns the original result. The same key with a different
+                 *     command is rejected with `request.idempotency.key_reused`.
+                 */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                /**
+                 * @description Expected revision of the target resource, quoted. A stale value is
+                 *     rejected rather than silently overwriting a newer state.
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                candidateId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The candidate with the identification applied. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlantCandidate"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            412: components["responses"]["PreconditionFailed"];
+            422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getTaxonProfile: {

@@ -15,6 +15,7 @@
 
 import { SharedErrorCode } from '@verdery/api-contracts';
 import {
+  DependencyUnavailableError,
   DomainRuleViolatedError,
   NotFoundError,
   StaleRevisionError,
@@ -100,5 +101,12 @@ export function mediaNotAvailableForAttachmentError(pointer: string): Validation
     SharedErrorCode.RequestInvalid,
     'mediaId must reference media whose upload has completed and is not being deleted.',
     { details: [{ code: 'plants_inventory.plant.media_not_available', pointer }] },
+  );
+}
+
+export function plantIdentificationSourceNotReadyError(): DependencyUnavailableError {
+  return new DependencyUnavailableError(
+    'plants_inventory.plant.identification_source_not_ready',
+    'The photo is still being prepared for identification. Try again shortly.',
   );
 }

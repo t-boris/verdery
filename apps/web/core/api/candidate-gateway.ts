@@ -47,6 +47,13 @@ export interface CandidateGateway {
     idempotencyKey: string,
     signal?: AbortSignal,
   ): Promise<ApiResult<PlantCandidate>>;
+  identifyFromPhoto(
+    gardenId: string,
+    candidateId: string,
+    expectedRevision: number,
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<ApiResult<PlantCandidate>>;
   listPhotos(
     gardenId: string,
     candidateId: string,
@@ -171,6 +178,15 @@ export function createCandidateGateway(client: ApiClient): CandidateGateway {
         path: `/gardens/${gardenId}/plant-candidates/from-photo`,
         body: input,
         headers: { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey, ...csrfHeader() },
+        ...(signal === undefined ? {} : { signal }),
+      });
+    },
+
+    identifyFromPhoto(gardenId, candidateId, expectedRevision, idempotencyKey, signal) {
+      return client.request<PlantCandidate>({
+        method: 'POST',
+        path: `/gardens/${gardenId}/plant-candidates/${candidateId}/identify`,
+        headers: revisionHeaders(expectedRevision, idempotencyKey),
         ...(signal === undefined ? {} : { signal }),
       });
     },

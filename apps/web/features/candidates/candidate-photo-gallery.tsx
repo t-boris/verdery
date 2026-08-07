@@ -1,7 +1,9 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+
 import { useLocalization } from '@/shared/localization/public';
-import { FailureAlert } from '@/shared/ui/public';
+import { CloseIcon, FailureAlert } from '@/shared/ui/public';
 
 import { useCandidatePhotoAccess } from './candidate-media-queries';
 import styles from './candidate-photo-gallery.module.css';
@@ -16,11 +18,29 @@ interface CandidatePhotoThumbnailProps {
   readonly gardenId: string;
   readonly mediaId: string;
   readonly alt: string;
+  readonly openLabel: string;
+  readonly closeLabel: string;
 }
 
 /** One photo's signed-URL resolution — mirrors `plant-photo-gallery.tsx`'s identical `PlantPhotoThumbnail`. */
-function CandidatePhotoThumbnail({ gardenId, mediaId, alt }: CandidatePhotoThumbnailProps) {
+function CandidatePhotoThumbnail({
+  gardenId,
+  mediaId,
+  alt,
+  openLabel,
+  closeLabel,
+}: CandidatePhotoThumbnailProps) {
   const query = useCandidatePhotoAccess(gardenId, mediaId);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [open]);
 
   // `data` is absent both while the photo is still being validated and when
   // the read failed; the placeholder covers each, and the status poll behind
@@ -32,7 +52,40 @@ function CandidatePhotoThumbnail({ gardenId, mediaId, alt }: CandidatePhotoThumb
   // A plain `<img>`, not `next/image` — see `plant-photo-gallery.tsx`'s own
   // doc comment: the source is a short-lived signed Cloud Storage URL,
   // re-issued on every fetch, not a build-time-optimizable static asset.
-  return <img className={styles['thumbnail']} src={query.data.url} alt={alt} />;
+  return (
+    <>
+      <button
+        type="button"
+        className={styles['thumbnailButton']}
+        onClick={() => setOpen(true)}
+        aria-label={openLabel}
+      >
+        <img className={styles['thumbnail']} src={query.data.url} alt={alt} />
+      </button>
+      {open && (
+        <div
+          className={styles['lightbox']}
+          role="dialog"
+          aria-modal="true"
+          aria-label={alt}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setOpen(false);
+          }}
+        >
+          <button
+            type="button"
+            className={styles['close']}
+            onClick={() => setOpen(false)}
+            aria-label={closeLabel}
+            title={closeLabel}
+          >
+            <CloseIcon />
+          </button>
+          <img className={styles['fullImage']} src={query.data.url} alt={alt} />
+        </div>
+      )}
+    </>
+  );
 }
 
 /**
@@ -68,6 +121,8 @@ export function CandidatePhotoGallery({ gardenId, candidateId }: CandidatePhotoG
           gardenId={gardenId}
           mediaId={photo.mediaId}
           alt={t('candidates.photoGalleryTitle')}
+          openLabel={t('candidates.photoOpenFullscreen')}
+          closeLabel={t('candidates.photoCloseFullscreen')}
         />
       ))}
     </div>

@@ -189,7 +189,10 @@ Derivatives are also what AI analysis reads. A phone original is routinely large
 provider accepts, and the screen preview shows the same plant in a file that fits; see
 architecture/external-integrations.md, section "9.1 Which photograph is sent, and the size the
 provider will accept". Because derivatives appear only once processing finishes, a command that
-runs the moment an upload completes may legitimately find none, and falls back to the original.
+runs the moment an upload completes may legitimately find none. That is a retryable preparation
+state: the command waits through automatic client retries and never sends an oversized original or
+creates an unidentified record as a silent fallback. Original photo size is not an identification
+limit exposed by the product.
 
 ### 9.0 Perceptual hash of the source (P11-MEDIA-01)
 

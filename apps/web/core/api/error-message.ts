@@ -54,6 +54,14 @@ const MESSAGE_KEYS: Readonly<Record<string, MessageKey>> = {
   'map.aerial_tracing_failed': 'error.aerialTracingFailed',
   'map.aerial_tracing_needs_lot': 'error.aerialTracingNeedsLot',
   'map.aerial_tracing_lot_too_large': 'error.aerialTracingLotTooLarge',
+  'plants_inventory.plant_candidate.identification_source_not_ready':
+    'error.candidateIdentificationSourceNotReady',
+  'plants_inventory.plant_candidate.identification_photo_missing':
+    'error.candidateIdentificationPhotoMissing',
+  'plants_inventory.plant_candidate.identification_no_confident_match':
+    'error.candidateIdentificationNoConfidentMatch',
+  'plants_inventory.plant.identification_source_not_ready':
+    'error.candidateIdentificationSourceNotReady',
   [CollaborationErrorCode.MembershipNotFound]: 'error.membershipNotFound',
   [CollaborationErrorCode.LastOwnerRequired]: 'error.lastOwnerRequired',
   [CollaborationErrorCode.OwnerRoleNotAllowed]: 'error.ownerRoleNotAllowed',

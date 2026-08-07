@@ -189,28 +189,27 @@ driveway/walk centerlines, parking surfaces, fences, water/utility areas and mat
 converts those points into the existing garden-local coordinate space and returns them without
 writing. A person selects what becomes ordinary map objects.
 
-### 9.1 Which photograph is sent, and the size the provider will accept
+### 9.1 Which photograph is sent without imposing a product identification limit
 
-A vision provider refuses an image above its own file-size limit. Vertex AI answers a
-30.79 MiB PNG with a bare `400 INVALID_ARGUMENT`, which is indistinguishable from any other
-provider failure once it reaches the caller — and modern phone originals cross that line
-routinely. Two rules follow, and both live above the adapter so a provider swap does not
-re-derive them:
+A vision transport can refuse a large encoded object even though the product accepts and preserves
+that original. Modern phone originals routinely cross that internal transport boundary. The
+application therefore treats rendition preparation as part of identification, not as a limit the
+person has to understand or work around:
 
 - **The analysis source is the largest stored object that fits.** `pickAnalysisSource`
   (`services/api/src/modules/media/domain/analysis-source.ts`) chooses a display derivative
   when the derivative job has produced one and the original otherwise. Detail is what a
   species guess depends on, so among the objects that fit, the biggest wins.
-- **An image over the limit is refused before the call.** `IdentifyPlantSpecies` answers
-  `unavailable` with reason `photoTooLarge` before consuming quota: the answer is knowable
-  from the file's own size, and a request that cannot succeed should not be paid for. It is
-  a distinct reason from `providerFailed` because a person can act on it.
+- **A command never sends an object the transport cannot accept.** If no suitable rendition exists
+  yet, the API returns a typed, retryable preparation state. The web mutation retries without a
+  fixed attempt cap and completes when derivative generation publishes the rendition.
+- **Candidate creation is fail-closed.** A provider failure or absence of a confident match never
+  creates an `Unidentified candidate`. Existing candidates with photos expose an explicit
+  `Identify from photo` command so a failed historical attempt can be run again.
 
-`IDENTIFIABLE_PHOTO_MAX_BYTES` (`packages/api-contracts`) carries the limit, so the web client
-applies the same number: an oversized original waits for its derivative before a plant or
-candidate is created from it, rather than producing one with no species and no picture.
-The value is Vertex AI's current published limit; a provider with a different one changes
-this constant alongside its adapter registration.
+`VISION_ANALYSIS_SOURCE_MAX_BYTES` (`packages/api-contracts`) is an internal adapter transport
+capability used only to choose a stored analysis source. It is not a user-facing upload or
+identification limit and the web client does not compare a person's original against it.
 
 ## 10. Transactional Messaging
 

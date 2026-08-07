@@ -118,6 +118,11 @@ export const englishMessages = {
   'error.aerialTracingNeedsLot':
     'Align and save exactly one lot from the plat before detecting aerial objects.',
   'error.aerialTracingLotTooLarge': 'The saved lot is too large for automatic aerial tracing.',
+  'error.candidateIdentificationSourceNotReady':
+    'The full-size photo is still being prepared for identification. This retries automatically.',
+  'error.candidateIdentificationPhotoMissing': 'Add a photo before identifying this candidate.',
+  'error.candidateIdentificationNoConfidentMatch':
+    'The plant could not be identified confidently from this photo. Try another clear photo.',
   'error.notificationNotFound': 'That notification is not here.',
   'error.notificationPreferencesStaleRevision':
     'Your notification settings changed elsewhere. Reload and try again.',

@@ -18,7 +18,7 @@
  */
 
 import type { FastifyBaseLogger } from 'fastify';
-import { IDENTIFIABLE_PHOTO_MAX_BYTES } from '@verdery/api-contracts';
+import { VISION_ANALYSIS_SOURCE_MAX_BYTES } from '@verdery/api-contracts';
 import { pickAnalysisSource } from '../../media/public.js';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
 import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
@@ -28,6 +28,8 @@ import type { GardenAuthorization } from '../../gardens-mapping/public.js';
 import type { IdentifyPlantSpecies, PlantPhotoReference } from '../../integrations/public.js';
 import { confidenceBucket } from './add-plant-from-photo.js';
 import {
+  candidateIdentificationNoMatchError,
+  candidateIdentificationSourceNotReadyError,
   candidateMediaNotAvailableForAttachmentError,
   invalidCandidateMediaReferenceError,
 } from './candidate-errors.js';
@@ -42,9 +44,6 @@ import { runIdempotentCommand } from './run-idempotent-command.js';
 import type { TaxonomyReferenceRepository } from './taxonomy-reference-repository.js';
 
 const OPERATION = 'plants.addCandidateFromPhoto';
-
-/** Used only when the suggestion carries neither a catalog match nor a raw name guess — mirrors `AddPlantFromPhoto`'s own `UNIDENTIFIED_PLANT_DISPLAY_NAME` fallback. */
-const UNIDENTIFIED_CANDIDATE_DISPLAY_NAME = 'Unidentified candidate';
 
 export interface AddCandidateFromPhotoInput {
   /** Client-generated id, optional — same reason `AddCandidateInput.candidateId?` is optional. */
@@ -117,13 +116,13 @@ export class AddCandidateFromPhoto {
         const analysisSource = pickAnalysisSource(
           media,
           await context.media.listDisplayDerivatives(media.id),
-          IDENTIFIABLE_PHOTO_MAX_BYTES,
+          VISION_ANALYSIS_SOURCE_MAX_BYTES,
         );
         // `uploadState === 'available'` (checked above) should guarantee a
         // stored location; refusing rather than asserting keeps a broken row
         // out of the provider call.
         if (analysisSource === null) {
-          throw candidateMediaNotAvailableForAttachmentError('/photoMediaId');
+          throw candidateIdentificationSourceNotReadyError();
         }
         const photoReference: PlantPhotoReference = analysisSource;
         const suggestion = await identifyPlantFromPhoto(
@@ -132,6 +131,9 @@ export class AddCandidateFromPhoto {
           photoReference,
           this.logger,
         );
+        if (suggestion.confidenceScore <= 0) {
+          throw candidateIdentificationNoMatchError();
+        }
 
         this.logger.info(
           {
@@ -150,8 +152,11 @@ export class AddCandidateFromPhoto {
         const displayName =
           matchedReference?.commonName ??
           matchedReference?.scientificName ??
-          suggestion.suggestedCommonName ??
-          UNIDENTIFIED_CANDIDATE_DISPLAY_NAME;
+          suggestion.suggestedCommonName;
+
+        if (displayName === null) {
+          throw candidateIdentificationNoMatchError();
+        }
 
         const candidate = createCandidate(
           input.candidateId ?? generateUuidV7(),

@@ -9,6 +9,7 @@ import { Alert, Card, FailureAlert, StaleIndicator, StatusPill } from '@/shared/
 import { CandidateConvertForm } from './candidate-convert-form';
 import { CandidateDeleteControl } from './candidate-delete-control';
 import { CandidateDetailsForm } from './candidate-details-form';
+import { CandidateIdentificationPanel } from './candidate-identification-panel';
 import styles from './candidate-detail.module.css';
 import { CandidatePhotoGallery } from './candidate-photo-gallery';
 import { CandidateStatusControls } from './candidate-status-controls';
@@ -19,7 +20,7 @@ import {
   candidateStatusLabel,
   candidateStatusTone,
 } from './labels';
-import { useCandidate } from './queries';
+import { useCandidate, useCandidatePhotos } from './queries';
 
 export interface CandidateDetailProps {
   readonly gardenId: string;
@@ -49,6 +50,7 @@ export interface CandidateDetailProps {
 export function CandidateDetail({ gardenId, candidateId }: CandidateDetailProps) {
   const { t } = useLocalization();
   const query = useCandidate(gardenId, candidateId);
+  const photosQuery = useCandidatePhotos(gardenId, candidateId);
 
   if (query.isPending) {
     return <p role="status">{t('candidates.loading')}</p>;
@@ -97,6 +99,14 @@ export function CandidateDetail({ gardenId, candidateId }: CandidateDetailProps)
       </div>
 
       <CandidatePhotoGallery gardenId={gardenId} candidateId={candidate.id} />
+
+      {!isConverted &&
+        candidate.taxonomyReferenceId === null &&
+        (photosQuery.data?.length ?? 0) > 0 && (
+          <Card title={t('candidates.identificationTitle')}>
+            <CandidateIdentificationPanel gardenId={gardenId} candidate={candidate} />
+          </Card>
+        )}
 
       {isConverted && (
         <Alert tone="info" title={t('candidates.alreadyConverted')}>

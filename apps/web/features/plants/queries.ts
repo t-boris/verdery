@@ -99,6 +99,9 @@ export function useAddPlant(gardenId: string) {
     onSuccess: (plant) => {
       queryClient.setQueryData(plantQueryKey(gardenId, plant.id), plant);
     },
+    retry: (_failureCount, error) =>
+      error.failure.code === 'plants_inventory.plant.identification_source_not_ready',
+    retryDelay: 1000,
   });
 }
 

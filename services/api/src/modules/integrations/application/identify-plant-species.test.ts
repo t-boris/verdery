@@ -1,4 +1,4 @@
-import { IDENTIFIABLE_PHOTO_MAX_BYTES } from '@verdery/api-contracts';
+import { VISION_ANALYSIS_SOURCE_MAX_BYTES } from '@verdery/api-contracts';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 import { InMemoryProviderQuotaRepository, fixedClock } from './integrations-test-doubles.js';
@@ -148,7 +148,7 @@ describe('IdentifyPlantSpecies', () => {
     );
 
     const result = await identify.execute({
-      photo: testPlantPhotoReference({ byteSize: IDENTIFIABLE_PHOTO_MAX_BYTES + 1 }),
+      photo: testPlantPhotoReference({ byteSize: VISION_ANALYSIS_SOURCE_MAX_BYTES + 1 }),
     });
 
     expect(result).toEqual({ outcome: 'unavailable', reason: 'photoTooLarge' });
@@ -170,7 +170,7 @@ describe('IdentifyPlantSpecies', () => {
     );
 
     const result = await identify.execute({
-      photo: testPlantPhotoReference({ byteSize: IDENTIFIABLE_PHOTO_MAX_BYTES }),
+      photo: testPlantPhotoReference({ byteSize: VISION_ANALYSIS_SOURCE_MAX_BYTES }),
     });
 
     expect(result.outcome).toBe('noConfidentCandidate');

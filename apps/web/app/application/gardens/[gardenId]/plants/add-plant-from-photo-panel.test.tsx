@@ -1,4 +1,4 @@
-import { IDENTIFIABLE_PHOTO_MAX_BYTES, type Plant } from '@verdery/api-contracts';
+import type { Plant } from '@verdery/api-contracts';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -184,35 +184,14 @@ describe('AddPlantFromPhotoPanel — picking', () => {
     expect(addFromPhotoMutateMock).not.toHaveBeenCalled();
   });
 
-  /*
-   * Regression, reported 2026-08-04. A 30.79 MiB phone original is stored
-   * long before the display derivative that the identification provider will
-   * accept exists, and creating the plant at that moment produced one with no
-   * species and no picture. It waits for the derivative — and only in this
-   * case, so an ordinary photo still creates the plant immediately.
-   */
-  it('waits for a derivative when the original is too large to identify', () => {
+  it('submits a large available original without a client-side identification limit', () => {
     uploadState.mediaId = 'media-1';
     uploadState.media = {
       uploadState: 'available',
-      declaredByteSize: IDENTIFIABLE_PHOTO_MAX_BYTES + 1,
+      declaredByteSize: 80_000_000,
       verifiedByteSize: null,
     };
     uploadState.phase = 'processing';
-
-    renderPanel();
-
-    expect(addFromPhotoMutateMock).not.toHaveBeenCalled();
-  });
-
-  it('creates the plant from an oversized original once processing has finished', () => {
-    uploadState.mediaId = 'media-1';
-    uploadState.media = {
-      uploadState: 'available',
-      declaredByteSize: IDENTIFIABLE_PHOTO_MAX_BYTES + 1,
-      verifiedByteSize: null,
-    };
-    uploadState.phase = 'processed';
 
     renderPanel();
 

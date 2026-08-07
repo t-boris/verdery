@@ -76,6 +76,7 @@ export { AddCandidate } from './application/add-candidate.js';
 export type { AddCandidateInput } from './application/add-candidate.js';
 export { AddCandidateFromPhoto } from './application/add-candidate-from-photo.js';
 export type { AddCandidateFromPhotoInput } from './application/add-candidate-from-photo.js';
+export { IdentifyCandidateFromPhoto } from './application/identify-candidate-from-photo.js';
 export { UpdateCandidateDetails } from './application/update-candidate-details.js';
 export { DeleteCandidate } from './application/delete-candidate.js';
 export { SetCandidateStatus } from './application/set-candidate-status.js';

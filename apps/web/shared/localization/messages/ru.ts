@@ -111,6 +111,12 @@ export const russianMessages: MessageCatalogue = {
     'Сначала совместите и сохраните ровно один участок из плата, затем ищите объекты по аэрофото.',
   'error.aerialTracingLotTooLarge':
     'Сохранённый участок слишком большой для автоматической трассировки по аэрофото.',
+  'error.candidateIdentificationSourceNotReady':
+    'Полноразмерное фото ещё подготавливается для распознавания. Повтор выполняется автоматически.',
+  'error.candidateIdentificationPhotoMissing':
+    'Добавьте фотографию перед распознаванием кандидата.',
+  'error.candidateIdentificationNoConfidentMatch':
+    'Не удалось уверенно распознать растение по этому фото. Попробуйте другое чёткое фото.',
   'error.notificationNotFound': 'Такого уведомления здесь нет.',
   'error.notificationPreferencesStaleRevision':
     'Настройки уведомлений изменились в другом месте. Обновите страницу и попробуйте снова.',

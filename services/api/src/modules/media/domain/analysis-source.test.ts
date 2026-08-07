@@ -42,14 +42,13 @@ describe('pickAnalysisSource', () => {
     expect(source?.objectKey).toBe('original');
   });
 
-  // The usual state right after an upload: derivatives are generated
-  // asynchronously and do not exist yet. Returning the original lets the
-  // caller report the size, which is a better answer than "no suggestion".
-  it('falls back to the original when nothing fits', () => {
+  // Derivatives are generated asynchronously. An oversized original is never
+  // a valid fallback because sending it turns a temporary preparation state
+  // into a permanent provider failure.
+  it('returns nothing while no stored source fits', () => {
     const source = pickAnalysisSource(candidate(40_000_000, 'original'), [], LIMIT);
 
-    expect(source?.objectKey).toBe('original');
-    expect(source?.byteSize).toBe(40_000_000);
+    expect(source).toBeNull();
   });
 
   it('prefers verified type and size over what the client declared', () => {

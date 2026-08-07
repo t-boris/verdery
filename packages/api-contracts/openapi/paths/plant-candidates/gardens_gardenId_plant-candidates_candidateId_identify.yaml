@@ -1,0 +1,45 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: candidateId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+post:
+  operationId: identifyCandidateFromPhoto
+  tags: [PlantCandidates]
+  summary: Identify an existing candidate from its primary photo
+  description: |
+    Re-runs species identification using the candidate's primary photo and
+    applies a confident name, taxonomy match, and variety to the candidate.
+    The original photo is preserved at full quality. AI input uses the best
+    generated analysis source, so original upload size is not a product limit.
+  parameters:
+    - $ref: '../../components/parameters.yaml#/IdempotencyKey'
+    - $ref: '../../components/parameters.yaml#/IfMatch'
+  responses:
+    '200':
+      description: The candidate with the identification applied.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plant-candidates.yaml#/PlantCandidate'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'
+    '409':
+      $ref: '../../components/responses.yaml#/Conflict'
+    '412':
+      $ref: '../../components/responses.yaml#/PreconditionFailed'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'
+    '503':
+      $ref: '../../components/responses.yaml#/ServiceUnavailable'

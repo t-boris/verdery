@@ -1,4 +1,4 @@
-import { IDENTIFIABLE_PHOTO_MAX_BYTES } from '@verdery/api-contracts';
+import { VISION_ANALYSIS_SOURCE_MAX_BYTES } from '@verdery/api-contracts';
 import { pino } from 'pino';
 import { describe, expect, it } from 'vitest';
 import { ValidationError } from '../../../platform/errors/application-error.js';
@@ -208,7 +208,7 @@ describe('AddPlantFromPhoto', () => {
    */
   it('identifies from the display derivative when the original is larger than the provider accepts', async () => {
     const fakes = fakesWithMedia();
-    withScreenPreview(fakes, IDENTIFIABLE_PHOTO_MAX_BYTES + 1, 900_000);
+    withScreenPreview(fakes, VISION_ANALYSIS_SOURCE_MAX_BYTES + 1, 900_000);
     const adapter = new FakePlantSpeciesIdentificationProviderAdapter({
       kind: 'noConfidentCandidate',
     });

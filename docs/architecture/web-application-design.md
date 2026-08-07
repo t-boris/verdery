@@ -248,6 +248,8 @@ Expected API errors remain typed feature state. Error boundaries are reserved fo
 - Focus is restored predictably after dialogs and tool changes.
 - Pointer targets support touch-capable laptops and tablets.
 - Motion and animation respect user preferences.
+- Photo thumbnails open a keyboard-dismissable, modal full-viewport viewer that preserves the
+  complete image with `object-fit: contain`; the original aspect ratio is never cropped.
 
 ### 14.1 Measurable Commitments
 

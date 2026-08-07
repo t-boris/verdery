@@ -28,6 +28,7 @@ import type { ConvertCandidate } from '../application/convert-candidate.js';
 import type { GetCandidate } from '../application/get-candidate.js';
 import type { GetCandidateSuitability } from '../application/get-candidate-suitability.js';
 import type { GetTaxonProfile } from '../application/get-taxon-profile.js';
+import type { IdentifyCandidateFromPhoto } from '../application/identify-candidate-from-photo.js';
 import type { ListCandidatePhotos } from '../application/list-candidate-photos.js';
 import type { ListCandidates } from '../application/list-candidates.js';
 import type { RecalculateCandidateSuitability } from '../application/recalculate-candidate-suitability.js';
@@ -53,6 +54,7 @@ import {
 export interface CandidateRoutesDependencies {
   readonly addCandidate: AddCandidate;
   readonly addCandidateFromPhoto: AddCandidateFromPhoto;
+  readonly identifyCandidateFromPhoto: IdentifyCandidateFromPhoto;
   readonly listCandidates: ListCandidates;
   readonly listCandidatePhotos: ListCandidatePhotos;
   readonly getCandidate: GetCandidate;
@@ -261,6 +263,18 @@ export function registerCandidateRoutes(
     );
 
     return reply.status(201).send(candidate);
+  });
+
+  app.post('/gardens/:gardenId/plant-candidates/:candidateId/identify', async (request, reply) => {
+    requireGardenId(request);
+    const candidateId = requireCandidateId(request);
+    const candidate = await deps.identifyCandidateFromPhoto.execute(
+      candidateId,
+      request.actorContext.profileId,
+      requireExpectedRevision(request),
+      requireIdempotencyKey(request),
+    );
+    return reply.status(200).send(candidate);
   });
 
   app.get('/gardens/:gardenId/plant-candidates', async (request, reply) => {

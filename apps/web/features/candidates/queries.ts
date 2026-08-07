@@ -105,6 +105,37 @@ export function useAddCandidateFromPhoto(gardenId: string) {
     onSuccess: (candidate) => {
       queryClient.setQueryData(candidateQueryKey(gardenId, candidate.id), candidate);
     },
+    retry: (_failureCount, error) =>
+      error.failure.code === 'plants_inventory.plant_candidate.identification_source_not_ready',
+    retryDelay: 1000,
+  });
+}
+
+export interface IdentifyCandidateFromPhotoVariables {
+  readonly candidateId: string;
+  readonly expectedRevision: number;
+}
+
+export function useIdentifyCandidateFromPhoto(gardenId: string) {
+  const gateway = useCandidateGateway();
+  const queryClient = useQueryClient();
+
+  return useMutation<PlantCandidate, ApiFailureError, IdentifyCandidateFromPhotoVariables>({
+    mutationFn: async ({ candidateId, expectedRevision }) =>
+      unwrap(
+        await gateway.identifyFromPhoto(
+          gardenId,
+          candidateId,
+          expectedRevision,
+          generateIdempotencyKey(),
+        ),
+      ),
+    onSuccess: (candidate) => {
+      queryClient.setQueryData(candidateQueryKey(gardenId, candidate.id), candidate);
+    },
+    retry: (_failureCount, error) =>
+      error.failure.code === 'plants_inventory.plant_candidate.identification_source_not_ready',
+    retryDelay: 1000,
   });
 }
 

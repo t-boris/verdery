@@ -252,6 +252,8 @@ paths:
     }
   '/gardens/{gardenId}/plant-candidates/{candidateId}/photos':
     { $ref: './paths/plant-candidates/gardens_gardenId_plant-candidates_candidateId_photos.yaml' }
+  '/gardens/{gardenId}/plant-candidates/{candidateId}/identify':
+    { $ref: './paths/plant-candidates/gardens_gardenId_plant-candidates_candidateId_identify.yaml' }
   '/plant-catalog/taxa/{taxonomyReferenceId}/profile':
     { $ref: './paths/plant-catalog/plant-catalog_taxa_taxonomyReferenceId_profile.yaml' }
   '/gardens/{gardenId}/observations':

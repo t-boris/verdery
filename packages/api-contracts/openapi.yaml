@@ -1990,6 +1990,10 @@ paths:
         unset until the suggestion is confirmed via `ConfirmPlantIdentification`
         — identification never auto-confirms.
 
+        The original photo has no client-facing identification size limit. The
+        API selects a generated analysis rendition and returns a retryable `503`
+        while that rendition is being prepared.
+
         Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -2016,6 +2020,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /gardens/{gardenId}/plants/{plantId}:
     parameters:
       - name: gardenId
@@ -2679,6 +2685,12 @@ paths:
         candidate is a lower-stakes, not-yet-real-plant record, edited or
         deleted like any other candidate field if the guess is wrong.
 
+        The original upload has no identification-size threshold. The command
+        uses a generated analysis rendition when the original exceeds the vision
+        transport's internal limit, and returns a retryable response while that
+        rendition is still being prepared. It never creates an unidentified
+        candidate as a fallback.
+
         Source: implementation-plan.md work package P11-API-01; ADR-0015.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -2705,6 +2717,10 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /gardens/{gardenId}/plant-candidates/{candidateId}:
     parameters:
       - name: gardenId
@@ -3015,6 +3031,52 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+  /gardens/{gardenId}/plant-candidates/{candidateId}/identify:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: candidateId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+    post:
+      operationId: identifyCandidateFromPhoto
+      tags:
+        - PlantCandidates
+      summary: Identify an existing candidate from its primary photo
+      description: |
+        Re-runs species identification using the candidate's primary photo and
+        applies a confident name, taxonomy match, and variety to the candidate.
+        The original photo is preserved at full quality. AI input uses the best
+        generated analysis source, so original upload size is not a product limit.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/IfMatch'
+      responses:
+        '200':
+          description: The candidate with the identification applied.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantCandidate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '412':
+          $ref: '#/components/responses/PreconditionFailed'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /plant-catalog/taxa/{taxonomyReferenceId}/profile:
     parameters:
       - name: taxonomyReferenceId

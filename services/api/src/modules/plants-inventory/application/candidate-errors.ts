@@ -9,6 +9,7 @@
 
 import { SharedErrorCode } from '@verdery/api-contracts';
 import {
+  DependencyUnavailableError,
   DomainRuleViolatedError,
   NotFoundError,
   StaleRevisionError,
@@ -82,5 +83,26 @@ export function candidateMediaNotAvailableForAttachmentError(pointer: string): V
     SharedErrorCode.RequestInvalid,
     'mediaId must reference media whose upload has completed and is not being deleted.',
     { details: [{ code: 'plants_inventory.plant_candidate.media_not_available', pointer }] },
+  );
+}
+
+export function candidateIdentificationSourceNotReadyError(): DependencyUnavailableError {
+  return new DependencyUnavailableError(
+    'plants_inventory.plant_candidate.identification_source_not_ready',
+    'The photo is still being prepared for identification. Try again shortly.',
+  );
+}
+
+export function candidateIdentificationNoPhotoError(): DomainRuleViolatedError {
+  return new DomainRuleViolatedError(
+    'plants_inventory.plant_candidate.identification_photo_missing',
+    'This candidate has no photo to identify.',
+  );
+}
+
+export function candidateIdentificationNoMatchError(): DomainRuleViolatedError {
+  return new DomainRuleViolatedError(
+    'plants_inventory.plant_candidate.identification_no_confident_match',
+    'The plant could not be identified confidently from this photo.',
   );
 }

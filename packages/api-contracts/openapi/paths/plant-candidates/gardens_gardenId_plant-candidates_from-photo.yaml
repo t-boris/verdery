@@ -17,6 +17,12 @@ post:
     candidate is a lower-stakes, not-yet-real-plant record, edited or
     deleted like any other candidate field if the guess is wrong.
 
+    The original upload has no identification-size threshold. The command
+    uses a generated analysis rendition when the original exceeds the vision
+    transport's internal limit, and returns a retryable response while that
+    rendition is still being prepared. It never creates an unidentified
+    candidate as a fallback.
+
     Source: implementation-plan.md work package P11-API-01; ADR-0015.
   parameters:
     - $ref: '../../components/parameters.yaml#/IdempotencyKey'
@@ -43,3 +49,7 @@ post:
       $ref: '../../components/responses.yaml#/NotFound'
     '409':
       $ref: '../../components/responses.yaml#/Conflict'
+    '422':
+      $ref: '../../components/responses.yaml#/UnprocessableEntity'
+    '503':
+      $ref: '../../components/responses.yaml#/ServiceUnavailable'

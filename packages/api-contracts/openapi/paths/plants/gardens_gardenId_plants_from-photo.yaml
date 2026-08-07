@@ -16,6 +16,10 @@ post:
     unset until the suggestion is confirmed via `ConfirmPlantIdentification`
     — identification never auto-confirms.
 
+    The original photo has no client-facing identification size limit. The
+    API selects a generated analysis rendition and returns a retryable `503`
+    while that rendition is being prepared.
+
     Source: implementation-plan.md work packages P4-BE-01, P4-CONTRACT-01.
   parameters:
     - $ref: '../../components/parameters.yaml#/IdempotencyKey'
@@ -42,3 +46,5 @@ post:
       $ref: '../../components/responses.yaml#/NotFound'
     '409':
       $ref: '../../components/responses.yaml#/Conflict'
+    '503':
+      $ref: '../../components/responses.yaml#/ServiceUnavailable'

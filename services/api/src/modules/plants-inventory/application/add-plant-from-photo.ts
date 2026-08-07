@@ -13,7 +13,7 @@
  */
 
 import type { FastifyBaseLogger } from 'fastify';
-import { IDENTIFIABLE_PHOTO_MAX_BYTES } from '@verdery/api-contracts';
+import { VISION_ANALYSIS_SOURCE_MAX_BYTES } from '@verdery/api-contracts';
 import { pickAnalysisSource } from '../../media/public.js';
 import type { IdempotencyStore } from '../../../platform/idempotency/idempotency-store.js';
 import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
@@ -29,7 +29,11 @@ import { createPlant, type PlantPlacement } from '../domain/plant.js';
 import { createPlantIdentification } from '../domain/plant-identification.js';
 import { createPlantPhoto } from '../domain/plant-photo.js';
 import { identifyPlantFromPhoto } from './identify-plant-from-photo.js';
-import { invalidMediaReferenceError, mediaNotAvailableForAttachmentError } from './plant-errors.js';
+import {
+  invalidMediaReferenceError,
+  mediaNotAvailableForAttachmentError,
+  plantIdentificationSourceNotReadyError,
+} from './plant-errors.js';
 import { toPlantResource, type PlantResource } from './plant-view.js';
 import type { PlantsInventoryUnitOfWork } from './plants-inventory-unit-of-work.js';
 import { requirePlacementReferencesGardenObjects } from './require-plant-placement-in-garden.js';
@@ -154,10 +158,10 @@ export class AddPlantFromPhoto {
         const analysisSource = pickAnalysisSource(
           media,
           await context.media.listDisplayDerivatives(media.id),
-          IDENTIFIABLE_PHOTO_MAX_BYTES,
+          VISION_ANALYSIS_SOURCE_MAX_BYTES,
         );
         if (analysisSource === null) {
-          throw mediaNotAvailableForAttachmentError('/photoMediaId');
+          throw plantIdentificationSourceNotReadyError();
         }
         const photoReference: PlantPhotoReference = analysisSource;
         const suggestion = await identifyPlantFromPhoto(

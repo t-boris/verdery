@@ -7,11 +7,11 @@
  * exists it is both cheaper to read and more likely to be accepted, and it
  * shows the same plant.
  *
- * The derivative is not always there: it is generated asynchronously, and a
- * command that runs the moment an upload completes will usually find none
- * yet. That is why this returns the original as a fallback rather than
- * refusing — the caller reports the size problem, which is a different and
- * more useful answer than "no suggestion".
+ * The derivative is not always there: it is generated asynchronously. When
+ * neither the original nor a derivative fits the provider transport, this
+ * returns `null` so the caller can report a retryable "analysis source is
+ * still being prepared" outcome. An oversized original is never silently
+ * sent and never converted into an unidentified plant.
  *
  * Source: architecture/media-storage-and-processing.md, section
  * "6. Derivatives"; architecture/external-integrations.md, section
@@ -53,8 +53,8 @@ function toSource(candidate: AnalysisSourceCandidate): AnalysisSource | null {
  * because detail is what a species guess depends on, and the original when
  * nothing fits.
  *
- * Returns `null` only when the original itself has no stored location, which
- * `uploadState === 'available'` already rules out at every call site.
+ * Returns `null` when no stored source fits. The original remains preserved
+ * at full quality; this selection affects only the temporary AI input.
  */
 export function pickAnalysisSource(
   original: AnalysisSourceCandidate,
@@ -72,5 +72,5 @@ export function pickAnalysisSource(
     .filter((source) => source.byteSize <= maximumBytes)
     .sort((left, right) => right.byteSize - left.byteSize);
 
-  return fitting[0] ?? originalSource;
+  return fitting[0] ?? null;
 }

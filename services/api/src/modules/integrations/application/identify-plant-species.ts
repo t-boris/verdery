@@ -26,7 +26,7 @@ import type {
   PlantSpeciesIdentificationProviderAdapter,
   PlantSpeciesIdentificationRequest,
 } from './plant-species-identification-provider.js';
-import { IDENTIFIABLE_PHOTO_MAX_BYTES } from '@verdery/api-contracts';
+import { VISION_ANALYSIS_SOURCE_MAX_BYTES } from '@verdery/api-contracts';
 import type { ProviderQuotaLimits, ProviderQuotaRepository } from './provider-quota-repository.js';
 import { withDeadline } from './with-deadline.js';
 
@@ -110,7 +110,7 @@ export class IdentifyPlantSpecies {
     // `400 INVALID_ARGUMENT` here on 2026-08-04, logged as a provider
     // failure, and reached the person as a plant with no species and no
     // reason.
-    if (request.photo.byteSize > IDENTIFIABLE_PHOTO_MAX_BYTES) {
+    if (request.photo.byteSize > VISION_ANALYSIS_SOURCE_MAX_BYTES) {
       return { outcome: 'unavailable', reason: 'photoTooLarge' };
     }
 

@@ -258,15 +258,12 @@ export const IF_MATCH_HEADER = 'if-match';
  * whole failure reached the person as a candidate with no species and no
  * explanation.
  *
- * Shared rather than duplicated: the API refuses to spend a provider call
- * above this, and the web says so before the upload starts. Two copies of
- * this number would drift, and the drift would be invisible until someone's
- * photograph silently stopped being identified.
- *
- * A larger photo still uploads and still attaches — only the identification
- * is skipped.
+ * This is an internal vision-transport capability, not an upload or product
+ * identification limit. Commands select a generated analysis rendition that
+ * fits and retry while that rendition is being prepared. The original is
+ * preserved and the person never has to resize it.
  */
-export const IDENTIFIABLE_PHOTO_MAX_BYTES = 31_457_280;
+export const VISION_ANALYSIS_SOURCE_MAX_BYTES = 31_457_280;
 
 /**
  * Error codes shared across modules.

@@ -24,6 +24,7 @@ import {
   GetPlant,
   GetPlantIdentification,
   GetTaxonProfile,
+  IdentifyCandidateFromPhoto,
   KyselyCandidateSuitabilityAssessmentRepository,
   KyselyPlantCandidatePhotoRepository,
   KyselyPlantCandidateRepository,
@@ -218,6 +219,16 @@ export function composePlantsInventory(
     plantCandidatePhotoRepository,
     gardenAuthorization,
   );
+  const identifyCandidateFromPhoto = new IdentifyCandidateFromPhoto(
+    plantCandidateRepository,
+    plantsInventoryIdempotency,
+    plantsInventoryUnitOfWork,
+    gardenAuthorization,
+    clock,
+    identifyPlantSpecies,
+    taxonomyReferenceRepository,
+    logger,
+  );
   const listCandidates = new ListCandidates(plantCandidateRepository, gardenAuthorization);
   const getCandidate = new GetCandidate(plantCandidateRepository, gardenAuthorization);
   const updateCandidateDetails = new UpdateCandidateDetails(
@@ -299,6 +310,7 @@ export function composePlantsInventory(
     candidateRoutesDependencies: {
       addCandidate,
       addCandidateFromPhoto,
+      identifyCandidateFromPhoto,
       listCandidates,
       listCandidatePhotos,
       getCandidate,

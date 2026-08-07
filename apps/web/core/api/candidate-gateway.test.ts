@@ -166,6 +166,19 @@ describe('createCandidateGateway', () => {
     expect(JSON.parse(recorded[0]?.init.body as string)).toEqual({ status: 'rejected' });
   });
 
+  it('re-identifies from the primary photo with concurrency and idempotency guards', async () => {
+    const { gateway, recorded } = gatewayRecording(jsonResponse(CANDIDATE, 200));
+
+    await gateway.identifyFromPhoto(GARDEN_ID, CANDIDATE_ID, 4, IDEMPOTENCY_KEY);
+
+    expect(recorded[0]?.init.method).toBe('POST');
+    expect(recorded[0]?.url).toBe(
+      `${ORIGIN}/v1/gardens/${GARDEN_ID}/plant-candidates/${CANDIDATE_ID}/identify`,
+    );
+    expect(headersOf(recorded[0]!)['if-match']).toBe('"4"');
+    expect(headersOf(recorded[0]!)['idempotency-key']).toBe(IDEMPOTENCY_KEY);
+  });
+
   it('posts to the convert sub-resource with the quoted revision and idempotency key', async () => {
     const { gateway, recorded } = gatewayRecording(
       jsonResponse(
