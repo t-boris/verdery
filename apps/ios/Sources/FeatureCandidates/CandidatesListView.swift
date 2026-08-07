@@ -63,22 +63,17 @@ struct CandidatesListView: View {
         .task { await model.load() }
     }
 
+    /// The pill that exists for exactly this. The bordered field beside a
+    /// separate magnifier button was two controls where the search is one.
     private var searchField: some View {
-        HStack(spacing: Metrics.space2) {
-            TextField(model.searchLabel, text: $model.searchText)
-                .textFieldStyle(.roundedBorder)
-                .submitLabel(.search)
-                .onSubmit { Task { await model.load() } }
-                .accessibilityIdentifier("candidates.list.searchField")
-
-            Button {
-                Task { await model.load() }
-            } label: {
-                Image(systemName: "magnifyingglass")
-            }
-            .accessibilityLabel(model.searchLabel)
-            .accessibilityIdentifier("candidates.list.searchSubmit")
-        }
+        SearchStrip(
+            accessibilityName: model.searchLabel,
+            placeholder: model.searchLabel,
+            clearLabel: model.closeTitle,
+            query: $model.searchText,
+            search: { _ in await model.load() }
+        )
+        .accessibilityIdentifier("candidates.list.searchField")
     }
 
     /// Every `PlantCandidateStatus`/`PlantCandidatePriority` is offered,

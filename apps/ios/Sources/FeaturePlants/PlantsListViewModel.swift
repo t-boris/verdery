@@ -86,6 +86,7 @@ public final class PlantsListViewModel {
 
     public var loadingMessage: String { strings(.plantsListLoading) }
     public var retryTitle: String { strings(.plantsListRetry) }
+    public var closeTitle: String { strings(.plantsClose) }
     public var emptyMessage: String { strings(.plantsListEmpty) }
     public var searchLabel: String { strings(.plantsListSearchLabel) }
     public var loadMoreTitle: String { strings(.plantsListLoadMore) }

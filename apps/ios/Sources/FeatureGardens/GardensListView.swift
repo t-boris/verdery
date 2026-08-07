@@ -146,12 +146,15 @@ public struct GardensListView: View {
     private var createSheet: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: Metrics.space4) {
-                TextField(model.createNameLabel, text: $model.newGardenName)
-                    .textFieldStyle(.roundedBorder)
-                    .focused($isNameFieldFocused)
-                    .submitLabel(.done)
-                    .onSubmit(submitCreate)
-                    .accessibilityIdentifier("gardens.create.nameField")
+                ComposerField(
+                    symbol: "tree.fill",
+                    accessibilityName: model.createNameLabel,
+                    placeholder: model.createNameLabel,
+                    commitLabel: model.createSubmitTitle,
+                    text: $model.newGardenName,
+                    commit: submitCreate
+                )
+                .accessibilityIdentifier("gardens.create.nameField")
 
                 if let message = model.createErrorMessage {
                     InlineMessage(message)

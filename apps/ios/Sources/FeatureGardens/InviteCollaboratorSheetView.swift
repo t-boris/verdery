@@ -54,16 +54,19 @@ struct InviteCollaboratorSheetView: View {
                     SectionEyebrow(symbol: "envelope", title: model.inviteEmailLabel)
                     SurfaceCard {
                         VStack(alignment: .leading, spacing: Metrics.space2) {
-                            TextField(model.inviteEmailLabel, text: $model.inviteEmail)
-                                #if os(iOS)
-                                    .textInputAutocapitalization(.never)
-                                    .keyboardType(.emailAddress)
-                                    .textContentType(.emailAddress)
-                                #endif
-                                .autocorrectionDisabled()
-                                .textFieldStyle(.roundedBorder)
-                                .focused($isEmailFieldFocused)
-                                .accessibilityIdentifier("collaborators.invite.emailField")
+                            // An email address is the one field here that
+                            // genuinely wants the system's own keyboard and
+                            // autofill, so the composer carries them through
+                            // rather than replacing them.
+                            ComposerField(
+                                symbol: "envelope",
+                                accessibilityName: model.inviteEmailLabel,
+                                placeholder: model.inviteEmailLabel,
+                                commitLabel: model.inviteSubmitTitle,
+                                text: $model.inviteEmail,
+                                commit: { Task { await model.submitInvite() } }
+                            )
+                            .accessibilityIdentifier("collaborators.invite.emailField")
                             InlineMessage(model.inviteEmailHint, tone: .neutral)
                         }
                     }

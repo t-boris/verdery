@@ -228,12 +228,15 @@ public struct GardenSettingsView: View {
 
             SurfaceCard {
                 VStack(alignment: .leading, spacing: Metrics.space3) {
-                    TextField(model.renameFieldLabel, text: $model.editedName)
-                        .textFieldStyle(.roundedBorder)
-                        .focused($isNameFieldFocused)
-                        .submitLabel(.done)
-                        .onSubmit(submitRename)
-                        .accessibilityIdentifier("gardens.settings.nameField")
+                    ComposerField(
+                        symbol: "tree.fill",
+                        accessibilityName: model.renameFieldLabel,
+                        placeholder: model.renameFieldLabel,
+                        commitLabel: model.renameSubmitTitle,
+                        text: $model.editedName,
+                        commit: submitRename
+                    )
+                    .accessibilityIdentifier("gardens.settings.nameField")
 
                     Button(action: submitRename) {
                         Label(model.renameSubmitTitle, systemImage: "checkmark")

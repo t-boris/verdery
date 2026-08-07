@@ -54,6 +54,7 @@ public final class CandidatesListViewModel {
     public var loadingMessage: String { strings(.candidatesLoading) }
     public var loadingMoreMessage: String { strings(.candidatesLoadingMore) }
     public var retryTitle: String { strings(.candidatesRetry) }
+    public var closeTitle: String { strings(.candidatesClose) }
     public var emptyMessage: String { strings(.candidatesEmpty) }
     public var loadMoreTitle: String { strings(.candidatesLoadMore) }
     public var addButtonTitle: String { strings(.candidatesAddButtonTitle) }

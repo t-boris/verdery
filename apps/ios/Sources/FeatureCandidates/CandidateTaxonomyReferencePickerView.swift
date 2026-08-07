@@ -1,3 +1,4 @@
+import CoreDesignSystem
 import CoreDomain
 import SwiftUI
 
@@ -24,18 +25,15 @@ struct CandidateTaxonomyReferencePickerView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 HStack {
-                    TextField(searchLabel, text: $query)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("candidates.taxonomyPicker.searchField")
-                        .onSubmit { Task { await runSearch() } }
+                    SearchStrip(
+                        accessibilityName: searchLabel,
+                        placeholder: searchLabel,
+                        clearLabel: closeTitle,
+                        query: $query,
+                        search: { _ in await runSearch() }
+                    )
+                    .accessibilityIdentifier("candidates.taxonomyPicker.search")
 
-                    Button {
-                        Task { await runSearch() }
-                    } label: {
-                        Image(systemName: "magnifyingglass")
-                    }
-                    .accessibilityLabel(searchLabel)
-                    .accessibilityIdentifier("candidates.taxonomyPicker.searchSubmit")
                 }
                 .padding()
 
