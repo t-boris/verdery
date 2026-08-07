@@ -93,6 +93,8 @@ export * from './seasonal-plan.js';
  */
 export type GardenWeatherReading = Schemas['GardenWeatherReading'];
 export type GardenWeatherResult = Schemas['GardenWeatherResult'];
+export type RecentRainfall = Schemas['RecentRainfall'];
+export type DailyRainfall = Schemas['DailyRainfall'];
 
 /** The media schemas (P6-API-01). */
 export type MediaClass = Schemas['MediaClass'];

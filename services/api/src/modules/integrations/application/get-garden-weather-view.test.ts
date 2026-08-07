@@ -6,10 +6,12 @@ import {
 } from '../../plants-inventory/application/plants-inventory-test-doubles.js';
 import { createWeatherRecord } from '../domain/weather-record.js';
 import type { WeatherRecord, WeatherRecordKind } from '../domain/weather-record.js';
+import { GetGardenPrecipitation } from './get-garden-precipitation.js';
 import { GetGardenWeather } from './get-garden-weather.js';
 import { GetGardenWeatherView } from './get-garden-weather-view.js';
 import {
   FakeGeoreferenceRepository,
+  fixedClock,
   InMemoryWeatherRecordRepository,
   SteppingClock,
   testGeoreference,
@@ -69,9 +71,11 @@ function buildView(options: {
   }
   return new GetGardenWeatherView(
     new GetGardenWeather(weatherRecords, POLICY, new SteppingClock(NOW)),
+    new GetGardenPrecipitation(weatherRecords),
     (options.authorized ?? true) ? authorizationGranting(VIEWER) : authorizationDenying(),
     georeferences,
     options.activeProviderKey === undefined ? 'open-meteo' : options.activeProviderKey,
+    fixedClock(NOW),
   );
 }
 
@@ -158,13 +162,45 @@ describe('GetGardenWeatherView', () => {
     await expect(view.execute(GARDEN_ID, PROFILE_ID)).rejects.toBeInstanceOf(NotFoundError);
   });
 
+  it('returns the elapsed rainfall series the watering rule decides on, so the evidence is shown rather than asserted', async () => {
+    const days = [3, 2, 1].map((daysAgo) =>
+      storedRecord(
+        `019827ab-4c1d-7e3f-9a2b-5c6d7e8f9e1${String(daysAgo)}`,
+        'observation',
+        new Date(NOW.getTime() - daysAgo * 24 * HOUR_MS),
+      ),
+    );
+    const withDailyInterval = days.map((record) => ({
+      ...record,
+      precipitationIntervalSeconds: 24 * 60 * 60,
+      measurements: { ...record.measurements, precipitationMm: 1.1 },
+    }));
+
+    const view = buildView({ records: withDailyInterval, georeferenced: true });
+    const result = await view.execute(GARDEN_ID, PROFILE_ID);
+
+    expect(result.recentRainfall?.days).toHaveLength(3);
+    // Summed and rounded, so a person never reads 3.3000000000000003.
+    expect(result.recentRainfall?.totalMm).toBe(3.3);
+  });
+
+  it('reports no rainfall series as null rather than an empty one — unknown is not the same claim as none', async () => {
+    const view = buildView({ georeferenced: true });
+
+    const result = await view.execute(GARDEN_ID, PROFILE_ID);
+
+    expect(result.recentRainfall).toBeNull();
+  });
+
   it('never calls a provider, so a read cannot spend quota', async () => {
     const weatherRecords = new InMemoryWeatherRecordRepository();
     const view = new GetGardenWeatherView(
       new GetGardenWeather(weatherRecords, POLICY, new SteppingClock(NOW)),
+      new GetGardenPrecipitation(weatherRecords),
       authorizationGranting(VIEWER),
       new FakeGeoreferenceRepository(),
       'open-meteo',
+      fixedClock(NOW),
     );
 
     await view.execute(GARDEN_ID, PROFILE_ID);

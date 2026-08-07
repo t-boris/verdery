@@ -47,6 +47,14 @@ export const englishWeatherMessages = {
     'The scheduled refresh has not reached this garden yet. Readings appear on their own shortly.',
   'weather.setLocation': 'Set the location',
 
+  'weather.rainfallTitle': 'Rain over the last {days} days',
+  'weather.rainfallTotal': '{total} mm',
+  'weather.rainfallDayLabel': '{day}',
+  'weather.rainfallDayValue': '{day}: {value} mm',
+  'weather.rainfallNone': 'No rainfall has been measured for this garden yet.',
+  'weather.rainfallExplanation':
+    'This is the series the watering check reads. It looks at the total across the window, not at any single reading, because an hour without rain says nothing about a dry week.',
+
   'weather.ruleImpactTitle': 'What this changes',
   'weather.ruleImpactWithWeather':
     'Watering checks and frost warnings are generated from these readings.',

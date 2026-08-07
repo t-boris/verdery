@@ -46,9 +46,12 @@
  */
 
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
+import type { Clock } from '../../../shared/time/clock.js';
 import type { GardenAuthorization, GeoreferenceReader } from '../../gardens-mapping/public.js';
 import type { WeatherFreshness } from '../domain/weather-freshness.js';
 import type { WeatherRecord } from '../domain/weather-record.js';
+import type { PrecipitationEntry } from './weather-record-repository.js';
+import type { GetGardenPrecipitation } from './get-garden-precipitation.js';
 import type { GetGardenWeather } from './get-garden-weather.js';
 
 /** Why no reading is available. `null` whenever at least one reading is present. */
@@ -65,12 +68,70 @@ export interface GardenWeatherReadingResource {
   readonly humidityPercent: number | null;
 }
 
+/** One elapsed day's rainfall total, as the provider reported it. */
+export interface DailyRainfallResource {
+  readonly date: string;
+  readonly precipitationMm: number;
+}
+
+/** The elapsed rainfall series the watering rule accumulates over — see `GardenWeatherResource.recentRainfall`. */
+export interface RecentRainfallResource {
+  readonly windowDays: number;
+  readonly totalMm: number;
+  /** Mutable array, matching the generated contract type exactly — the resource is what goes on the wire, not an internal value. */
+  readonly days: DailyRainfallResource[];
+}
+
 export interface GardenWeatherResource {
   readonly observation: GardenWeatherReadingResource | null;
   readonly forecast: GardenWeatherReadingResource | null;
   readonly providerConfigured: boolean;
   readonly attributionText: string | null;
   readonly unavailableReason: GardenWeatherUnavailableReason | null;
+  /**
+   * The same elapsed daily series `watering.dry-spell-check` decides on, so
+   * a person can see the evidence behind a watering recommendation rather
+   * than take it on trust — and see, on a day with no recommendation, that
+   * it rained.
+   *
+   * `null` when nothing was measured. That is deliberately not an empty
+   * series: unknown rainfall and zero rainfall lead to opposite decisions.
+   */
+  readonly recentRainfall: RecentRainfallResource | null;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * How far back the displayed rainfall series reaches. Matches the window
+ * `watering.dry-spell-check` accumulates over, so the chart a person reads
+ * is the evidence the rule decided on rather than a differently-shaped view
+ * of it.
+ */
+const RAINFALL_WINDOW_DAYS = 7;
+
+/** Whole days: the only non-overlapping complete series a provider reports. */
+const DAILY_ACCUMULATION_INTERVAL_SECONDS = 24 * 60 * 60;
+
+/** `null` for an empty series — unknown rainfall, which is not the same claim as no rainfall. */
+function toRecentRainfall(entries: readonly PrecipitationEntry[]): RecentRainfallResource | null {
+  if (entries.length === 0) {
+    return null;
+  }
+  const days = entries.map((entry) => ({
+    // The calendar day the total covers, taken from the stored effective
+    // time rather than re-projected through a zone the server does not know.
+    date: entry.effectiveAt.toISOString().slice(0, 10),
+    precipitationMm: entry.precipitationMm,
+  }));
+  const totalMm = days.reduce((sum, day) => sum + day.precipitationMm, 0);
+  return {
+    windowDays: RAINFALL_WINDOW_DAYS,
+    // Rounded to a tenth of a millimetre: summing floating-point provider
+    // values otherwise produces figures like 4.300000000000001 on screen.
+    totalMm: Math.round(totalMm * 10) / 10,
+    days,
+  };
 }
 
 function toReadingResource(
@@ -91,19 +152,29 @@ function toReadingResource(
 export class GetGardenWeatherView {
   constructor(
     private readonly getGardenWeather: GetGardenWeather,
+    /** The elapsed rainfall series — the evidence behind a watering recommendation, shown rather than asserted. */
+    private readonly getGardenPrecipitation: GetGardenPrecipitation,
     private readonly authorization: GardenAuthorization,
     private readonly georeferences: GeoreferenceReader,
     /** `null` when this environment names no active weather provider — the `WEATHER_ACTIVE_PROVIDER_KEY` posture, passed in rather than re-read here. */
     private readonly activeProviderKey: string | null,
+    private readonly clock: Clock,
   ) {}
 
   async execute(gardenId: Uuid, profileId: Uuid): Promise<GardenWeatherResource> {
     await this.authorization.requireCapability(gardenId, profileId, 'viewGarden');
 
-    const [observationResult, forecastResult] = await Promise.all([
+    const since = new Date(this.clock.now().getTime() - RAINFALL_WINDOW_DAYS * DAY_MS);
+    const [observationResult, forecastResult, rainfallEntries] = await Promise.all([
       this.getGardenWeather.execute({ gardenId, kind: 'observation' }),
       this.getGardenWeather.execute({ gardenId, kind: 'forecast' }),
+      this.getGardenPrecipitation.execute({
+        gardenId,
+        since,
+        intervalSeconds: DAILY_ACCUMULATION_INTERVAL_SECONDS,
+      }),
     ]);
+    const recentRainfall = toRecentRainfall(rainfallEntries);
 
     const observation =
       observationResult.outcome === 'available'
@@ -129,6 +200,7 @@ export class GetGardenWeatherView {
         providerConfigured,
         attributionText,
         unavailableReason: null,
+        recentRainfall,
       };
     }
 
@@ -138,6 +210,7 @@ export class GetGardenWeatherView {
       providerConfigured,
       attributionText: null,
       unavailableReason: await this.resolveUnavailableReason(gardenId, providerConfigured),
+      recentRainfall,
     };
   }
 

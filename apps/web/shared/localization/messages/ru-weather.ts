@@ -41,6 +41,14 @@ export const russianWeatherMessages: Readonly<Record<keyof typeof englishWeather
       'Плановое обновление ещё не дошло до этого сада. Данные появятся сами в ближайшее время.',
     'weather.setLocation': 'Указать местоположение',
 
+    'weather.rainfallTitle': 'Осадки за последние {days} дн.',
+    'weather.rainfallTotal': '{total} мм',
+    'weather.rainfallDayLabel': '{day}',
+    'weather.rainfallDayValue': '{day}: {value} мм',
+    'weather.rainfallNone': 'Для этого сада ещё нет измерений осадков.',
+    'weather.rainfallExplanation':
+      'Именно этот ряд читает проверка полива. Она смотрит на сумму за окно, а не на одно измерение: час без дождя ничего не говорит о сухой неделе.',
+
     'weather.ruleImpactTitle': 'На что это влияет',
     'weather.ruleImpactWithWeather':
       'Из этих измерений формируются проверки полива и предупреждения о заморозках.',

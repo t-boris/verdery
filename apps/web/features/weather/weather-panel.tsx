@@ -1,9 +1,13 @@
 'use client';
 
-import type { GardenWeatherReading, GardenWeatherResult } from '@verdery/api-contracts';
+import type {
+  GardenWeatherReading,
+  GardenWeatherResult,
+  RecentRainfall,
+} from '@verdery/api-contracts';
 import Link from 'next/link';
 
-import { formatInstant, useLocalization } from '@/shared/localization/public';
+import { formatCalendarDay, formatInstant, useLocalization } from '@/shared/localization/public';
 import type { Locale, Translate } from '@/shared/localization/public';
 import { Button, FailureAlert, StatusPill } from '@/shared/ui/public';
 
@@ -103,6 +107,72 @@ function ReadingGroup({
   );
 }
 
+/**
+ * The rainfall series, as CSS bars.
+ *
+ * Every bar is a list item carrying its own day and depth as TEXT, so the
+ * chart IS its accessible table — the markup a screen reader walks is the
+ * markup that is drawn, and there is no second view to keep in sync.
+ *
+ * A dry day still draws a hairline. "Nothing fell" is a measurement, and it
+ * must not be indistinguishable from "we have no reading for that day": the
+ * two lead to opposite decisions, which is the same distinction the rule
+ * itself refuses to blur.
+ *
+ * Bars are scaled against the window's own tallest day rather than a fixed
+ * ceiling, because the question the chart answers is "when did it rain",
+ * not "how does this compare with elsewhere". The decision-relevant number
+ * — the total — is stated as text above it, where a number belongs.
+ */
+function RainfallChart({
+  rainfall,
+  t,
+  locale,
+}: {
+  readonly rainfall: RecentRainfall;
+  readonly t: Translate;
+  readonly locale: Locale;
+}) {
+  const peakMm = rainfall.days.reduce((peak, day) => Math.max(peak, day.precipitationMm), 0);
+
+  return (
+    <figure className={styles['rainfall']}>
+      <figcaption className={styles['rainfallHeadline']}>
+        <span className={styles['groupTitle']}>
+          {t('weather.rainfallTitle', { days: String(rainfall.windowDays) })}
+        </span>
+        <span className={styles['rainfallTotal']}>
+          {t('weather.rainfallTotal', { total: String(rainfall.totalMm) })}
+        </span>
+      </figcaption>
+      <ul className={styles['rainfallChart']}>
+        {rainfall.days.map((day) => {
+          const isDry = day.precipitationMm === 0;
+          // Peak zero means every day was dry; every bar is then the
+          // hairline, which is exactly the right picture.
+          const heightPercent = peakMm === 0 ? 0 : (day.precipitationMm / peakMm) * 100;
+          return (
+            <li className={styles['rainfallDay']} key={day.date}>
+              <span
+                aria-hidden="true"
+                className={`${styles['rainfallBar']} ${isDry ? styles['rainfallBarDry'] : ''}`}
+                style={{ height: `${String(heightPercent)}%` }}
+              />
+              <span className={styles['rainfallDayLabel']}>
+                {t('weather.rainfallDayValue', {
+                  day: formatCalendarDay(day.date, locale),
+                  value: String(day.precipitationMm),
+                })}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className={styles['note']}>{t('weather.rainfallExplanation')}</p>
+    </figure>
+  );
+}
+
 function UnavailableNotice({
   result,
   gardenId,
@@ -194,6 +264,11 @@ export function WeatherPanel({ gardenId }: WeatherPanelProps) {
           )}
           {query.data.observation === null && query.data.forecast === null && (
             <UnavailableNotice result={query.data} gardenId={gardenId} t={t} />
+          )}
+          {query.data.recentRainfall === null ? (
+            <p className={styles['note']}>{t('weather.rainfallNone')}</p>
+          ) : (
+            <RainfallChart rainfall={query.data.recentRainfall} t={t} locale={locale} />
           )}
           <p className={styles['note']}>
             {query.data.observation === null && query.data.forecast === null

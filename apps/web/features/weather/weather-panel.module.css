@@ -93,3 +93,78 @@
   gap: var(--space-3);
   align-items: flex-start;
 }
+
+/*
+ * The rainfall chart.
+ *
+ * CSS bars rather than SVG: seven values need no scales, no axes and no
+ * geometry, and a flex column is responsive for free. Every bar is a list
+ * item carrying its own date and depth as TEXT, so the chart is its own
+ * accessible table — there is no separate table view to keep in sync,
+ * because the markup a screen reader walks is the same markup that is
+ * drawn.
+ *
+ * Deliberately NOT painted in `--color-accent`: this repository decided
+ * orange means one thing, and a measurement is not that thing. Rainfall is
+ * neither good nor bad, so it wears ink rather than a status hue.
+ */
+.rainfall {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.rainfallHeadline {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.rainfallTotal {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.rainfallChart {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  /* Tall enough to read a shape, short enough to sit inside a panel. */
+  height: 5rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.rainfallDay {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  height: 100%;
+  min-width: 0;
+}
+
+.rainfallBar {
+  width: 100%;
+  /* A dry day still draws a hairline: "nothing fell" is a measurement and
+     must be visible, not an absence indistinguishable from no data. */
+  min-height: 2px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+.rainfallBarDry {
+  background: color-mix(in srgb, var(--color-text) 20%, transparent);
+}
+
+.rainfallDayLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}

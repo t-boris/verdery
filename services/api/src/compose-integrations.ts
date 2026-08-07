@@ -253,9 +253,11 @@ export function composeIntegrations(
   const weatherRoutesDependencies: WeatherRoutesDependencies = {
     getGardenWeatherView: new GetGardenWeatherView(
       getGardenWeather,
+      getGardenPrecipitation,
       gardenAuthorization,
       georeferences,
       weather.activeProviderKey,
+      clock,
     ),
   };
 

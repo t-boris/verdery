@@ -8553,6 +8553,33 @@ export interface components {
             windSpeedMps: number | null;
             humidityPercent: number | null;
         };
+        /** @description One elapsed day's rainfall total, exactly as the provider reported it. */
+        DailyRainfall: {
+            /**
+             * Format: date
+             * @description The day this total covers, in the garden's own stored effective time.
+             */
+            date: string;
+            precipitationMm: number;
+        };
+        /**
+         * @description Elapsed daily rainfall over the recent window — the same series the
+         *     watering rule accumulates over, so what a person sees is what the engine
+         *     decided on.
+         *
+         *     Only whole elapsed days appear, summed within one provider-stated
+         *     accumulation interval. A provider that reports the same rainfall over
+         *     several periods at once would otherwise be double counted, and a partly
+         *     elapsed day is not a total of anything yet.
+         */
+        RecentRainfall: {
+            /** @description How far back the series reaches. */
+            windowDays: number;
+            /** @description Sum across `days`. Zero with an empty `days` array means nothing was measured, NOT that no rain fell. */
+            totalMm: number;
+            /** @description Oldest first. May be shorter than `windowDays` when the garden has less history than that. */
+            days: components["schemas"]["DailyRainfall"][];
+        };
         /**
          * @description The garden's current conditions and its nearest upcoming forecast, as
          *     stored by the scheduled refresh sweep. This operation never calls a
@@ -8590,6 +8617,13 @@ export interface components {
              *     because there is then nothing displayed to credit.
              */
             attributionText: string | null;
+            /**
+             * @description The elapsed daily rainfall series, or `null` when the garden has no
+             *     measured history at all. `null` means UNKNOWN, never "no rain fell" —
+             *     the two lead to opposite decisions, which is why they are different
+             *     values rather than an empty series.
+             */
+            recentRainfall: components["schemas"]["RecentRainfall"] | null;
             /**
              * @description Why no reading is available, when none is. `null` whenever at least
              *     one reading is present.

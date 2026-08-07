@@ -42,6 +42,15 @@ function result(overrides: Partial<GardenWeatherResult> = {}): GardenWeatherResu
     providerConfigured: true,
     attributionText: ATTRIBUTION,
     unavailableReason: null,
+    recentRainfall: {
+      windowDays: 7,
+      totalMm: 3.3,
+      days: [
+        { date: '2026-08-04', precipitationMm: 0 },
+        { date: '2026-08-05', precipitationMm: 3.3 },
+        { date: '2026-08-06', precipitationMm: 0 },
+      ],
+    },
     ...overrides,
   };
 }
@@ -126,6 +135,31 @@ describe('WeatherPanel', () => {
 
     expect(screen.queryByRole('link', { name: 'Set the location' })).toBeNull();
     expect(screen.getByText(/no weather provider switched on/u)).toBeTruthy();
+  });
+
+  it('draws the rainfall series as its own accessible table — every bar carries its day and depth as text', () => {
+    mockWeather({ data: result(), isPending: false, isLoadingError: false });
+
+    renderPanel();
+
+    // A dry day is stated, not omitted: "nothing fell" and "no reading"
+    // lead to opposite decisions and must not look the same. Each bar is
+    // labelled with its own day, which is what makes it readable without
+    // the drawing.
+    expect(screen.getAllByText(/Aug 4.*0 mm/u)).toHaveLength(1);
+    expect(screen.getAllByText(/Aug 5.*3\.3 mm/u)).toHaveLength(1);
+  });
+
+  it('says plainly when no rainfall has been measured, rather than drawing an empty chart', () => {
+    mockWeather({
+      data: result({ recentRainfall: null }),
+      isPending: false,
+      isLoadingError: false,
+    });
+
+    renderPanel();
+
+    expect(screen.getByText(/No rainfall has been measured/u)).toBeTruthy();
   });
 
   it('explains which recommendations the absence of weather suppresses', () => {
