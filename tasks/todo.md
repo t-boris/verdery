@@ -9480,7 +9480,7 @@ of seven rules could never fire and a new plant produced nothing for fourteen da
 - [x] **5. Accept a lifecycle stage when a plant is added.** Every new plant landed
       in `planned`, a stage no weather or harvest rule accepts. (`P4-BE-01`,
       `P4-WEB-01`.)
-- [ ] **6. Ask for the garden's location during onboarding.** Without a georeference
+- [x] **6. Ask for the garden's location during onboarding.** Without a georeference
       there is no weather and no hemisphere, and five of seven rules go silent.
 - [x] **7. Feed completed care back into the engine.** `GardenFacts.openTasks`
       carried only `planned`/`suggested` tasks, so completing a watering task removed
@@ -9522,3 +9522,40 @@ of seven rules could never fire and a new plant produced nothing for fourteen da
 - [x] **13. Richer weather visualisation on the web.** Charts, icons and a
       7-day rainfall bar with the watering threshold marked — the accumulation work
       in step 9 is what makes the chart possible and honest.
+
+### Review — what shipped, and what is left
+
+Ten of the thirteen items are on `master`. The engine is no longer idle: weather is
+active, a new plant is visible to the rules the moment it is added, watering is
+decided from accumulated rainfall, completed work resets its own clock, and a garden
+is re-evaluated within minutes of changing rather than every six hours.
+
+**What is left, and why it is not an implementation gap.**
+
+- **2 / 3 — seasonal content and its review.** The three seasonal rules read
+  `taxonomy_seasonal_fact` rows whose `review_status` is `horticulturally_reviewed`,
+  and the repository treats an unreviewed row as absent. That filter is the safety
+  design working, not a bug: ADR-0013 and the safety catalog both require a NAMED
+  human reviewer, and no agent can be one. Writing content and signing it off as
+  reviewed would defeat the only control standing between a plausible fabrication and
+  a person's garden.
+
+  What IS now in place is the disclosure: the care-rules surface names
+  `noReviewedSeasonalFacts` per garden, so the gap is visible rather than silent.
+  The implementable remainder is an authoring and review surface mirroring the
+  existing `PLANT_REVIEWER_EMAILS` / `ApprovePlantAssertionReview` precedent — that
+  is real work, and it is worth doing, but it delivers a queue, not reviewed content.
+
+- **10 — the AI explanation switch.** `RECOMMENDATION_AI_EXPLANATION_ENABLED` is off
+  in every environment. Turning it on commits real Vertex AI spend per candidate and
+  is an owner decision with a cost, not a code change; the machinery, its bounded
+  budgets, its adversarial fixtures and its rollback are already built and proven.
+
+- **12 — AI-proposed seasonal facts.** Depends on 2/3: the review queue has to exist
+  before anything can be proposed into it.
+
+**Rules remain awaiting horticultural review.** Every threshold shipped — 25 mm
+reference weekly supply, 20 °C, 14-day observation cadence, 0 °C frost — is a
+defensible placeholder. `launch-rule-catalog.test.ts` keeps that stated until a named
+reviewer replaces it, and the care-rules surface now discloses it to the person using
+the app rather than only to whoever reads the catalog.
