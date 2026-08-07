@@ -143,6 +143,15 @@ const DOCUMENTED_PLAN_EXCEPTIONS = new Set([
   // owner — so there is nothing here retention, audit or export policy could
   // want to keep once the garden is gone.
   'tasks_recommendations.garden_evaluation_state',
+  // One garden's acceptance of a shared seasonal-timing fact. It cascades
+  // from `gardens_mapping.garden`, which the plan's final step deletes, so
+  // no explicit step could run earlier or remove more. The row holds a
+  // decision ABOUT the garden and nothing about the shared content it
+  // points at — the fact itself survives, as it must, since other gardens
+  // may have accepted the same one. With the garden gone there is no one
+  // the decision speaks for, so nothing here retention, audit or export
+  // policy could want to keep.
+  'plants_inventory.garden_seasonal_fact_acceptance',
   // P11-DATA-02's licensed catalog image metadata — shared taxon reference
   // content, the same "containing nothing about any garden" reasoning
   // purge-plan.ts's own header already gives for `plants_inventory.

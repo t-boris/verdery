@@ -165,6 +165,11 @@ export type {
   WeatherMeasurementFacts,
 } from './domain/garden-facts.js';
 export {
+  // Exported so the composition root can satisfy `plants-inventory`'s own
+  // `GardenHemisphereSource` with THIS derivation rather than a second copy.
+  // That module cannot import this one — this one already imports it — so
+  // the root is where the two meet. See that port's own header.
+  deriveHemisphere,
   latestCompletedForRuleAndTarget,
   latestObservationForPlant,
   priorBedOccupantFor,

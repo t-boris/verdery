@@ -552,7 +552,7 @@ async function gatherGardenFacts(
       completedAt: task.completedAt as Date,
     }));
 
-  const taxonomyFacts = await gatherTaxonomyFacts(context, plants, hemisphere);
+  const taxonomyFacts = await gatherTaxonomyFacts(context, gardenId, plants, hemisphere);
   const priorBedOccupants = await gatherPriorBedOccupants(
     context,
     plants,

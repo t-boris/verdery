@@ -37,7 +37,7 @@ function plantReadiness(
       Promise.resolve({
         hasIdentifiedPlant: false,
         hasPlacedPlant: false,
-        hasReviewedSeasonalFact: false,
+        hasAcceptedSeasonalTiming: false,
         ...overrides,
       }),
   };
@@ -133,7 +133,7 @@ describe('GetGardenCareRules', () => {
     );
     expect(blockersOf(result, 'weather.frost-watch')).toContain('noWeatherForecast');
     expect(blockersOf(result, 'seasonal.sowing-window-check')).toEqual(
-      expect.arrayContaining(['noIdentifiedPlants', 'noReviewedSeasonalFacts']),
+      expect.arrayContaining(['noIdentifiedPlants', 'seasonalTimingNotAccepted']),
     );
     expect(blockersOf(result, 'rotation.crop-rotation-caution')).toContain('noPlacedPlants');
   });

@@ -219,9 +219,20 @@ export interface PlantProfileVersionRow {
   created_at: Generated<Date>;
 }
 
+/** One garden's acceptance of one seasonal fact — see the migration's own header for why the decision is per garden while the content stays shared. */
+export interface GardenSeasonalFactAcceptanceRow {
+  id: string;
+  garden_id: string;
+  taxonomy_seasonal_fact_id: string;
+  accepted_by_profile_id: string;
+  accepted_on: string;
+  created_at: Generated<Date>;
+}
+
 export interface PlantsInventoryDatabaseSchema {
   'plants_inventory.taxonomy_reference': TaxonomyReferenceRow;
   'plants_inventory.taxonomy_seasonal_fact': TaxonomySeasonalFactRow;
+  'plants_inventory.garden_seasonal_fact_acceptance': GardenSeasonalFactAcceptanceRow;
   'plants_inventory.plant': PlantRow;
   'plants_inventory.plant_photo': PlantPhotoRow;
   'plants_inventory.plant_identification': PlantIdentificationRow;

@@ -177,16 +177,21 @@ export {
   validateTaxonomySeasonalReview,
 } from './domain/taxonomy-seasonal-fact.js';
 export type {
+  GardenSeasonalFactAcceptanceInput,
   TaxonomySeasonalFactRepository,
   TaxonomySeasonalFactReviewItem,
 } from './application/taxonomy-seasonal-fact-repository.js';
 export {
-  ApproveTaxonomySeasonalFactReview,
-  ListTaxonomySeasonalFactsAwaitingReview,
-  SEASONAL_REVIEW_QUEUE_DEFAULT_LIMIT,
-  SEASONAL_REVIEW_QUEUE_MAX_LIMIT,
-} from './application/review-taxonomy-seasonal-facts.js';
-export type { ApproveTaxonomySeasonalFactResult } from './application/review-taxonomy-seasonal-facts.js';
+  AcceptGardenSeasonalFact,
+  ListGardenSeasonalFactsAwaitingAcceptance,
+  SEASONAL_ACCEPTANCE_QUEUE_DEFAULT_LIMIT,
+  SEASONAL_ACCEPTANCE_QUEUE_MAX_LIMIT,
+} from './application/accept-garden-seasonal-facts.js';
+export type {
+  AcceptGardenSeasonalFactResult,
+  GardenSeasonalAcceptanceQueue,
+} from './application/accept-garden-seasonal-facts.js';
+export type { GardenHemisphereSource } from './application/garden-hemisphere-source.js';
 export {
   ProposeSeasonalTiming,
   SEASONAL_PROPOSAL_BATCH_LIMIT,
@@ -197,8 +202,8 @@ export type {
   SeasonalProposalCandidateSource,
 } from './application/propose-seasonal-timing.js';
 export { KyselySeasonalProposalCandidateSource } from './persistence/kysely-seasonal-proposal-candidate-source.js';
-export { registerSeasonalFactReviewRoutes } from './transport/seasonal-fact-review-routes.js';
-export type { SeasonalFactReviewRoutesDependencies } from './transport/seasonal-fact-review-routes.js';
+export { registerGardenSeasonalAcceptanceRoutes } from './transport/garden-seasonal-acceptance-routes.js';
+export type { GardenSeasonalAcceptanceRoutesDependencies } from './transport/garden-seasonal-acceptance-routes.js';
 export { KyselyTaxonomySeasonalFactRepository } from './persistence/kysely-taxonomy-seasonal-fact-repository.js';
 export type {
   BedOccupancyHistoryReader,

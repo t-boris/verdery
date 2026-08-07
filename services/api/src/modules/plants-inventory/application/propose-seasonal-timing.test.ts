@@ -44,13 +44,13 @@ class FakeCandidates implements SeasonalProposalCandidateSource {
 class FakeFacts implements TaxonomySeasonalFactRepository {
   readonly inserted: TaxonomySeasonalFactProposalInput[] = [];
   constructor(private readonly acceptInsert = true) {}
-  findReviewedForTaxonomyAndHemisphere(): Promise<null> {
+  findAcceptedForGarden(): Promise<null> {
     return Promise.resolve(null);
   }
-  listAwaitingReview(): Promise<readonly never[]> {
+  listAwaitingAcceptanceForGarden(): Promise<readonly never[]> {
     return Promise.resolve([]);
   }
-  approve(): Promise<boolean> {
+  acceptForGarden(): Promise<boolean> {
     return Promise.resolve(false);
   }
   insertProposal(input: TaxonomySeasonalFactProposalInput): Promise<boolean> {

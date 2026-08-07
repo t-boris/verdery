@@ -15,45 +15,60 @@
  * `ListGardenContextFacts` already established for P9D-CONTEXT-01's sibling
  * table.
  *
- * THE REVIEW-STATUS FILTER IS THE ENFORCEMENT POINT: this method only ever
- * returns a row whose `reviewStatus` is `'horticulturally_reviewed'` — an
- * `awaiting_horticultural_review` row for the same `(taxonomyReferenceId,
- * hemisphere)` is treated identically to no row at all. A rule-facing
- * caller therefore cannot accidentally read unreviewed content; the
- * filtering is not deferred to whatever reads this port later.
+ * ACCEPTANCE IS THE ENFORCEMENT POINT, AND IT IS PER GARDEN. A fact is
+ * readable by the rules for a garden only when that garden's own owner or
+ * editor accepted it (`garden_seasonal_fact_acceptance`). A fact nobody in
+ * this garden has accepted is treated identically to no row at all, however
+ * many other gardens accepted it. A rule-facing caller therefore cannot
+ * accidentally read content this garden never agreed to, and cannot read
+ * another garden's decision; the filtering is not deferred to whatever reads
+ * this port later.
+ *
+ * WHY NOT A GLOBAL SIGN-OFF. The previous design gated on a
+ * `horticulturally_reviewed` status set by a named horticulturist from an
+ * allowlist. That allowlist was never wired to the deployed service, so no
+ * row could ever be promoted and the three seasonal rules were permanently
+ * silent. The gate is now held by the person who already has authority over
+ * the garden the decision affects — see the migration's own header for why
+ * that is safe here and would not have been safe as a global status.
  */
 
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Hemisphere, TaxonomySeasonalFact } from '../domain/taxonomy-seasonal-fact.js';
 
 export interface TaxonomySeasonalFactRepository {
-  /** The `horticulturally_reviewed` seasonal fact for this taxon and hemisphere, or `null` when none exists OR the only row present is still `awaiting_horticultural_review`. */
-  findReviewedForTaxonomyAndHemisphere(
+  /** The seasonal fact for this taxon and hemisphere that THIS garden has accepted, or `null` when none exists or this garden has not accepted it. */
+  findAcceptedForGarden(
+    gardenId: Uuid,
     taxonomyReferenceId: Uuid,
     hemisphere: Hemisphere,
   ): Promise<TaxonomySeasonalFact | null>;
 
   /**
-   * Rows still `awaiting_horticultural_review`, oldest first, capped — the
-   * reviewer queue's own read.
+   * Facts this garden could accept but has not: one per taxon the garden
+   * actually grows, for the garden's own hemisphere, oldest first, capped.
    *
-   * Deliberately unfiltered by taxon: a reviewer works through a backlog
-   * rather than looking a specific plant up, exactly as
-   * `ListPlantAssertionsAwaitingReview` already assumes for its own queue.
+   * Deliberately filtered by the garden's own taxa, unlike the global queue
+   * it replaces. A gardener is deciding about the plants in front of them,
+   * not working a backlog of taxa they have never planted, and a list of
+   * the latter would be a list nobody could meaningfully sign.
    */
-  listAwaitingReview(limit: number): Promise<readonly TaxonomySeasonalFactReviewItem[]>;
+  listAwaitingAcceptanceForGarden(
+    gardenId: Uuid,
+    hemisphere: Hemisphere,
+    limit: number,
+  ): Promise<readonly TaxonomySeasonalFactReviewItem[]>;
 
   /**
-   * Promotes one row to `horticulturally_reviewed`, stamping the reviewer
-   * and the date. Returns `false` when the row is not awaiting review
-   * anymore — already signed off, or no such id.
+   * Records this garden's acceptance of one fact, stamping who accepted it
+   * and on what date. Returns `false` when the fact does not exist or does
+   * not match the garden's hemisphere.
    *
-   * The two are indistinguishable on purpose, the same choice
-   * `ApprovePlantAssertionReview` documents: both mean "there is nothing
-   * left for this caller to approve", and telling them apart would let an
-   * unauthorized probe confirm an id exists.
+   * Idempotent: accepting twice leaves one row and still returns `true`, so
+   * a retried or double-submitted accept is not an error. The unique
+   * `(garden_id, taxonomy_seasonal_fact_id)` key does that work.
    */
-  approve(id: Uuid, reviewedBy: string, reviewedOn: string): Promise<boolean>;
+  acceptForGarden(input: GardenSeasonalFactAcceptanceInput): Promise<boolean>;
 
   /**
    * Inserts a proposal for a `(taxon, hemisphere)` that has none, always
@@ -66,6 +81,23 @@ export interface TaxonomySeasonalFactRepository {
    * `approve`.
    */
   insertProposal(input: TaxonomySeasonalFactProposalInput): Promise<boolean>;
+}
+
+/**
+ * One garden's acceptance. `acceptedByProfileId` is the authenticated
+ * caller's own profile, never a caller-supplied value: a person can only
+ * record THEMSELVES as having accepted something, which is what makes the
+ * column an accountable claim.
+ */
+export interface GardenSeasonalFactAcceptanceInput {
+  readonly id: Uuid;
+  readonly gardenId: Uuid;
+  readonly taxonomySeasonalFactId: Uuid;
+  readonly acceptedByProfileId: Uuid;
+  /** `YYYY-MM-DD`, from the injected clock. */
+  readonly acceptedOn: string;
+  /** The garden's own hemisphere, checked against the fact's so a garden cannot accept timing computed for the other half of the world. */
+  readonly hemisphere: Hemisphere;
 }
 
 /**
@@ -94,9 +126,9 @@ export interface TaxonomySeasonalFactProposalInput {
 }
 
 /**
- * One queue entry: the fact plus the taxon name a reviewer needs to judge
- * it. Without the name the queue would be a list of UUIDs and month
- * numbers, which is not reviewable content.
+ * One queue entry: the fact plus the taxon name a person needs to judge it.
+ * Without the name the queue would be a list of UUIDs and month numbers,
+ * which is not reviewable content.
  */
 export interface TaxonomySeasonalFactReviewItem {
   readonly fact: TaxonomySeasonalFact;

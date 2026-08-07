@@ -50,7 +50,7 @@ export type CareRuleBlocker =
   | 'noWeatherForecast'
   | 'noRainfallHistory'
   | 'noIdentifiedPlants'
-  | 'noReviewedSeasonalFacts'
+  | 'seasonalTimingNotAccepted'
   | 'noPlacedPlants'
   | 'awaitingHorticulturalReview';
 
@@ -84,7 +84,7 @@ interface GardenReadiness {
   readonly hasForecast: boolean;
   readonly hasRainfallHistory: boolean;
   readonly hasIdentifiedPlant: boolean;
-  readonly hasReviewedSeasonalFact: boolean;
+  readonly hasAcceptedSeasonalTiming: boolean;
   readonly hasPlacedPlant: boolean;
 }
 
@@ -97,7 +97,7 @@ export interface CareRulePlantReadinessSource {
   ): Promise<{
     readonly hasIdentifiedPlant: boolean;
     readonly hasPlacedPlant: boolean;
-    readonly hasReviewedSeasonalFact: boolean;
+    readonly hasAcceptedSeasonalTiming: boolean;
   }>;
 }
 
@@ -121,12 +121,12 @@ const RULE_PRECONDITIONS: Readonly<Record<string, readonly CareRuleBlocker[]>> =
   'weather.frost-watch': ['noWeatherForecast'],
   'observation.routine-check-reminder': [],
   'lifecycle.harvest-readiness-check': [],
-  'seasonal.sowing-window-check': ['noIdentifiedPlants', 'noReviewedSeasonalFacts'],
-  'succession.replanting-reminder': ['noIdentifiedPlants', 'noReviewedSeasonalFacts'],
+  'seasonal.sowing-window-check': ['noIdentifiedPlants', 'seasonalTimingNotAccepted'],
+  'succession.replanting-reminder': ['noIdentifiedPlants', 'seasonalTimingNotAccepted'],
   'rotation.crop-rotation-caution': [
     'noIdentifiedPlants',
     'noPlacedPlants',
-    'noReviewedSeasonalFacts',
+    'seasonalTimingNotAccepted',
   ],
 };
 
@@ -141,8 +141,8 @@ function unmet(blocker: CareRuleBlocker, readiness: GardenReadiness): boolean {
       return !readiness.hasRainfallHistory;
     case 'noIdentifiedPlants':
       return !readiness.hasIdentifiedPlant;
-    case 'noReviewedSeasonalFacts':
-      return !readiness.hasReviewedSeasonalFact;
+    case 'seasonalTimingNotAccepted':
+      return !readiness.hasAcceptedSeasonalTiming;
     case 'noPlacedPlants':
       return !readiness.hasPlacedPlant;
     default:
@@ -186,7 +186,7 @@ function blockersFor(rule: RuleDefinition, readiness: GardenReadiness): CareRule
 function needsGeoreference(rule: RuleDefinition): boolean {
   return (
     rule.weatherPolicy.use !== 'notUsed' ||
-    (RULE_PRECONDITIONS[rule.ruleKey] ?? []).includes('noReviewedSeasonalFacts')
+    (RULE_PRECONDITIONS[rule.ruleKey] ?? []).includes('seasonalTimingNotAccepted')
   );
 }
 

@@ -279,7 +279,7 @@ export class GetGardenSeasonalPlan {
       taxonomySeasonalFacts: this.taxonomySeasonalFacts,
       bedOccupancyHistory: this.bedOccupancyHistory,
     };
-    const taxonomyFacts = await gatherTaxonomyFacts(ports, plants, hemisphere);
+    const taxonomyFacts = await gatherTaxonomyFacts(ports, gardenId, plants, hemisphere);
     const priorBedOccupants = await gatherPriorBedOccupants(ports, plants, taxonomyFacts, now);
 
     const plantsById = new Map(plants.map((plant) => [plant.plantId, plant]));

@@ -32,8 +32,8 @@ export const englishCareRulesMessages = {
     'No daily rainfall has been recorded yet, so accumulated rain is unknown. Unknown is not the same as dry, so the check will not guess.',
   'careRules.blocker.noIdentifiedPlants':
     'No active plant has a species yet. A check about a species cannot say anything about an unidentified plant.',
-  'careRules.blocker.noReviewedSeasonalFacts':
-    'No plant here has seasonal timing that a horticulturist has signed off. Unreviewed timing is treated as absent.',
+  'careRules.blocker.seasonalTimingNotAccepted':
+    'You have not accepted seasonal timing for the plants here yet. Review and accept it to switch these checks on.',
   'careRules.blocker.noPlacedPlants':
     'No active plant is placed in a garden area, so there is no bed history to reason about.',
   'careRules.blocker.awaitingHorticulturalReview':

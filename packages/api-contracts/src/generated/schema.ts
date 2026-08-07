@@ -8699,9 +8699,11 @@ export interface components {
          *       refuses to guess.
          *     - `noIdentifiedPlants` — no active plant carries a taxon, and a rule
          *       about a species cannot say anything about an unidentified plant.
-         *     - `noReviewedSeasonalFacts` — no taxon in this garden has seasonal
-         *       timing that a horticultural reviewer has signed off. Unreviewed
-         *       content is treated as absent by design.
+         *     - `seasonalTimingNotAccepted` — this garden has not accepted seasonal
+         *       timing for any taxon it grows. Timing is shared content; using it is
+         *       a decision the garden's own owner or editor makes, and content this
+         *       garden has not accepted is treated as absent by design. Resolved by
+         *       accepting it, not by waiting.
          *     - `noPlacedPlants` — no active plant is placed in a garden area, so bed
          *       history has nothing to be about.
          *     - `awaitingHorticulturalReview` — the rule's own content has not been
@@ -8709,7 +8711,7 @@ export interface components {
          *       a blocker on execution.
          * @enum {string}
          */
-        CareRuleBlocker: "noWeatherProvider" | "gardenNotGeoreferenced" | "noWeatherObservation" | "noWeatherForecast" | "noRainfallHistory" | "noIdentifiedPlants" | "noReviewedSeasonalFacts" | "noPlacedPlants" | "awaitingHorticulturalReview";
+        CareRuleBlocker: "noWeatherProvider" | "gardenNotGeoreferenced" | "noWeatherObservation" | "noWeatherForecast" | "noRainfallHistory" | "noIdentifiedPlants" | "seasonalTimingNotAccepted" | "noPlacedPlants" | "awaitingHorticulturalReview";
         /**
          * @description One automatic care rule, as it applies to one garden.
          *

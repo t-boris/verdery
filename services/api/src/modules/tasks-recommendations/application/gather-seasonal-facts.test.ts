@@ -2,9 +2,10 @@
  * Direct unit tests for `gather-seasonal-facts.ts` (P9D-SEASON-RULES-01) —
  * the fact-gathering half the pure rule fixtures (`tests/rule-fixtures/`)
  * cannot reach, since those start FROM an already-built `GardenFacts`.
- * This file proves the ASSEMBLY itself: the review-status filter is
- * genuinely honored (not merely documented), a `null` hemisphere never
- * fabricates a seasonal fact, and the bed-occupancy derivation picks the
+ * This file proves the ASSEMBLY itself: the per-garden acceptance gate is
+ * genuinely honored (not merely documented), one garden's acceptance never
+ * leaks into another's facts, a `null` hemisphere never fabricates a
+ * seasonal fact, and the bed-occupancy derivation picks the
  * right prior segment under the real gating rules
  * (`PriorBedOccupantFact`'s own doc comment in `garden-facts.ts`).
  */
@@ -23,9 +24,12 @@ import { createTasksRecommendationsFakes } from './tasks-recommendations-test-do
 const EVALUATED_AT = new Date('2026-07-25T09:00:00Z');
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+const GARDEN_ID = generateUuidV7();
+const OTHER_GARDEN_ID = generateUuidV7();
 const TAXONOMY_A_ID = generateUuidV7();
 const TAXONOMY_B_ID = generateUuidV7();
 const TAXONOMY_UNPLACED_HISTORY_ID = generateUuidV7();
+const ACCEPTED_FACT_ID = generateUuidV7();
 const BED_A_ID = generateUuidV7();
 const PLANT_A_ID = generateUuidV7();
 const PLANT_B_ID = generateUuidV7();
@@ -96,10 +100,15 @@ describe('gatherTaxonomyFacts', () => {
       taxonomySeasonalFacts: new Map([
         [
           `${TAXONOMY_A_ID}:northern`,
-          seasonalFact({ taxonomyReferenceId: TAXONOMY_A_ID, successionIntervalDays: 14 }),
+          seasonalFact({
+            id: ACCEPTED_FACT_ID,
+            taxonomyReferenceId: TAXONOMY_A_ID,
+            successionIntervalDays: 14,
+          }),
         ],
       ]),
     });
+    fakes.taxonomySeasonalFacts.acceptFor(GARDEN_ID, ACCEPTED_FACT_ID);
 
     const plants = [
       plantFact({ plantId: PLANT_A_ID, taxonomyReferenceId: TAXONOMY_A_ID }),
@@ -108,7 +117,7 @@ describe('gatherTaxonomyFacts', () => {
       plantFact({ plantId: generateUuidV7() }), // unknown taxonomy — excluded entirely
     ];
 
-    const result = await gatherTaxonomyFacts(fakes, plants, 'northern');
+    const result = await gatherTaxonomyFacts(fakes, GARDEN_ID, plants, 'northern');
 
     expect(result).toHaveLength(2);
     const byId = new Map(result.map((fact) => [fact.taxonomyReferenceId, fact]));
@@ -123,24 +132,21 @@ describe('gatherTaxonomyFacts', () => {
     });
   });
 
-  it('never surfaces an awaiting_horticultural_review fact — the same filter the real repository applies', async () => {
+  it('never surfaces a fact this garden has not accepted — the same gate the real repository joins on', async () => {
     const fakes = createTasksRecommendationsFakes({
       taxonomyReferences: new Map([[TAXONOMY_A_ID, taxonomyReference({ id: TAXONOMY_A_ID })]]),
       taxonomySeasonalFacts: new Map([
         [
           `${TAXONOMY_A_ID}:northern`,
-          seasonalFact({
-            taxonomyReferenceId: TAXONOMY_A_ID,
-            reviewStatus: 'awaiting_horticultural_review',
-            reviewedBy: undefined,
-            reviewedOn: undefined,
-          } as Partial<TaxonomySeasonalFact> & { taxonomyReferenceId: string }),
+          seasonalFact({ id: ACCEPTED_FACT_ID, taxonomyReferenceId: TAXONOMY_A_ID }),
         ],
       ]),
     });
+    // Seeded but never accepted: content existing is not consent to use it.
 
     const result = await gatherTaxonomyFacts(
       fakes,
+      GARDEN_ID,
       [plantFact({ plantId: PLANT_A_ID, taxonomyReferenceId: TAXONOMY_A_ID })],
       'northern',
     );
@@ -150,16 +156,48 @@ describe('gatherTaxonomyFacts', () => {
     ]);
   });
 
-  it('leaves every seasonalFact null when hemisphere is unknown, even if a reviewed row exists', async () => {
+  it('does not surface a fact ANOTHER garden accepted — a decision reaches only the garden that made it', async () => {
     const fakes = createTasksRecommendationsFakes({
       taxonomyReferences: new Map([[TAXONOMY_A_ID, taxonomyReference({ id: TAXONOMY_A_ID })]]),
       taxonomySeasonalFacts: new Map([
-        [`${TAXONOMY_A_ID}:northern`, seasonalFact({ taxonomyReferenceId: TAXONOMY_A_ID })],
+        [
+          `${TAXONOMY_A_ID}:northern`,
+          seasonalFact({ id: ACCEPTED_FACT_ID, taxonomyReferenceId: TAXONOMY_A_ID }),
+        ],
       ]),
     });
+    fakes.taxonomySeasonalFacts.acceptFor(OTHER_GARDEN_ID, ACCEPTED_FACT_ID);
 
     const result = await gatherTaxonomyFacts(
       fakes,
+      GARDEN_ID,
+      [plantFact({ plantId: PLANT_A_ID, taxonomyReferenceId: TAXONOMY_A_ID })],
+      'northern',
+    );
+
+    // The whole point of scoping the decision: this garden's owner never
+    // agreed to this timing, so its rules stay silent regardless of what
+    // any other garden decided.
+    expect(result).toEqual([
+      { taxonomyReferenceId: TAXONOMY_A_ID, family: 'Solanaceae', seasonalFact: null },
+    ]);
+  });
+
+  it('leaves every seasonalFact null when hemisphere is unknown, even if an accepted row exists', async () => {
+    const fakes = createTasksRecommendationsFakes({
+      taxonomyReferences: new Map([[TAXONOMY_A_ID, taxonomyReference({ id: TAXONOMY_A_ID })]]),
+      taxonomySeasonalFacts: new Map([
+        [
+          `${TAXONOMY_A_ID}:northern`,
+          seasonalFact({ id: ACCEPTED_FACT_ID, taxonomyReferenceId: TAXONOMY_A_ID }),
+        ],
+      ]),
+    });
+    fakes.taxonomySeasonalFacts.acceptFor(GARDEN_ID, ACCEPTED_FACT_ID);
+
+    const result = await gatherTaxonomyFacts(
+      fakes,
+      GARDEN_ID,
       [plantFact({ plantId: PLANT_A_ID, taxonomyReferenceId: TAXONOMY_A_ID })],
       null,
     );
@@ -174,6 +212,7 @@ describe('gatherTaxonomyFacts', () => {
 
     const result = await gatherTaxonomyFacts(
       fakes,
+      GARDEN_ID,
       [plantFact({ plantId: PLANT_A_ID, taxonomyReferenceId: TAXONOMY_A_ID })],
       'northern',
     );

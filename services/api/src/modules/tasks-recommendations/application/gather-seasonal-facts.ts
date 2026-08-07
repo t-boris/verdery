@@ -64,17 +64,23 @@ const BED_ROTATION_LOOKBACK_DAYS = 10 * 365;
 /**
  * One `TaxonomyFact` per DISTINCT `taxonomyReferenceId` this garden's own
  * plants actually carry (never a catalog-wide dump) — family from
- * `TaxonomyReferenceRepository.findById`, plus the garden's own
- * `hemisphere`'s reviewed seasonal fact when a hemisphere is known at all.
+ * `TaxonomyReferenceRepository.findById`, plus the seasonal fact THIS GARDEN
+ * has accepted for its own `hemisphere`, when a hemisphere is known at all.
  * `hemisphere === null` still resolves family for every taxon (a plant's
  * own identity does not depend on the garden ever having been
  * georeferenced); it only leaves every `seasonalFact` `null` — the three
  * seasonal rules' own whole-rule skip on a `null` hemisphere is what
  * actually enforces "never fabricate a window for an ungeoreferenced
  * garden", not an early return here.
+ *
+ * The read is garden-scoped, not global: timing another garden accepted is
+ * invisible here, so one garden's decision cannot reach another's
+ * recommendations. See `accept-garden-seasonal-facts.ts` for why the
+ * decision sits with the garden rather than with a global reviewer.
  */
 export async function gatherTaxonomyFacts(
   context: SeasonalFactGatheringPorts,
+  gardenId: Uuid,
   plants: readonly PlantFact[],
   hemisphere: Hemisphere | null,
 ): Promise<TaxonomyFact[]> {
@@ -90,7 +96,8 @@ export async function gatherTaxonomyFacts(
     const seasonalFact =
       hemisphere === null
         ? null
-        : await context.taxonomySeasonalFacts.findReviewedForTaxonomyAndHemisphere(
+        : await context.taxonomySeasonalFacts.findAcceptedForGarden(
+            gardenId,
             taxonomyReferenceId,
             hemisphere,
           );

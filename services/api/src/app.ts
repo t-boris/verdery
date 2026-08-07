@@ -75,7 +75,7 @@ import {
 import {
   registerCandidateRoutes,
   registerPlantRoutes,
-  registerSeasonalFactReviewRoutes,
+  registerGardenSeasonalAcceptanceRoutes,
 } from './modules/plants-inventory/public.js';
 import {
   DatabaseDependencyProbe,
@@ -308,7 +308,7 @@ export async function buildApplication(
   const {
     plantRoutesDependencies,
     candidateRoutesDependencies,
-    seasonalFactReviewRoutesDependencies,
+    gardenSeasonalAcceptanceRoutesDependencies,
   } = composePlantsInventory(
     database,
     clock,
@@ -318,7 +318,6 @@ export async function buildApplication(
     analyzePlantCondition,
     recordObservation,
     taxonProfileEnricher,
-    configuration.plantReview.reviewerEmails,
   );
 
   // tasks-recommendations: task commands (tag `Tasks`), the scheduled
@@ -535,9 +534,10 @@ export async function buildApplication(
       registerCandidateRoutes(instance, candidateRoutesDependencies);
       // P11-PROV-01: the horticultural-review surface (guard lives in the use cases, not here).
       registerPlantAssertionReviewRoutes(instance, plantAssertionReviewRoutesDependencies);
-      // The seasonal-timing review queue and its sign-off — the same
-      // allowlisted reviewer role, applied to the content three rules read.
-      registerSeasonalFactReviewRoutes(instance, seasonalFactReviewRoutesDependencies);
+      // Seasonal-timing acceptance: the garden's own owner or editor decides
+      // whether the timing three rules read applies to THEIR garden. Not a
+      // global sign-off — see accept-garden-seasonal-facts.ts's own header.
+      registerGardenSeasonalAcceptanceRoutes(instance, gardenSeasonalAcceptanceRoutesDependencies);
       registerObservationRoutes(instance, observationRoutesDependencies);
       registerTaskRoutes(instance, taskRoutesDependencies);
       registerRecommendationRoutes(instance, recommendationRoutesDependencies);

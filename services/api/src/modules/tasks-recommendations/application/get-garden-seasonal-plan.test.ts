@@ -261,6 +261,11 @@ describe('GetGardenSeasonalPlan', () => {
         [PLANT_UNKNOWN_TAXON_ID, plant({ id: PLANT_UNKNOWN_TAXON_ID })],
       ]),
     });
+    // This garden's owner has accepted the seeded timing. These cases are
+    // about the plan's own arithmetic, not about the acceptance gate —
+    // gather-seasonal-facts.test.ts owns that — and without this every
+    // fact would read as absent and they would pass for the wrong reason.
+    fakes.taxonomySeasonalFacts.acceptAllFor(GARDEN_ID);
     const useCase = makeUseCase(fakes, { georeferenceRepository });
 
     const plan = await useCase.execute(GARDEN_ID, PROFILE_ID);
@@ -357,6 +362,11 @@ describe('GetGardenSeasonalPlan', () => {
         ],
       ]),
     });
+    // This garden's owner has accepted the seeded timing. These cases are
+    // about the plan's own arithmetic, not about the acceptance gate —
+    // gather-seasonal-facts.test.ts owns that — and without this every
+    // fact would read as absent and they would pass for the wrong reason.
+    fakes.taxonomySeasonalFacts.acceptAllFor(GARDEN_ID);
     const useCase = makeUseCase(fakes, {
       georeferenceRepository: northernGeoreferenceRepository(),
     });

@@ -27,7 +27,7 @@ const BLOCKER_MESSAGE: Readonly<Record<CareRuleBlocker, MessageKey>> = {
   noWeatherForecast: 'careRules.blocker.noWeatherForecast',
   noRainfallHistory: 'careRules.blocker.noRainfallHistory',
   noIdentifiedPlants: 'careRules.blocker.noIdentifiedPlants',
-  noReviewedSeasonalFacts: 'careRules.blocker.noReviewedSeasonalFacts',
+  seasonalTimingNotAccepted: 'careRules.blocker.seasonalTimingNotAccepted',
   noPlacedPlants: 'careRules.blocker.noPlacedPlants',
   awaitingHorticulturalReview: 'careRules.blocker.awaitingHorticulturalReview',
 };

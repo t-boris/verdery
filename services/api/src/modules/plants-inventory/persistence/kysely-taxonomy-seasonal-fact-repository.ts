@@ -2,6 +2,7 @@ import type { Kysely } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type {
+  GardenSeasonalFactAcceptanceInput,
   TaxonomySeasonalFactProposalInput,
   TaxonomySeasonalFactRepository,
   TaxonomySeasonalFactReviewItem,
@@ -101,16 +102,26 @@ function toTaxonomySeasonalFact(row: TaxonomySeasonalFactRowLike): TaxonomySeaso
 export class KyselyTaxonomySeasonalFactRepository implements TaxonomySeasonalFactRepository {
   constructor(private readonly db: Kysely<DatabaseSchema>) {}
 
-  async findReviewedForTaxonomyAndHemisphere(
+  async findAcceptedForGarden(
+    gardenId: Uuid,
     taxonomyReferenceId: Uuid,
     hemisphere: Hemisphere,
   ): Promise<TaxonomySeasonalFact | null> {
+    // The join IS the gate: with no acceptance row for this garden the fact
+    // does not come back at all. It is an inner join rather than a filter
+    // applied afterwards so there is no shape of this query that returns an
+    // unaccepted fact for a caller to forget to check.
     const row = await this.db
-      .selectFrom('plants_inventory.taxonomy_seasonal_fact')
-      .selectAll()
-      .where('taxonomy_reference_id', '=', taxonomyReferenceId)
-      .where('hemisphere', '=', hemisphere)
-      .where('review_status', '=', 'horticulturally_reviewed')
+      .selectFrom('plants_inventory.taxonomy_seasonal_fact as fact')
+      .innerJoin(
+        'plants_inventory.garden_seasonal_fact_acceptance as acceptance',
+        'acceptance.taxonomy_seasonal_fact_id',
+        'fact.id',
+      )
+      .selectAll('fact')
+      .where('acceptance.garden_id', '=', gardenId)
+      .where('fact.taxonomy_reference_id', '=', taxonomyReferenceId)
+      .where('fact.hemisphere', '=', hemisphere)
       .executeTakeFirst();
 
     if (row === undefined) {
@@ -120,9 +131,15 @@ export class KyselyTaxonomySeasonalFactRepository implements TaxonomySeasonalFac
     return toTaxonomySeasonalFact(row);
   }
 
-  async listAwaitingReview(limit: number): Promise<readonly TaxonomySeasonalFactReviewItem[]> {
-    // Joined to the taxon so the queue carries names rather than UUIDs — a
-    // reviewer cannot judge sowing months for an identifier.
+  async listAwaitingAcceptanceForGarden(
+    gardenId: Uuid,
+    hemisphere: Hemisphere,
+    limit: number,
+  ): Promise<readonly TaxonomySeasonalFactReviewItem[]> {
+    // Joined to the taxon so the queue carries names rather than UUIDs — no
+    // one can judge sowing months for an identifier. Restricted to taxa this
+    // garden actually grows, because those are the only ones its owner is in
+    // a position to decide about.
     const rows = await this.db
       .selectFrom('plants_inventory.taxonomy_seasonal_fact as fact')
       .innerJoin(
@@ -132,7 +149,37 @@ export class KyselyTaxonomySeasonalFactRepository implements TaxonomySeasonalFac
       )
       .selectAll('fact')
       .select(['reference.scientific_name', 'reference.common_name'])
-      .where('fact.review_status', '=', 'awaiting_horticultural_review')
+      .where('fact.hemisphere', '=', hemisphere)
+      // Grown here…
+      .where((eb) =>
+        eb.exists(
+          eb
+            .selectFrom('plants_inventory.plant')
+            .select('plants_inventory.plant.id')
+            .whereRef(
+              'plants_inventory.plant.taxonomy_reference_id',
+              '=',
+              'fact.taxonomy_reference_id',
+            )
+            .where('plants_inventory.plant.garden_id', '=', gardenId)
+            // Same `status = 'active'` probe the evaluation source uses to
+            // decide a garden has anything worth evaluating: a removed
+            // plant is not a reason to ask its owner about sowing months.
+            .where('plants_inventory.plant.status', '=', 'active'),
+        ),
+      )
+      // …and not already decided.
+      .where((eb) =>
+        eb.not(
+          eb.exists(
+            eb
+              .selectFrom('plants_inventory.garden_seasonal_fact_acceptance as accepted')
+              .select('accepted.id')
+              .whereRef('accepted.taxonomy_seasonal_fact_id', '=', 'fact.id')
+              .where('accepted.garden_id', '=', gardenId),
+          ),
+        ),
+      )
       .orderBy('fact.created_at', 'asc')
       .limit(limit)
       .execute();
@@ -144,22 +191,58 @@ export class KyselyTaxonomySeasonalFactRepository implements TaxonomySeasonalFac
     }));
   }
 
-  async approve(id: Uuid, reviewedBy: string, reviewedOn: string): Promise<boolean> {
-    // Guarded on the CURRENT status, so two reviewers racing the same row
-    // produce one approval and one honest "nothing left to approve" — the
-    // same conditional-update shape `ApprovePlantAssertionReview` relies on.
-    const result = await this.db
-      .updateTable('plants_inventory.taxonomy_seasonal_fact')
-      .set({
-        review_status: 'horticulturally_reviewed',
-        reviewed_by: reviewedBy,
-        reviewed_on: reviewedOn,
-      })
-      .where('id', '=', id)
-      .where('review_status', '=', 'awaiting_horticultural_review')
+  async acceptForGarden(input: GardenSeasonalFactAcceptanceInput): Promise<boolean> {
+    // The hemisphere is re-checked HERE against the fact's own column rather
+    // than trusted from the caller: an id names a `(taxon, hemisphere)` pair,
+    // and a garden accepting timing computed for the other half of the world
+    // would light its rules with inverted months. `false` covers both "no
+    // such fact" and "wrong hemisphere" — from the caller's side both mean
+    // "there is nothing here for this garden to accept", and separating them
+    // would let a probe confirm an id exists.
+    const inserted = await this.db
+      .insertInto('plants_inventory.garden_seasonal_fact_acceptance')
+      .columns([
+        'id',
+        'garden_id',
+        'taxonomy_seasonal_fact_id',
+        'accepted_by_profile_id',
+        'accepted_on',
+      ])
+      .expression((eb) =>
+        eb
+          .selectFrom('plants_inventory.taxonomy_seasonal_fact as fact')
+          .select((select) => [
+            select.val(input.id).as('id'),
+            select.val(input.gardenId).as('garden_id'),
+            'fact.id as taxonomy_seasonal_fact_id',
+            select.val(input.acceptedByProfileId).as('accepted_by_profile_id'),
+            select.val(input.acceptedOn).as('accepted_on'),
+          ])
+          .where('fact.id', '=', input.taxonomySeasonalFactId)
+          .where('fact.hemisphere', '=', input.hemisphere),
+      )
+      // Accepting twice is one decision recorded once, not an error: a
+      // retried or double-submitted accept must not fail the caller.
+      .onConflict((conflict) =>
+        conflict.columns(['garden_id', 'taxonomy_seasonal_fact_id']).doNothing(),
+      )
       .executeTakeFirst();
 
-    return Number(result.numUpdatedRows) > 0;
+    if (Number(inserted.numInsertedOrUpdatedRows ?? 0) > 0) {
+      return true;
+    }
+
+    // Nothing inserted means either the fact did not match, or it was
+    // already accepted. Only the second is success, so it is confirmed
+    // rather than assumed.
+    const existing = await this.db
+      .selectFrom('plants_inventory.garden_seasonal_fact_acceptance')
+      .select('id')
+      .where('garden_id', '=', input.gardenId)
+      .where('taxonomy_seasonal_fact_id', '=', input.taxonomySeasonalFactId)
+      .executeTakeFirst();
+
+    return existing !== undefined;
   }
 
   async insertProposal(input: TaxonomySeasonalFactProposalInput): Promise<boolean> {

@@ -31,12 +31,12 @@ export class KyselyCareRulePlantReadinessSource implements CareRulePlantReadines
   ): Promise<{
     readonly hasIdentifiedPlant: boolean;
     readonly hasPlacedPlant: boolean;
-    readonly hasReviewedSeasonalFact: boolean;
+    readonly hasAcceptedSeasonalTiming: boolean;
   }> {
     const result = await sql<{
       has_identified_plant: boolean;
       has_placed_plant: boolean;
-      has_reviewed_seasonal_fact: boolean;
+      has_accepted_seasonal_timing: boolean;
     }>`
       SELECT
         EXISTS (
@@ -56,23 +56,30 @@ export class KyselyCareRulePlantReadinessSource implements CareRulePlantReadines
         -- that could be dropped. The comparison against NULL yields false,
         -- which is the honest answer — not "no facts exist" but "we cannot
         -- know which ones apply".
+        -- Mirrors the rule-facing read exactly: the fact must be accepted
+        -- BY THIS GARDEN. A fact another garden accepted is not readable
+        -- here, so counting it would report a rule as ready that would then
+        -- find nothing — the disclosure would be lying in the direction
+        -- that wastes the reader's time.
         EXISTS (
           SELECT 1
           FROM plants_inventory.plant AS plant
           JOIN plants_inventory.taxonomy_seasonal_fact AS fact
             ON fact.taxonomy_reference_id = plant.taxonomy_reference_id
+          JOIN plants_inventory.garden_seasonal_fact_acceptance AS acceptance
+            ON acceptance.taxonomy_seasonal_fact_id = fact.id
+           AND acceptance.garden_id = ${gardenId}::uuid
           WHERE plant.garden_id = ${gardenId}::uuid
             AND plant.status = 'active'
             AND fact.hemisphere = ${hemisphere}
-            AND fact.review_status = 'horticulturally_reviewed'
-        ) AS has_reviewed_seasonal_fact
+        ) AS has_accepted_seasonal_timing
     `.execute(this.db);
 
     const row = result.rows[0];
     return {
       hasIdentifiedPlant: row?.has_identified_plant ?? false,
       hasPlacedPlant: row?.has_placed_plant ?? false,
-      hasReviewedSeasonalFact: row?.has_reviewed_seasonal_fact ?? false,
+      hasAcceptedSeasonalTiming: row?.has_accepted_seasonal_timing ?? false,
     };
   }
 }

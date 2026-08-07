@@ -11,9 +11,9 @@
  */
 
 import {
-  ApproveTaxonomySeasonalFactReview,
+  AcceptGardenSeasonalFact,
   KyselyTaxonomySeasonalFactRepository,
-  ListTaxonomySeasonalFactsAwaitingReview,
+  ListGardenSeasonalFactsAwaitingAcceptance,
   AddCandidate,
   AddCandidateFromPhoto,
   AddPlant,
@@ -56,15 +56,18 @@ import {
   type TaxonProfileEnricher,
 } from './modules/plants-inventory/public.js';
 import type {
-  SeasonalFactReviewRoutesDependencies,
+  GardenHemisphereSource,
+  GardenSeasonalAcceptanceRoutesDependencies,
   CandidateRoutesDependencies,
   PlantRoutesDependencies,
 } from './modules/plants-inventory/public.js';
 import type { FastifyBaseLogger } from 'fastify';
 import {
   KyselyGardenContextFactRepository,
+  KyselyGeoreferenceRepository,
   type GardenAuthorization,
 } from './modules/gardens-mapping/public.js';
+import { deriveHemisphere } from './modules/tasks-recommendations/public.js';
 import {
   KyselyPlantDistributionAssertionRepository,
   KyselyPlantTaxonomyMappingRepository,
@@ -103,12 +106,10 @@ export function composePlantsInventory(
   analyzePlantCondition: AnalyzePlantCondition,
   recordObservation: RecordObservation,
   taxonProfileEnricher: TaxonProfileEnricher,
-  /** The same reviewer allowlist the plant-assertion queue uses — "reviewer" is one role in this system, not two. */
-  reviewerEmails: readonly string[],
 ): {
   plantRoutesDependencies: PlantRoutesDependencies;
   candidateRoutesDependencies: CandidateRoutesDependencies;
-  seasonalFactReviewRoutesDependencies: SeasonalFactReviewRoutesDependencies;
+  gardenSeasonalAcceptanceRoutesDependencies: GardenSeasonalAcceptanceRoutesDependencies;
 } {
   const plantRepository = new KyselyPlantRepository(database.queries);
   const taxonomyReferenceRepository = new KyselyTaxonomyReferenceRepository(database.queries);
@@ -303,20 +304,36 @@ export function composePlantsInventory(
     taxonProfileEnricher,
   );
 
-  // The seasonal-timing review queue and its sign-off. Its own read-only
-  // adapter bound to the pooled connection — a reviewer's queue read and a
-  // single guarded update need no transaction of their own.
+  // The seasonal-timing acceptance queue and its accept. Its own read-only
+  // adapter bound to the pooled connection — a queue read and a single
+  // guarded insert need no transaction of their own.
   const seasonalFacts = new KyselyTaxonomySeasonalFactRepository(database.queries);
 
+  // This is where `plants-inventory`'s hemisphere port meets
+  // `tasks-recommendations`' derivation: the two modules cannot import each
+  // other (that one already depends on this one), so the root composes them
+  // and there is still exactly one implementation of "which half of the
+  // world is this garden in".
+  const georeferences = new KyselyGeoreferenceRepository(database.queries);
+  const gardenHemispheres: GardenHemisphereSource = {
+    async findHemisphere(gardenId) {
+      const georeference = await georeferences.findCurrentForGarden(gardenId);
+      return deriveHemisphere(georeference?.geographicAnchor ?? null);
+    },
+  };
+
   return {
-    seasonalFactReviewRoutesDependencies: {
-      listTaxonomySeasonalFactsAwaitingReview: new ListTaxonomySeasonalFactsAwaitingReview(
+    gardenSeasonalAcceptanceRoutesDependencies: {
+      listGardenSeasonalFactsAwaitingAcceptance: new ListGardenSeasonalFactsAwaitingAcceptance(
         seasonalFacts,
-        reviewerEmails,
+        gardenAuthorization,
+        gardenHemispheres,
       ),
-      approveTaxonomySeasonalFactReview: new ApproveTaxonomySeasonalFactReview(
+      acceptGardenSeasonalFact: new AcceptGardenSeasonalFact(
         seasonalFacts,
-        reviewerEmails,
+        gardenAuthorization,
+        gardenHemispheres,
+        { create: generateUuidV7 },
         clock,
       ),
     },

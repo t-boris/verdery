@@ -1,10 +1,14 @@
 /**
  * Full-stack integration tests for P9D-SEASON-DATA-01 against real
  * PostgreSQL: the `plant_revision` placement/taxon snapshot (proving each
- * command populates exactly the fields it changed, and only those), the
- * bed-occupancy-history reconstruction query, and the
- * `taxonomy_seasonal_fact` review-status filter — this stage's own named
- * completion evidence ("Horticulture-reviewed seasonal fixtures").
+ * command populates exactly the fields it changed, and only those) and the
+ * bed-occupancy-history reconstruction query.
+ *
+ * The seasonal-timing gate moved to
+ * `plants-inventory-seasonal-acceptance.test.ts` when it became per-garden
+ * — it is now a join against a garden's own acceptances rather than a
+ * status filter on shared content, and it grew the cross-garden isolation
+ * case that is the point of the design.
  *
  * Split from `plants-inventory.test.ts`/`plants-inventory-photos-
  * identification.test.ts` for the same 600-line reason those two are split
@@ -15,7 +19,6 @@
  *         migrations/1787100000000_taxonomy-seasonal-facts-and-bed-history.sql.
  */
 
-import { randomUUID } from 'node:crypto';
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import type { Geometry } from '@verdery/geometry-contracts';
 import { Kysely, PostgresDialect } from 'kysely';
@@ -41,7 +44,6 @@ import { UpdatePlantDetails } from '../../src/modules/plants-inventory/applicati
 import { KyselyBedOccupancyHistoryReader } from '../../src/modules/plants-inventory/persistence/kysely-bed-occupancy-history-reader.js';
 import { KyselyPlantRepository } from '../../src/modules/plants-inventory/persistence/kysely-plant-repository.js';
 import { KyselyPlantsInventoryUnitOfWork } from '../../src/modules/plants-inventory/persistence/kysely-plants-inventory-unit-of-work.js';
-import { KyselyTaxonomySeasonalFactRepository } from '../../src/modules/plants-inventory/persistence/kysely-taxonomy-seasonal-fact-repository.js';
 import { KyselyTaxonomyReferenceRepository } from '../../src/modules/plants-inventory/persistence/kysely-taxonomy-reference-repository.js';
 import type { DatabaseSchema } from '../../src/platform/database/database-gateway.js';
 import { KyselyIdempotencyStore } from '../../src/platform/idempotency/kysely-idempotency-store.js';
@@ -528,72 +530,6 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       );
       expect(history).toHaveLength(1);
       expect(history[0]).toMatchObject({ plantId: plant.id, taxonomyReferenceId: taxonTomato });
-    });
-  });
-
-  describe('taxonomy_seasonal_fact review-status filter', () => {
-    it('surfaces only the horticulturally_reviewed fact, excluding an awaiting_horticultural_review row for the same taxon', async () => {
-      const taxonomyId = await insertTaxonomyReference('Daucus carota');
-
-      await db
-        .insertInto('plants_inventory.taxonomy_seasonal_fact')
-        .values({
-          id: randomUUID(),
-          taxonomy_reference_id: taxonomyId,
-          hemisphere: 'northern',
-          sow_outdoors_start_month: 3,
-          sow_outdoors_end_month: 5,
-          days_to_maturity_min: 60,
-          days_to_maturity_max: 80,
-          authoring_method: 'ai_extracted_from_source',
-          source_citation: 'USDA Plant Characteristics, accessed 2026-03-01',
-          review_status: 'horticulturally_reviewed',
-          reviewed_by: 'Dr. Amara Osei',
-          reviewed_on: '2026-03-15',
-        })
-        .execute();
-
-      // Same taxon, the OTHER hemisphere, deliberately still unreviewed —
-      // "ship honestly unreviewed", the same precedent every launch rule's
-      // own review metadata already sets.
-      await db
-        .insertInto('plants_inventory.taxonomy_seasonal_fact')
-        .values({
-          id: randomUUID(),
-          taxonomy_reference_id: taxonomyId,
-          hemisphere: 'southern',
-          sow_outdoors_start_month: 9,
-          sow_outdoors_end_month: 11,
-          authoring_method: 'human_authored',
-          review_status: 'awaiting_horticultural_review',
-        })
-        .execute();
-
-      const repository = new KyselyTaxonomySeasonalFactRepository(db);
-
-      const reviewed = await repository.findReviewedForTaxonomyAndHemisphere(
-        taxonomyId,
-        'northern',
-      );
-      expect(reviewed).toMatchObject({
-        taxonomyReferenceId: taxonomyId,
-        hemisphere: 'northern',
-        sowOutdoorsStartMonth: 3,
-        sowOutdoorsEndMonth: 5,
-        daysToMaturityMin: 60,
-        daysToMaturityMax: 80,
-        authoringMethod: 'ai_extracted_from_source',
-        sourceCitation: 'USDA Plant Characteristics, accessed 2026-03-01',
-        reviewStatus: 'horticulturally_reviewed',
-        reviewedBy: 'Dr. Amara Osei',
-        reviewedOn: '2026-03-15',
-      });
-
-      const unreviewed = await repository.findReviewedForTaxonomyAndHemisphere(
-        taxonomyId,
-        'southern',
-      );
-      expect(unreviewed).toBeNull();
     });
   });
 });

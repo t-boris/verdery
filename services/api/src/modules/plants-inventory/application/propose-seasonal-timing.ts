@@ -1,7 +1,7 @@
 /**
  * Drafts seasonal timing for taxa a garden actually grows but nobody has
  * timing for — ADR-0013's proposal lane, wired to the gap the care-rules
- * surface reports as `noReviewedSeasonalFacts`.
+ * surface reports as `seasonalTimingNotAccepted`.
  *
  * WHY A SWEEP AND NOT A REQUEST. ADR-0013 permits proposals as "a bulk
  * offline authoring pass" and forbids the model from being consulted
