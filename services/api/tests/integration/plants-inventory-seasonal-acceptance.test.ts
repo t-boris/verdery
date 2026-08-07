@@ -69,8 +69,9 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   }, 120_000);
 
   afterAll(async () => {
+    // Only `destroy()`: Kysely ends the pool it was given, so calling
+    // `pool.end()` as well throws "Called end on pool more than once".
     await db.destroy();
-    await pool?.end();
     await container?.stop();
   });
 

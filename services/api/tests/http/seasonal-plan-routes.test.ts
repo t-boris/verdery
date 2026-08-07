@@ -251,15 +251,24 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     readonly rotationRestSeasons?: number | null;
   }
 
+  /**
+   * Seeds a fact and, unless `acceptForGardenId` is omitted, records that the
+   * garden accepted it — the gate the seasonal rules actually read since the
+   * sign-off moved from a global review status to a per-garden decision.
+   * Omitting the garden is how a case says "this content exists but this
+   * garden has not agreed to use it".
+   */
   async function insertSeasonalFact(
     taxonomyReferenceId: string,
     overrides: SeasonalFactOverrides = {},
+    acceptForGardenId?: string,
   ): Promise<void> {
     const reviewStatus = overrides.reviewStatus ?? 'horticulturally_reviewed';
+    const factId = randomUUID();
     await db
       .insertInto('plants_inventory.taxonomy_seasonal_fact')
       .values({
-        id: randomUUID(),
+        id: factId,
         taxonomy_reference_id: taxonomyReferenceId,
         hemisphere: overrides.hemisphere ?? 'northern',
         sow_indoors_start_month: overrides.sowIndoorsStartMonth ?? 3,
@@ -272,6 +281,30 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
           : {}),
       })
       .execute();
+
+    if (acceptForGardenId !== undefined) {
+      await db
+        .insertInto('plants_inventory.garden_seasonal_fact_acceptance')
+        .values({
+          id: randomUUID(),
+          garden_id: acceptForGardenId,
+          taxonomy_seasonal_fact_id: factId,
+          accepted_by_profile_id: await ownerProfileIdFor(acceptForGardenId),
+          accepted_on: '2026-01-01',
+        })
+        .execute();
+    }
+  }
+
+  /** The garden's owner — `accepted_by_profile_id` is a real FK, so it needs a real profile. */
+  async function ownerProfileIdFor(gardenId: string): Promise<string> {
+    const row = await db
+      .selectFrom('collaboration.membership')
+      .select('profile_id')
+      .where('garden_id', '=', gardenId)
+      .where('role', '=', 'owner')
+      .executeTakeFirstOrThrow();
+    return row.profile_id;
   }
 
   async function createPlantAsOwner(
@@ -397,10 +430,11 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     await insertGeoreference(garden.id, 4.895, 52.37); // Amsterdam — northern
 
     const reviewedTaxonomyId = await insertTaxonomyReference('Solanaceae');
-    await insertSeasonalFact(reviewedTaxonomyId, {
-      sowIndoorsStartMonth: 3,
-      sowIndoorsEndMonth: 4,
-    });
+    await insertSeasonalFact(
+      reviewedTaxonomyId,
+      { sowIndoorsStartMonth: 3, sowIndoorsEndMonth: 4 },
+      garden.id,
+    );
     const southernOnlyTaxonomyId = await insertTaxonomyReference('Brassicaceae');
     await insertSeasonalFact(southernOnlyTaxonomyId, { hemisphere: 'southern' });
 
@@ -461,9 +495,9 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     const elsewhereBedId = await insertBed(garden.id, coordinateSpaceId);
 
     const withinTaxonomyId = await insertTaxonomyReference('Solanaceae');
-    await insertSeasonalFact(withinTaxonomyId, { rotationRestSeasons: 2 }); // 730-day threshold
+    await insertSeasonalFact(withinTaxonomyId, { rotationRestSeasons: 2 }, garden.id); // 730-day threshold
     const clearTaxonomyId = await insertTaxonomyReference('Brassicaceae');
-    await insertSeasonalFact(clearTaxonomyId, { rotationRestSeasons: 1 }); // 365-day threshold
+    await insertSeasonalFact(clearTaxonomyId, { rotationRestSeasons: 1 }, garden.id); // 365-day threshold
 
     await insertDepartedOccupant({
       gardenId: garden.id,

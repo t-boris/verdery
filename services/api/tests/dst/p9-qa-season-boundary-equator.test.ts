@@ -205,10 +205,11 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // would resolve to `noSeasonalData` (`GetGardenSeasonalPlan`) or a
     // whole-rule hemisphere skip (`seasonal.sowing-window-check`), which is
     // exactly what these tests assert did NOT happen.
+    const northernFactId = randomUUID();
     await db
       .insertInto('plants_inventory.taxonomy_seasonal_fact')
       .values({
-        id: randomUUID(),
+        id: northernFactId,
         taxonomy_reference_id: taxonomyId,
         hemisphere: 'northern',
         sow_outdoors_start_month: 6,
@@ -217,6 +218,21 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         review_status: 'horticulturally_reviewed',
         reviewed_by: 'Fixture Reviewer',
         reviewed_on: '2026-01-01',
+      })
+      .execute();
+    // The garden accepts the NORTHERN row — the gate the seasonal rules read
+    // since the sign-off became a per-garden decision. Only the northern one:
+    // if hemisphere derivation ever picked the southern row instead, no
+    // acceptance would match it and the failure stays visible rather than
+    // passing by accident.
+    await db
+      .insertInto('plants_inventory.garden_seasonal_fact_acceptance')
+      .values({
+        id: randomUUID(),
+        garden_id: gardenId,
+        taxonomy_seasonal_fact_id: northernFactId,
+        accepted_by_profile_id: ownerId,
+        accepted_on: '2026-01-01',
       })
       .execute();
     // A SOUTHERN-hemisphere row for the SAME taxon, deliberately configured
