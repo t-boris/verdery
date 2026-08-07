@@ -1,3 +1,4 @@
+import CoreDesignSystem
 import CoreDomain
 import SwiftUI
 
@@ -24,37 +25,61 @@ struct ObservationCorrectionSheetView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Picker(correctionKindLabel, selection: $correctionKind) {
-                    ForEach(ObservationCorrectionKind.allCases, id: \.self) { kind in
-                        Text(correctionKindName(kind)).tag(kind)
-                    }
-                }
-                .accessibilityIdentifier("observations.correction.kindPicker")
+            ScrollView {
+                VStack(alignment: .leading, spacing: Metrics.space4) {
+                    // Amend or supersede: two values, and the difference
+                    // between them is what happens to the original. Flat, so
+                    // both are readable before choosing rather than after.
+                    ChoiceChipGrid(
+                        fieldName: correctionKindLabel,
+                        options: ObservationCorrectionKind.allCases.map {
+                            ChoiceChipGrid.Option(
+                                value: $0,
+                                label: correctionKindName($0),
+                                symbol: $0 == .amendment ? "plus.bubble" : "arrow.uturn.backward"
+                            )
+                        },
+                        selection: $correctionKind
+                    )
+                    .accessibilityIdentifier("observations.correction.kind")
 
-                TextField(noteTextLabel, text: $noteText, axis: .vertical)
+                    NoteCanvas(
+                        accessibilityName: noteTextLabel,
+                        placeholder: noteTextLabel,
+                        text: $noteText
+                    )
                     .accessibilityIdentifier("observations.correction.noteField")
-                TextField(conditionSummaryLabel, text: $conditionSummary, axis: .vertical)
+
+                    NoteCanvas(
+                        accessibilityName: conditionSummaryLabel,
+                        placeholder: conditionSummaryLabel,
+                        text: $conditionSummary
+                    )
                     .accessibilityIdentifier("observations.correction.conditionField")
 
-                if let errorMessage {
-                    Text(errorMessage).foregroundStyle(.red)
-                        .accessibilityIdentifier("observations.correction.failure")
-                }
-
-                Button(submitTitle) {
-                    Task {
-                        await onSubmit(
-                            correctionKind,
-                            noteText.isEmpty ? nil : noteText,
-                            conditionSummary.isEmpty ? nil : conditionSummary
-                        )
+                    if let errorMessage {
+                        InlineMessage(errorMessage, tone: .negative)
+                            .accessibilityIdentifier("observations.correction.failure")
                     }
+
+                    Button(submitTitle) {
+                        Task {
+                            await onSubmit(
+                                correctionKind,
+                                noteText.isEmpty ? nil : noteText,
+                                conditionSummary.isEmpty ? nil : conditionSummary
+                            )
+                        }
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(isSubmitting)
+                    .accessibilityIdentifier("observations.correction.submit")
                 }
-                .disabled(isSubmitting)
-                .accessibilityIdentifier("observations.correction.submit")
+                .padding(Metrics.space4)
             }
             .navigationTitle(title)
+            .inlineNavigationTitle()
+            .screenBackground()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(closeTitle, action: onClose)

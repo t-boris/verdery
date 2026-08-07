@@ -1,3 +1,4 @@
+import CoreDesignSystem
 import SwiftUI
 
 /// One Today item in full: the stored reason verbatim, the priority
@@ -174,34 +175,57 @@ public struct TodayItemDetailView: View {
 
     private var postponeSheet: some View {
         NavigationStack {
-            Form {
-                Toggle(model.postponeUntilToggleLabel, isOn: $postponeHasDate)
-                    .accessibilityIdentifier("today.postpone.dateToggle")
-                if postponeHasDate {
-                    DatePicker(model.postponeUntilLabel, selection: $postponeDate)
-                        .accessibilityIdentifier("today.postpone.datePicker")
-                } else {
-                    Text(model.postponeNoDateFootnote)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                if let message = model.actionErrorMessage {
-                    Text(message).foregroundStyle(.red)
-                }
-
-                Button(model.postponeSubmitTitle) {
-                    Task {
-                        await model.submitPostpone(itemId: itemId, until: postponeHasDate ? postponeDate : nil)
+            ScrollView {
+                VStack(alignment: .leading, spacing: Metrics.space4) {
+                    OptionalValueCard(
+                        fieldName: model.postponeUntilLabel,
+                        addPrompt: model.postponeUntilToggleLabel,
+                        clearLabel: model.cancelTitle,
+                        symbol: "calendar",
+                        displayValue: postponeHasDate ? TodayDateText.day(postponeDate) : nil,
+                        clear: { postponeHasDate = false }
+                    ) {
+                        DateDial(
+                            fieldName: model.postponeUntilLabel,
+                            selection: $postponeDate,
+                            now: .now,
+                            calendar: .current,
+                            chipTitle: TodayDateText.relativeTitle,
+                            dayNumber: TodayDateText.dayNumber,
+                            weekdayName: TodayDateText.weekday,
+                            longDate: TodayDateText.day
+                        )
+                        .onAppear { postponeHasDate = true }
                     }
-                }
-                .disabled(model.isPerformingAction)
-                .accessibilityIdentifier("today.postpone.submit")
+                    .accessibilityIdentifier("today.postpone.date")
 
-                Button(model.cancelTitle, role: .cancel) {
-                    model.postponingItemId = nil
+                    if !postponeHasDate {
+                        // Postponing with no date is a real choice, not an
+                        // omission: the engine decides when to raise it again.
+                        InlineMessage(model.postponeNoDateFootnote, tone: .neutral)
+                    }
+
+                    if let message = model.actionErrorMessage {
+                        InlineMessage(message, tone: .negative)
+                    }
+
+                    Button(model.postponeSubmitTitle) {
+                        Task {
+                            await model.submitPostpone(
+                                itemId: itemId, until: postponeHasDate ? postponeDate : nil
+                            )
+                        }
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(model.isPerformingAction)
+                    .accessibilityIdentifier("today.postpone.submit")
+
+                    Button(model.cancelTitle) { model.postponingItemId = nil }
+                        .buttonStyle(SecondaryButtonStyle())
                 }
+                .padding(Metrics.space4)
             }
+            .screenBackground()
             .navigationTitle(model.postponeActionTitle)
         }
     }
