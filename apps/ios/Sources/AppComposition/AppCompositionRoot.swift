@@ -571,7 +571,11 @@ public final class AppCompositionRoot {
             assignTask: AssignTask(gateway: taskGateway, localStore: store),
             getTaskActivity: GetTaskActivity(gateway: taskGateway),
             listGardenMembers: ListGardenMembers(gateway: collaborationGateway),
-            strings: strings
+            strings: strings,
+            // What a task is about, by name. The sheet used to ask for a raw
+            // UUID, which nobody knows.
+            listTargetAreas: ListTaskTargetAreas(gateway: mapGateway),
+            listTargetPlants: ListTaskTargetPlants(gateway: plantGateway)
         )
     }
 

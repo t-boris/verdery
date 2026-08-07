@@ -44,6 +44,10 @@ struct TaskEditSheetView: View {
     @State private var timeWindowEnd: Date
     @State private var urgency: TaskUrgency
 
+    /// The dial's four shortcut words. A closure rather than a catalogue this
+    /// sheet holds, because every other label here arrives the same way.
+    let relativeDayTitle: (RelativeDayOption.Kind) -> String
+
     init(
         task: GardenTask,
         titleLabel: String,
@@ -60,8 +64,10 @@ struct TaskEditSheetView: View {
         errorMessage: String?,
         urgencyName: @escaping (TaskUrgency) -> String,
         onSubmit: @escaping (String, String, Bool, Date, Bool, Date, Date, TaskUrgency) async -> Void,
-        onClose: @escaping () -> Void
+        onClose: @escaping () -> Void,
+        relativeDayTitle: @escaping (RelativeDayOption.Kind) -> String
     ) {
+        self.relativeDayTitle = relativeDayTitle
         self.task = task
         self.titleLabel = titleLabel
         self.notesLabel = notesLabel
@@ -122,7 +128,7 @@ struct TaskEditSheetView: View {
                             selection: $dueDate,
                             now: .now,
                             calendar: .current,
-                            chipTitle: TaskDateText.relativeTitle,
+                            chipTitle: relativeDayTitle,
                             dayNumber: TaskDateText.dayNumber,
                             weekdayName: TaskDateText.weekday,
                             longDate: TaskDateText.day

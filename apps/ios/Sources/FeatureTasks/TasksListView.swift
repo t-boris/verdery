@@ -439,7 +439,8 @@ public struct TasksListView: View {
                         urgency: urgency
                     )
                 },
-                onClose: { model.editingTaskId = nil }
+                onClose: { model.editingTaskId = nil },
+                relativeDayTitle: model.relativeDayTitle
             )
         }
     }
@@ -467,7 +468,8 @@ public struct TasksListView: View {
                         timeWindowEnd: .set(hasTimeWindow ? end : nil)
                     )
                 },
-                onClose: { model.reschedulingTaskId = nil }
+                onClose: { model.reschedulingTaskId = nil },
+                relativeDayTitle: model.relativeDayTitle
             )
         }
     }

@@ -1184,3 +1184,14 @@
 "georeference.failed" = "The location could not be saved. Nothing changed.";
 "georeference.offline" = "Setting a location needs a connection.";
 "georeference.replaceWarning" = "This garden already has a location. Saving replaces it and keeps the old one in its history.";
+
+/* A plant group's count, as a nudgeable numeral. */
+"plants.quantity.increase" = "One more";
+"plants.quantity.decrease" = "One fewer";
+"plants.quantity.unit" = "plants";
+
+/* The date dial's relative shortcuts. */
+"relativeDay.today" = "Today";
+"relativeDay.tomorrow" = "Tomorrow";
+"relativeDay.thisWeekend" = "This weekend";
+"relativeDay.nextWeek" = "Next week";

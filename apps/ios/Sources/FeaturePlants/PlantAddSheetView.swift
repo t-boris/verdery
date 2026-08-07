@@ -92,19 +92,28 @@ struct PlantAddSheetView: View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
             SectionEyebrow(symbol: "leaf", title: model.displayNameLabel)
 
-            SurfaceCard {
-                VStack(alignment: .leading, spacing: Metrics.space3) {
-                    TextField(model.displayNameLabel, text: $model.displayName)
-                        .textFieldStyle(.roundedBorder)
-                        .focused($isDisplayNameFocused)
-                        .accessibilityIdentifier("plants.add.displayNameField")
+            VStack(alignment: .leading, spacing: Metrics.space3) {
+                ComposerField(
+                    symbol: "leaf",
+                    accessibilityName: model.displayNameLabel,
+                    placeholder: model.displayNameLabel,
+                    commitLabel: model.addSubmitTitle,
+                    text: $model.displayName,
+                    commit: submit
+                )
+                .accessibilityIdentifier("plants.add.displayNameField")
 
-                    TextField(model.varietyLabelLabel, text: $model.varietyLabel)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("plants.add.varietyLabelField")
+                ComposerField(
+                    symbol: "tag",
+                    accessibilityName: model.varietyLabelLabel,
+                    placeholder: model.varietyLabelLabel,
+                    commitLabel: model.addSubmitTitle,
+                    text: $model.varietyLabel,
+                    commit: submit
+                )
+                .accessibilityIdentifier("plants.add.varietyLabelField")
 
-                    taxonomyRow
-                }
+                SurfaceCard { taxonomyRow }
             }
         }
     }
@@ -163,19 +172,21 @@ struct PlantAddSheetView: View {
             .accessibilityIdentifier("plants.add.groupingKindPicker")
 
             if model.groupingKind != .individual {
-                SurfaceCard {
-                    HStack(spacing: Metrics.space2) {
-                        Image(systemName: PlantSymbols.quantity)
-                            .foregroundStyle(Palette.textMuted)
-                            .accessibilityHidden(true)
-                        TextField(model.quantityLabel, text: $model.quantityText)
-                            .textFieldStyle(.roundedBorder)
-                            #if os(iOS)
-                                .keyboardType(.numberPad)
-                            #endif
-                            .accessibilityIdentifier("plants.add.quantityField")
-                    }
-                }
+                // A count is a numeral you nudge, not a sentence you type: the
+                // drag moves it by one with a tick per step, and the keypad is
+                // still there for "forty-three".
+                MeasureField(
+                    fieldName: model.quantityLabel,
+                    unitLabel: model.quantityUnitLabel,
+                    decreaseLabel: model.quantityDecreaseLabel,
+                    increaseLabel: model.quantityIncreaseLabel,
+                    value: quantityBinding,
+                    step: 1,
+                    range: 1...9_999,
+                    fractionDigits: 0,
+                    locale: .autoupdatingCurrent
+                )
+                .accessibilityIdentifier("plants.add.quantityField")
             }
         }
     }
@@ -184,36 +195,48 @@ struct PlantAddSheetView: View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
             SectionEyebrow(symbol: "calendar", title: model.acquisitionDateLabel)
 
-            SurfaceCard {
+            OptionalValueCard(
+                fieldName: model.acquisitionDateLabel,
+                addPrompt: model.acquisitionDateToggleLabel,
+                clearLabel: model.closeTitle,
+                symbol: "calendar",
+                displayValue: model.hasAcquisitionDate
+                    ? CalendarText.day(model.acquisitionDate) : nil,
+                clear: { model.hasAcquisitionDate = false }
+            ) {
                 VStack(alignment: .leading, spacing: Metrics.space3) {
-                    Toggle(model.acquisitionDateToggleLabel, isOn: $model.hasAcquisitionDate)
-                        .accessibilityIdentifier("plants.add.acquisitionDateToggle")
+                    DateDial(
+                        fieldName: model.acquisitionDateLabel,
+                        selection: $model.acquisitionDate,
+                        now: .now,
+                        calendar: .current,
+                        chipTitle: model.relativeDayTitle,
+                        dayNumber: CalendarText.dayNumber,
+                        weekdayName: CalendarText.weekday,
+                        longDate: CalendarText.day
+                    )
+                    // Opening the editor is asking for the value; the switch
+                    // that used to gate it was bookkeeping.
+                    .onAppear { model.hasAcquisitionDate = true }
+                    .accessibilityIdentifier("plants.add.acquisitionDate")
 
-                    if model.hasAcquisitionDate {
-                        DatePicker(
-                            model.acquisitionDateLabel,
-                            selection: $model.acquisitionDate,
-                            displayedComponents: .date
-                        )
-                        .accessibilityIdentifier("plants.add.acquisitionDatePicker")
-
-                        HStack(spacing: Metrics.space2) {
-                            ForEach(PlantAcquisitionDateType.allCases, id: \.self) { type in
-                                PlantChoiceChip(
-                                    symbol: PlantSymbols.acquisitionDateType(type),
-                                    label: model.acquisitionDateTypeName(type),
-                                    isSelected: model.acquisitionDateType == type
-                                ) {
-                                    model.acquisitionDateType = type
-                                }
-                            }
-                            Spacer(minLength: 0)
-                        }
-                        .accessibilityIdentifier("plants.add.acquisitionDateTypePicker")
-                    }
+                    // Which kind of date it is — sown, planted, acquired — is
+                    // a small closed set and reads as chips beside the date it
+                    // qualifies.
+                    ChoiceChipGrid(
+                        fieldName: model.acquisitionDateLabel,
+                        options: PlantAcquisitionDateType.allCases.map {
+                            ChoiceChipGrid.Option(
+                                value: $0,
+                                label: model.acquisitionDateTypeName($0),
+                                symbol: PlantSymbols.acquisitionDateType($0)
+                            )
+                        },
+                        selection: $model.acquisitionDateType
+                    )
+                    .accessibilityIdentifier("plants.add.acquisitionDateType")
                 }
             }
-            .tint(Palette.interaction)
         }
     }
 
@@ -253,6 +276,18 @@ struct PlantAddSheetView: View {
     private var isSubmitDisabled: Bool {
         model.state == .submitting
             || model.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// The model holds the count as text, because that is what the command
+    /// payload carries and what an empty field means. The nudgeable numeral
+    /// works in numbers, so the two meet here rather than in the model — an
+    /// unparsable or absent value reads as one, which is the smallest group a
+    /// group can be.
+    private var quantityBinding: Binding<Double> {
+        Binding(
+            get: { Double(model.quantityText) ?? 1 },
+            set: { model.quantityText = String(Int($0.rounded())) }
+        )
     }
 
     private func submit() {

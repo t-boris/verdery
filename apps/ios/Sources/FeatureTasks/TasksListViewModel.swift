@@ -1,3 +1,4 @@
+import CoreDesignSystem
 import CoreDomain
 import CoreLocalization
 import CoreNetworking
@@ -43,6 +44,11 @@ public final class TasksListViewModel {
     /// TODO — a real map-object/plant picker is out of scope this pass for
     /// the same cross-feature-dependency and missing-list-endpoint reasons.
     public var createTargetGardenAreaMapObjectId: String = ""
+    /// What a task can be about, by name. Loaded when the create sheet opens
+    /// and left empty when unreachable — a target is optional on every task,
+    /// so an unavailable list means "garden-wide", never an error.
+    public internal(set) var targetAreas: [GardenMapObject] = []
+    public internal(set) var targetPlants: [Plant] = []
     public var createTargetPlantId: String = ""
     public var createHasDueDate: Bool = false
     public var createDueDate: Date = .now
@@ -124,6 +130,8 @@ public final class TasksListViewModel {
     let assignTask: AssignTask
     let getTaskActivity: GetTaskActivity
     let listGardenMembers: ListGardenMembers
+    let listTargetAreas: ListTaskTargetAreas?
+    let listTargetPlants: ListTaskTargetPlants?
     let strings: LocalizedStrings
 
     var tasksById: [String: GardenTask] = [:]
@@ -141,7 +149,9 @@ public final class TasksListViewModel {
         assignTask: AssignTask,
         getTaskActivity: GetTaskActivity,
         listGardenMembers: ListGardenMembers,
-        strings: LocalizedStrings
+        strings: LocalizedStrings,
+        listTargetAreas: ListTaskTargetAreas? = nil,
+        listTargetPlants: ListTaskTargetPlants? = nil
     ) {
         self.gardenId = gardenId
         self.createManualTask = createManualTask
@@ -155,6 +165,8 @@ public final class TasksListViewModel {
         self.assignTask = assignTask
         self.getTaskActivity = getTaskActivity
         self.listGardenMembers = listGardenMembers
+        self.listTargetAreas = listTargetAreas
+        self.listTargetPlants = listTargetPlants
         self.strings = strings
     }
 
@@ -171,6 +183,13 @@ public final class TasksListViewModel {
     public var targetGardenAreaLabel: String { strings(.tasksTargetGardenAreaLabel) }
     public var targetPlantLabel: String { strings(.tasksTargetPlantLabel) }
     public var mapObjectIdHint: String { strings(.tasksMapObjectIdHint) }
+
+    /// The date dial's four shortcuts, as words. They were previously rendered
+    /// with the date formatter, so "Today" appeared as the very date the chip
+    /// beneath it already carried.
+    public func relativeDayTitle(_ kind: RelativeDayOption.Kind) -> String {
+        TaskDateText.relativeTitle(kind, strings: strings)
+    }
     public var dueDateToggleLabel: String { strings(.tasksDueDateToggle) }
     public var dueDateLabel: String { strings(.tasksDueDateLabel) }
     public var timeWindowToggleLabel: String { strings(.tasksTimeWindowToggle) }

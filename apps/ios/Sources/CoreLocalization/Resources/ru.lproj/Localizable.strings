@@ -1183,3 +1183,14 @@
 "georeference.failed" = "Сохранить местоположение не удалось. Ничего не изменилось.";
 "georeference.offline" = "Для установки местоположения нужна связь.";
 "georeference.replaceWarning" = "У сада уже есть местоположение. Сохранение заменит его, старое останется в истории.";
+
+/* Количество растений в группе — числом, которое можно подкручивать. */
+"plants.quantity.increase" = "На одно больше";
+"plants.quantity.decrease" = "На одно меньше";
+"plants.quantity.unit" = "шт.";
+
+/* Быстрые варианты на диске дат. */
+"relativeDay.today" = "Сегодня";
+"relativeDay.tomorrow" = "Завтра";
+"relativeDay.thisWeekend" = "В выходные";
+"relativeDay.nextWeek" = "На следующей неделе";

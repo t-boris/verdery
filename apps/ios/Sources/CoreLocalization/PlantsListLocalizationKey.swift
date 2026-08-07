@@ -47,4 +47,11 @@ public enum PlantsListLocalizationKey: String, Sendable, CaseIterable {
     case plantsCompletenessComplete = "plants.filters.completeness.complete"
     case plantsCompletenessPartial = "plants.filters.completeness.partial"
     case plantsCompletenessNone = "plants.filters.completeness.none"
+
+    /// `MeasureField`'s two accessible adjust actions. A drag gesture with no
+    /// spoken equivalent is a control that does not exist for a VoiceOver
+    /// reader, so the component requires both names rather than defaulting them.
+    case plantsQuantityIncrease = "plants.quantity.increase"
+    case plantsQuantityDecrease = "plants.quantity.decrease"
+    case plantsQuantityUnit = "plants.quantity.unit"
 }

@@ -1,3 +1,4 @@
+import CoreDesignSystem
 import CoreDomain
 import CoreLocalization
 import CoreNetworking
@@ -91,6 +92,21 @@ public final class PlantsHomeViewModel {
     public var taxonomyPickerSearchLabel: String { strings(.plantsTaxonomyPickerSearchLabel) }
     public var taxonomyPickerEmptyMessage: String { strings(.plantsTaxonomyPickerEmpty) }
     public var closeTitle: String { strings(.plantsClose) }
+    public var quantityUnitLabel: String { strings(.plantsQuantityUnit) }
+
+    /// The date dial's four shortcuts, as words. They were previously rendered
+    /// as formatted dates, so "Today" read as the same date the chip below it
+    /// was already captioned with.
+    public func relativeDayTitle(_ kind: RelativeDayOption.Kind) -> String {
+        switch kind {
+        case .today: strings(.relativeDayToday)
+        case .tomorrow: strings(.relativeDayTomorrow)
+        case .thisWeekend: strings(.relativeDayThisWeekend)
+        case .nextWeek: strings(.relativeDayNextWeek)
+        }
+    }
+    public var quantityIncreaseLabel: String { strings(.plantsQuantityIncrease) }
+    public var quantityDecreaseLabel: String { strings(.plantsQuantityDecrease) }
     public var addFromPhotoButtonTitle: String { strings(.plantsAddFromPhotoButton) }
 
     public func groupingKindName(_ kind: PlantGroupingKind) -> String {

@@ -187,6 +187,11 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue, parameters: parameters)
     }
 
+    /// The same resolution for the date dial's relative shortcuts.
+    public func callAsFunction(_ key: RelativeDayLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
     /// The same resolution for the georeference screen's own key set. See
     /// ``GeoreferenceLocalizationKey`` for why this is yet another key set.
     public func callAsFunction(_ key: GeoreferenceLocalizationKey) -> String {
@@ -227,6 +232,7 @@ public struct LocalizedStrings: Sendable {
         + WeatherLocalizationKey.allCases.map(\.rawValue)
         + NotificationLocalizationKey.allCases.map(\.rawValue)
         + GeoreferenceLocalizationKey.allCases.map(\.rawValue)
+        + RelativeDayLocalizationKey.allCases.map(\.rawValue)
 
     /// Resolves an arbitrary key, used for codes that originate in Core.
     ///

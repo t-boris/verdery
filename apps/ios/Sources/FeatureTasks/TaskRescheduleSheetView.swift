@@ -36,6 +36,10 @@ struct TaskRescheduleSheetView: View {
     @State private var timeWindowStart: Date
     @State private var timeWindowEnd: Date
 
+    /// The dial's four shortcut words. A closure rather than a catalogue this
+    /// sheet holds, because every other label here arrives the same way.
+    let relativeDayTitle: (RelativeDayOption.Kind) -> String
+
     init(
         task: GardenTask,
         dueDateToggleLabel: String,
@@ -49,8 +53,10 @@ struct TaskRescheduleSheetView: View {
         isSubmitting: Bool,
         errorMessage: String?,
         onSubmit: @escaping (Bool, Date, Bool, Date, Date) async -> Void,
-        onClose: @escaping () -> Void
+        onClose: @escaping () -> Void,
+        relativeDayTitle: @escaping (RelativeDayOption.Kind) -> String
     ) {
+        self.relativeDayTitle = relativeDayTitle
         self.task = task
         self.dueDateToggleLabel = dueDateToggleLabel
         self.dueDateLabel = dueDateLabel
@@ -88,7 +94,7 @@ struct TaskRescheduleSheetView: View {
                             selection: $dueDate,
                             now: .now,
                             calendar: .current,
-                            chipTitle: TaskDateText.relativeTitle,
+                            chipTitle: relativeDayTitle,
                             dayNumber: TaskDateText.dayNumber,
                             weekdayName: TaskDateText.weekday,
                             longDate: TaskDateText.day
