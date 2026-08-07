@@ -36,60 +36,94 @@ interface GardenSection {
   readonly exact: boolean;
 }
 
+interface GardenSectionGroup {
+  readonly labelKey: MessageKey;
+  readonly sections: readonly GardenSection[];
+}
+
 /**
- * The garden section tabs. Rendered only when the current route carries a
- * `gardenId` segment, so the gardens list keeps an uncluttered bar. The hrefs
+ * The grouped garden workspace navigation. Rendered only when the current route carries a
+ * `gardenId` segment, so the gardens list keeps an uncluttered sidebar. The hrefs
  * are the same routes the pages already declare — this navigation adds no
  * routing of its own.
  */
-function gardenSections(gardenId: string): readonly GardenSection[] {
+function gardenSectionGroups(gardenId: string): readonly GardenSectionGroup[] {
   const base = `/application/gardens/${gardenId}`;
   return [
-    { href: base, labelKey: 'shell.overviewTab', icon: HomeIcon, exact: true },
-    { href: `${base}/today`, labelKey: 'today.pageTitle', icon: SunIcon, exact: false },
     {
-      href: `${base}/seasonal-plan`,
-      labelKey: 'seasonalPlan.pageTitle',
-      icon: CalendarIcon,
-      exact: false,
-    },
-    { href: `${base}/map`, labelKey: 'shell.mapTab', icon: MapIcon, exact: false },
-    { href: `${base}/plants`, labelKey: 'plants.pageTitle', icon: SproutIcon, exact: false },
-    {
-      href: `${base}/candidates`,
-      labelKey: 'candidates.pageTitle',
-      icon: LightbulbIcon,
-      exact: false,
+      labelKey: 'shell.operationsGroup',
+      sections: [
+        { href: `${base}/today`, labelKey: 'today.pageTitle', icon: SunIcon, exact: false },
+        {
+          href: `${base}/tasks`,
+          labelKey: 'tasks.pageTitle',
+          icon: CheckCircleIcon,
+          exact: false,
+        },
+      ],
     },
     {
-      href: `${base}/observations`,
-      labelKey: 'observations.pageTitle',
-      icon: EyeIcon,
-      exact: false,
+      labelKey: 'shell.planGroup',
+      sections: [
+        { href: `${base}/map`, labelKey: 'shell.mapTab', icon: MapIcon, exact: false },
+        {
+          href: `${base}/seasonal-plan`,
+          labelKey: 'seasonalPlan.pageTitle',
+          icon: CalendarIcon,
+          exact: false,
+        },
+      ],
     },
-    // Reference knowledge rather than this garden's own records, so it sits
-    // after the record sections and before the work section.
-    { href: `${base}/catalog`, labelKey: 'catalog.pageTitle', icon: BookIcon, exact: false },
-    { href: `${base}/tasks`, labelKey: 'tasks.pageTitle', icon: CheckCircleIcon, exact: false },
+    {
+      labelKey: 'shell.recordsGroup',
+      sections: [
+        {
+          href: `${base}/plants`,
+          labelKey: 'plants.pageTitle',
+          icon: SproutIcon,
+          exact: false,
+        },
+        {
+          href: `${base}/candidates`,
+          labelKey: 'candidates.pageTitle',
+          icon: LightbulbIcon,
+          exact: false,
+        },
+        {
+          href: `${base}/observations`,
+          labelKey: 'observations.pageTitle',
+          icon: EyeIcon,
+          exact: false,
+        },
+        {
+          href: `${base}/catalog`,
+          labelKey: 'catalog.pageTitle',
+          icon: BookIcon,
+          exact: false,
+        },
+      ],
+    },
+    {
+      labelKey: 'shell.administrationGroup',
+      sections: [{ href: base, labelKey: 'shell.overviewTab', icon: HomeIcon, exact: true }],
+    },
   ];
 }
 
 /**
  * Navigation, status, and sign-out for every authenticated route.
  *
- * KERN SHELL. Three rows — a 48px header, a workspace row, and a permanent
- * 24px `<StatusBar>` — filling exactly `100dvh` with `overflow: hidden`, so
- * the page itself never scrolls and only the content pane does. This is also
+ * PROFESSIONAL FIELD CONSOLE. A persistent portfolio/workspace sidebar, one
+ * work surface, and a permanent 24px `<StatusBar>` fill exactly `100dvh`, so
+ * the page itself never scrolls and only the active work surface does. This is also
  * why the root layout's own brand header is suppressed beneath an application
- * route (`app/layout.module.css`): Kern has ONE header, and it is this one,
- * which is why the wordmark moved here.
+ * route (`app/layout.module.css`): the authenticated product has one navigation
+ * chassis, which is why the wordmark and deployed version live here.
  *
- * TWO NAVIGATION LEVELS, KEPT APART. The header holds only what sits ABOVE a
- * garden: the wordmark, Gardens, Organizations, sign-out. A garden's own
- * sections are one level down, in the workspace row's vertical menu, and
- * appear only once a route names a garden. An earlier pass merged both into
- * the header strip; that read as ten flat peers and lost the containment the
- * routes actually have.
+ * TWO NAVIGATION LEVELS, KEPT APART. Gardens and Organizations are portfolio
+ * roots. A selected garden then exposes grouped Operations, Plan and map,
+ * Records, and Administration destinations. On narrow screens the same links
+ * become a horizontally scrollable bottom navigation; none are hidden.
  *
  * The bar is purely structural: the garden identifier is read from the route
  * parameters, and no data is fetched here — the shell must render instantly
@@ -144,29 +178,36 @@ export function ApplicationShell({
     router.push('/auth/sign-in');
   };
 
-  const gardensActive = pathname === '/application/gardens';
+  const gardensActive = pathname.startsWith('/application/gardens');
   const organizationsActive = pathname.startsWith('/application/organizations');
 
   return (
     <StatusBarFieldsProvider>
       <div className={styles['shell']} data-app-shell>
-        <header className={styles['header']}>
-          <Link className={styles['brand']} href="/application/gardens">
-            <LeafIcon size={16} />
-            <span className={styles['brandName']}>{t('app.name')}</span>
-            <span className={styles['version']}>v{version}</span>
-          </Link>
+        <aside className={styles['sidebar']}>
+          <div className={styles['sidebarHeader']}>
+            <Link className={styles['brand']} href="/application/gardens">
+              <span className={styles['brandMark']}>
+                <LeafIcon size={16} />
+              </span>
+              <span className={styles['brandName']}>{t('app.name')}</span>
+              <span className={styles['version']}>v{version}</span>
+            </Link>
+          </div>
 
-          <nav className={styles['nav']} aria-label={t('shell.primaryNavLabel')}>
+          <nav className={styles['rootNav']} aria-label={t('shell.primaryNavLabel')}>
             <Link
-              className={classNames(styles['tab'], gardensActive && styles['tabActive'])}
+              className={classNames(styles['rootLink'], gardensActive && styles['rootLinkActive'])}
               href="/application/gardens"
               aria-current={gardensActive ? 'page' : undefined}
             >
               {t('gardens.title')}
             </Link>
             <Link
-              className={classNames(styles['tab'], organizationsActive && styles['tabActive'])}
+              className={classNames(
+                styles['rootLink'],
+                organizationsActive && styles['rootLinkActive'],
+              )}
               href="/application/organizations"
               aria-current={organizationsActive ? 'page' : undefined}
             >
@@ -174,50 +215,58 @@ export function ApplicationShell({
             </Link>
           </nav>
 
-          <div className={styles['headerEnd']}>
+          {gardenId !== null && (
+            <div className={styles['workspaceContext']}>
+              <span className={styles['workspaceEyebrow']}>{t('shell.fieldConsole')}</span>
+              <strong className={styles['workspaceName']}>{t('shell.gardenWorkspace')}</strong>
+            </div>
+          )}
+
+          {gardenId !== null && (
+            <nav className={styles['sectionMenu']} aria-label={t('shell.gardenNavLabel')}>
+              {gardenSectionGroups(gardenId).map((group) => (
+                <div className={styles['sectionGroup']} key={group.labelKey}>
+                  <span className={styles['sectionGroupLabel']}>{t(group.labelKey)}</span>
+                  {group.sections.map((section) => {
+                    const active = section.exact
+                      ? pathname === section.href
+                      : pathname.startsWith(section.href);
+                    const Icon = section.icon;
+                    return (
+                      <Link
+                        key={section.href}
+                        className={classNames(
+                          styles['sectionLink'],
+                          active && styles['sectionLinkActive'],
+                        )}
+                        href={section.href}
+                        aria-current={active ? 'page' : undefined}
+                      >
+                        <Icon />
+                        <span className={styles['sectionLabel']}>{t(section.labelKey)}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ))}
+            </nav>
+          )}
+
+          <div className={styles['sidebarFooter']}>
             <Button
               variant="secondary"
               busy={signingOut}
               onClick={() => void onSignOut()}
-              iconOnly
               aria-label={t('shell.signOut')}
               title={t('shell.signOut')}
             >
               <SignOutIcon />
+              <span className={styles['signOutLabel']}>{t('shell.signOut')}</span>
             </Button>
           </div>
-        </header>
+        </aside>
 
-        <div className={styles['workspace']}>
-          {gardenId === null ? (
-            <span />
-          ) : (
-            <nav className={styles['sectionMenu']} aria-label={t('shell.gardenNavLabel')}>
-              {gardenSections(gardenId).map((section) => {
-                const active = section.exact
-                  ? pathname === section.href
-                  : pathname.startsWith(section.href);
-                const Icon = section.icon;
-                return (
-                  <Link
-                    key={section.href}
-                    className={classNames(
-                      styles['sectionLink'],
-                      active && styles['sectionLinkActive'],
-                    )}
-                    href={section.href}
-                    aria-current={active ? 'page' : undefined}
-                  >
-                    <Icon />
-                    <span className={styles['sectionLabel']}>{t(section.labelKey)}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          )}
-
-          <div className={styles['content']}>{children}</div>
-        </div>
+        <div className={styles['content']}>{children}</div>
 
         <StatusBar />
       </div>

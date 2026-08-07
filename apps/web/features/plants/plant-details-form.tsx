@@ -156,6 +156,7 @@ export function PlantDetailsForm({ gardenId, plant }: PlantDetailsFormProps) {
       <TaxonomyReferenceField
         gardenId={gardenId}
         value={taxonomyReferenceId}
+        initialSelectionLabel={plant.displayName}
         onChange={setTaxonomyReferenceId}
       />
       <TextField

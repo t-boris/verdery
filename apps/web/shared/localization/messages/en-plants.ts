@@ -39,6 +39,7 @@ export const englishPlantsMessages = {
   'plants.taxonomySearchLabel': 'Search the taxonomy catalog',
   'plants.taxonomySelectLabel': 'Taxonomy reference',
   'plants.taxonomyNone': 'Not identified',
+  'plants.taxonomyLinked': 'Taxonomy reference linked',
   'plants.taxonomySearchFailed': 'The taxonomy catalog could not be searched.',
   'plants.varietyLabelLabel': 'Variety',
   'plants.acquisitionDateLabel': 'Acquisition date',

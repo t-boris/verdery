@@ -31,6 +31,7 @@ export const russianPlantsMessages = {
   'plants.taxonomySearchLabel': 'Поиск по каталогу таксономии',
   'plants.taxonomySelectLabel': 'Таксономическая ссылка',
   'plants.taxonomyNone': 'Не определено',
+  'plants.taxonomyLinked': 'Таксономическая ссылка установлена',
   'plants.taxonomySearchFailed': 'Не удалось выполнить поиск по каталогу таксономии.',
   'plants.varietyLabelLabel': 'Сорт',
   'plants.acquisitionDateLabel': 'Дата приобретения',

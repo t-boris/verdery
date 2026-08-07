@@ -142,6 +142,12 @@ export const russianMessages: MessageCatalogue = {
   'shell.gardenNavLabel': 'Разделы сада',
   'shell.overviewTab': 'Обзор',
   'shell.mapTab': 'Карта',
+  'shell.fieldConsole': 'Рабочая консоль',
+  'shell.gardenWorkspace': 'Рабочая область сада',
+  'shell.operationsGroup': 'Работа',
+  'shell.planGroup': 'План и карта',
+  'shell.recordsGroup': 'Записи',
+  'shell.administrationGroup': 'Администрирование',
 
   'auth.orSeparator': 'или',
   'auth.signInTitle': 'Вход в Verdery',

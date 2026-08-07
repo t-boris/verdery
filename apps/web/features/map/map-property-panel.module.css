@@ -1,5 +1,5 @@
 /*
- * Kern's inspector: a fluid column of borderless label/value table.
+ * Field Console inspector: a fluid column of compact label/value rows.
  *
  * The row layout is set ONCE here, as inherited `--field-*` custom properties
  * that every nested `TextField`/`Select` picks up (see
@@ -40,7 +40,7 @@
   justify-content: space-between;
   gap: var(--space-2);
   flex: none;
-  block-size: var(--shell-header-size);
+  block-size: var(--console-header-size);
   padding-inline: var(--space-3);
   border-block-end: var(--border-width) solid var(--color-border);
 }

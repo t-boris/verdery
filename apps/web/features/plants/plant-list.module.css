@@ -21,6 +21,8 @@
   gap: var(--border-width);
   background-color: var(--color-border);
   border-block-end: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  overflow: hidden;
 }
 
 .filterSearch {
@@ -113,18 +115,40 @@
 .list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(clamp(9rem, 12vw, 12rem), 1fr));
-  gap: var(--border-width);
-  padding: 0;
+  gap: var(--space-2);
+  padding: var(--space-2);
   margin: 0;
   list-style: none;
-  background-color: var(--color-border);
-  /* The outer rules, so the grid is boxed by the same hairline as its cells. */
-  border: var(--border-width) solid var(--color-border);
+  background-color: transparent;
 }
 
 .item {
   display: flex;
+  overflow: hidden;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
   background-color: var(--color-surface);
+}
+
+@media (max-width: 42rem) {
+  .filterBar {
+    flex-wrap: wrap;
+  }
+
+  .filterSearch {
+    flex-basis: 100%;
+    min-inline-size: 100%;
+    border-block-end: var(--border-width) solid var(--color-border);
+  }
+
+  .filterSegments {
+    inline-size: 100%;
+    overflow-x: auto;
+  }
+
+  .list {
+    grid-template-columns: repeat(auto-fill, minmax(min(9rem, 100%), 1fr));
+  }
 }
 
 .link {

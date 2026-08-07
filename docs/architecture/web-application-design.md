@@ -1,8 +1,8 @@
 # Web Application Design
 
-> Status: Draft 0.3
+> Status: Draft 0.4
 > Decision status: Approved baseline  
-> Last updated: July 28, 2026
+> Last updated: August 6, 2026
 
 ## 1. Purpose
 
@@ -84,7 +84,11 @@ Feature folders own their route-level orchestration, queries, commands, forms, p
 
 Visual styling uses CSS modules over a single design-token stylesheet (`shared/ui/tokens.css`): the palette (light and dark, WCAG AA-clearing pairs), typography scale, spacing, radii, shadows, focus, and motion tokens. Components never hard-code visual values. Icons are a small set of hand-authored inline SVGs in `shared/ui/icons.tsx`. No UI framework, icon font, or externally hosted font is used; every visual asset resolves locally, consistent with the Content Security Policy posture.
 
-Type is one locally hosted family for text (headings and body alike, differentiated by size and weight rather than by a second face) plus a monospace family reserved for labels and other machine-ish text. Corner radii are zero and the elevation tokens `--shadow-xs`/`--shadow-sm` are `none`: separation is carried by hairline rules, so a hairline is load-bearing wherever it appears and must not be removed as decoration.
+The authenticated product uses the **Professional Field Console** direction. A persistent charcoal chassis separates portfolio navigation from the active garden workspace. Garden destinations are grouped by work intent — Operations, Plan and map, Records, and Administration — rather than presented as one flat tab strip. The main surface uses bounded panels, compact controls, visible hierarchy, and one orange interaction signal over a dark operational canvas. The application defaults to the dark palette; the light token set remains complete for explicit theme selection and accessibility verification.
+
+On narrow screens the chassis becomes a compact top brand/root bar plus a horizontally scrollable bottom workspace navigation. Every desktop destination remains available; responsive adaptation may change placement and density but never remove a command or route. The status bar remains visible between the work surface and mobile navigation.
+
+Type is one locally hosted family for text (headings and body alike, differentiated by size and weight rather than by a second face) plus a monospace family reserved for labels and machine-oriented status. Small radii and restrained elevation distinguish controls and bounded panels without turning the console into a soft card wall. Hairlines remain structural separators. Shared `RoutePage`, `RouteHeader`, `RouteBody`, `RoutePanel`, `RouteSplit`, `Card`, and field primitives carry this direction across all feature routes; map/editor surfaces retain their specialized full-height layout inside the same chassis.
 
 Buttons size to their own content and never stretch to fill a container, so a submit inside a form column stays the width of its label rather than becoming a full-width bar. Actions whose meaning is carried by an established symbol — retry, load more, save, pause, resume, discard, cancel, add, open — are icon-only squares exactly one touch-target across, declared through the `Button` primitive's `iconOnly` prop rather than inferred from the button's children; every such control carries both an accessible name and a tooltip, because the icons themselves are hidden from assistive technology. Controls that exist to distinguish one option from its siblings — filter segments and other mutually exclusive choices — keep visible text, since the distinction between them lives in the words and no symbol set encodes it.
 

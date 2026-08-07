@@ -1,9 +1,13 @@
 # Verdery Web Application
 
-Next.js App Router shell for the Verdery web client. This package currently delivers the
-foundation described by work package `P1-WEB-01`: application shell, localization framework,
-design-system foundation, route and error boundaries, and the typed API gateway. Product features
-arrive from Phase 2 onwards.
+Next.js App Router product surface for Verdery. Its Professional Field Console design provides a
+persistent portfolio/workspace chassis, grouped garden navigation, dense bounded work panels,
+full-height map tooling, responsive mobile navigation, localization, typed API gateways, and the
+complete set of garden, plant, candidate, observation, task, planning, organization, publication,
+and client-portal workflows.
+
+The authenticated header reads the exact package version from this file's `package.json`. Every
+application change bumps that patch version so a deployed build can be identified in the UI.
 
 ## Local Setup
 

@@ -31,7 +31,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const t = createTranslator(locale);
 
   return (
-    <html lang={locale}>
+    <html lang={locale} data-theme="dark">
       <body>
         <LocalizationProvider locale={locale}>
           <div className={styles['shell']}>

@@ -1,63 +1,63 @@
-/*
- * Centred in what is left of the viewport, not parked under the header.
- *
- * The card is the entire content of this route, and a card pinned to the top
- * of a tall empty page reads as a page that failed to finish loading. The
- * subtraction covers the sticky header and this route's own vertical padding;
- * `min-block-size` rather than `block-size` so a short viewport still scrolls
- * instead of clipping the card.
- */
 .page {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-block-size: calc(100dvh - 12rem);
-  padding-block: var(--space-6) var(--space-7);
+  display: grid;
+  place-items: center;
+  min-block-size: calc(100dvh - var(--console-header-size) - var(--space-8));
+  padding-block: var(--space-6);
 }
 
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  width: min(26.5rem, 100%);
+  width: min(27rem, 100%);
   padding: var(--space-6);
-  background-color: var(--color-surface);
+  overflow: hidden;
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-lg);
 }
 
-@media (max-width: 30rem) {
-  .page {
-    /* A phone keyboard eats most of the viewport; centring there would push
-       the card under it. Top-aligned again, tightly. */
-    align-items: start;
-    min-block-size: 0;
-    padding-block: var(--space-4) var(--space-6);
-  }
-
-  .card {
-    padding: var(--space-5);
-  }
+.card::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: 3px;
+  background-color: var(--color-accent);
 }
 
 .mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  inline-size: 2.75rem;
-  block-size: 2.75rem;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
   margin-bottom: var(--space-4);
-  border-radius: var(--radius-lg);
-  background-color: var(--color-accent);
-  color: var(--color-accent-text);
-  box-shadow: var(--shadow-sm);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-sunken);
+  color: var(--color-accent);
 }
 
 .title {
   margin-bottom: var(--space-2);
+  font-size: var(--font-size-xl);
 }
 
 .description {
-  color: var(--color-text-muted);
   margin-bottom: var(--space-5);
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 30rem) {
+  .page {
+    align-items: start;
+    min-block-size: 0;
+    padding-block: var(--space-3);
+  }
+
+  .card {
+    padding: var(--space-5);
+  }
 }
