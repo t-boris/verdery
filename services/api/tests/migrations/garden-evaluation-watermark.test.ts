@@ -1,5 +1,5 @@
 /**
- * Migration tests for `migrations/1789200000000_garden-evaluation-watermark.sql`,
+ * Migration tests for `migrations/1789500000000_garden-evaluation-watermark.sql`,
  * run BOTH directions against real Postgres — the convention every sibling
  * in this directory follows.
  *
@@ -23,7 +23,7 @@ import { startPostgresTestContainer } from '../support/postgres-container.js';
 
 const SUITE_NAME = 'garden evaluation watermark migration';
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
-const THIS_MIGRATION = '1789200000000_garden-evaluation-watermark.sql';
+const THIS_MIGRATION = '1789500000000_garden-evaluation-watermark.sql';
 
 const dockerAvailable = await isDockerAvailable();
 if (!dockerAvailable) {

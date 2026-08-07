@@ -162,7 +162,7 @@ export interface TasksRecommendationsDatabaseSchema {
   'tasks_recommendations.recommendation_ai_explanation': RecommendationAiExplanationRow;
 }
 
-/** The recommendation sweep's per-garden watermark — see `migrations/1789200000000_garden-evaluation-watermark.sql`. */
+/** The recommendation sweep's per-garden watermark — see `migrations/1789500000000_garden-evaluation-watermark.sql`. */
 export interface GardenEvaluationStateRow {
   garden_id: string;
   last_evaluated_at: Date;

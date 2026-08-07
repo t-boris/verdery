@@ -10,7 +10,7 @@
  * bounded only by the staleness floor. Sharing the transaction removes the
  * second case entirely.
  *
- * Source: migrations/1789200000000_garden-evaluation-watermark.sql.
+ * Source: migrations/1789500000000_garden-evaluation-watermark.sql.
  */
 
 import type { Uuid } from '../../../shared/identifiers/uuid.js';

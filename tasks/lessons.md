@@ -410,3 +410,36 @@ E2E caught it on the very first navigation.
 conditional return, always. When adding state to a component that already has
 early returns, place the hook first and the usage later, not both together
 where the usage happens to read well.
+
+## 2026-08-07 — three migrations collided with a parallel branch, and only the deploy noticed
+
+**What happened**: I picked migration timestamps by incrementing from the highest
+one on `master` when I started. A parallel branch did exactly the same, so both
+produced `1789100000000`, `1789200000000` and `1789300000000`. Rebasing merged
+both sets with no conflict — the filenames differ. Every local gate passed: the
+migration suites apply the whole directory from scratch, which succeeds whatever
+the numbering is.
+
+It failed on the deployed database, where the other branch's migrations had
+already run. `node-pg-migrate` refused the entire run — "Not run migration
+`1789100000000_weather-precipitation-interval` is preceding already run migration
+`1789200000000_tree-area-geometry`" — so the deploy died after CI was green, and
+the API never got the new image.
+
+**Rules for next time**:
+
+- Pick a migration timestamp from `origin/master` AT THE MOMENT OF COMMIT, not
+  from the checkout you started with. On a repository with parallel work, "highest
+  - 1" computed hours earlier is a guess about what nobody else did.
+- Re-check after every rebase: `ls services/api/migrations | tail`. A rebase that
+  reports no conflict has still merged two independently-numbered sets, and a
+  duplicate timestamp is invisible in the diff.
+- "All tests pass" does not mean "this deploys". A suite that applies migrations
+  from scratch cannot see an ordering problem, because ordering only matters
+  against a database that already ran some of them. When adding a migration, ask
+  what the DEPLOYED database will do, not what a fresh container does.
+- The guard now exists: `tests/migrations/migration-ordering.test.ts` fails on a
+  duplicate timestamp, needs no database, and runs on every push. It was verified
+  by breaking it.
+- Renaming a migration is safe only while it has not been applied anywhere. Check
+  before renaming; here the deploy had refused the whole batch, so none had run.

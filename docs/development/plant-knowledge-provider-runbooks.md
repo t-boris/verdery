@@ -304,7 +304,7 @@ shape every other scheduled sweep in this codebase already uses.
 ## Reviewing seasonal timing
 
 `plants_inventory.taxonomy_seasonal_fact` now ships seeded content
-(`migrations/1789300000000_seasonal-timing-seed.sql`): fifteen common vegetable taxa with
+(`migrations/1789600000000_seasonal-timing-seed.sql`): fifteen common vegetable taxa with
 northern-hemisphere sowing, transplant and harvest windows, extracted from cited public-domain
 USDA publications under ADR-0013's extraction lane.
 
@@ -344,7 +344,7 @@ value, never that none exists.
 
 Two things fill the review queue.
 
-The **seed** (`1789300000000_seasonal-timing-seed.sql`) is fifteen taxa extracted from cited
+The **seed** (`1789600000000_seasonal-timing-seed.sql`) is fifteen taxa extracted from cited
 public-domain USDA publications — ADR-0013's extraction lane, where the model is a parser and the
 record's source stays the underlying text.
 

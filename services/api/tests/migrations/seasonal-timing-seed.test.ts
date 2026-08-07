@@ -1,5 +1,5 @@
 /**
- * Migration tests for `migrations/1789300000000_seasonal-timing-seed.sql`.
+ * Migration tests for `migrations/1789600000000_seasonal-timing-seed.sql`.
  *
  * The point of this suite is the SAFETY property, not the row count: every
  * seeded row must be invisible to the rules until a human signs it off, and
