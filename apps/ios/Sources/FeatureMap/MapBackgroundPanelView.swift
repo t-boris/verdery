@@ -1,3 +1,4 @@
+import CoreDesignSystem
 import CoreDomain
 import SwiftUI
 
@@ -130,18 +131,28 @@ struct MapBackgroundPanelView: View {
 
     private var opacitySection: some View {
         Section {
-            HStack {
-                Text(model.strings(.mapBackgroundOpacity))
-                Slider(value: $model.backgroundOpacity, in: 0.15...1, step: 0.05)
-                    .accessibilityLabel(model.strings(.mapBackgroundOpacity))
-                    // Without a value, VoiceOver announces the slider's raw
-                    // 0.15-1 position; a percentage is what the control means.
-                    .accessibilityValue(
-                        model.strings.number(model.backgroundOpacity * 100, fractionDigits: 0) + "%"
-                    )
-                    .accessibilityIdentifier("map.background.opacity")
-            }
+            // The dial rather than `Slider`: same job, but the track, the knob
+            // and the tint are this application's, so a control on a charcoal
+            // panel does not arrive wearing the system's default blue. It also
+            // always shows the figure — a bare track answers "roughly where"
+            // and never "what value", and somebody who found a transparency
+            // they liked wants to be able to come back to it.
+            ValueDial(
+                fieldName: model.strings(.mapBackgroundOpacity),
+                valueText: opacityText,
+                value: $model.backgroundOpacity,
+                // Never fully transparent: a backdrop at zero is a backdrop
+                // that has silently stopped existing, and somebody would then
+                // wonder where their plan went.
+                range: 0.15...1,
+                step: 0.05
+            )
+            .accessibilityIdentifier("map.background.opacity")
         }
+    }
+
+    private var opacityText: String {
+        model.strings.number(model.backgroundOpacity * 100, fractionDigits: 0) + "%"
     }
 
     // MARK: - Uploaded plans
@@ -183,20 +194,22 @@ struct MapBackgroundPanelView: View {
                 Text(model.strings(.mapBackgroundPdfNoPreview))
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                HStack {
-                    Text(model.strings(.mapBackgroundPageNumber))
-                    TextField(
-                        model.strings(.mapBackgroundPageNumber),
-                        text: pageNumberBinding(for: plan.id)
-                    )
-                    .frame(maxWidth: pageNumberFieldWidth)
-                    .textFieldStyle(.roundedBorder)
-                    #if os(iOS)
-                        .keyboardType(.numberPad)
-                    #endif
-                    .accessibilityIdentifier("map.background.pageNumber")
-                }
-                .font(.callout)
+                // Which page of a multi-page plan to show. A count, so it is
+                // a numeral you step rather than a box you type into — and
+                // stepping is what somebody does here, one page at a time,
+                // looking for the drawing.
+                MeasureField(
+                    fieldName: model.strings(.mapBackgroundPageNumber),
+                    unitLabel: "",
+                    decreaseLabel: model.strings(.mapCalibrationDistanceDecrease),
+                    increaseLabel: model.strings(.mapCalibrationDistanceIncrease),
+                    value: pageNumberValueBinding(for: plan.id),
+                    step: 1,
+                    range: 1...999,
+                    fractionDigits: 0,
+                    locale: .autoupdatingCurrent
+                )
+                .accessibilityIdentifier("map.background.pageNumber")
             }
 
             Button(model.strings(.mapBackgroundAddToMap)) {
@@ -209,6 +222,18 @@ struct MapBackgroundPanelView: View {
             .accessibilityIdentifier("map.background.addToMap")
         }
         .padding(.vertical, 2)
+    }
+
+    /// The panel stores the page as text because that is what an empty field
+    /// means and what the command carries. The numeral works in numbers, so
+    /// the two meet here; an unparsable value reads as page one, which is the
+    /// page every document has.
+    private func pageNumberValueBinding(for planId: String) -> Binding<Double> {
+        let text = pageNumberBinding(for: planId)
+        return Binding(
+            get: { Double(text.wrappedValue) ?? 1 },
+            set: { text.wrappedValue = String(Int($0.rounded())) }
+        )
     }
 
     private func pageNumberBinding(for mediaId: String) -> Binding<String> {

@@ -161,15 +161,14 @@ public struct ObservationsTimelineView: View {
     /// rather than a labelled row plus two separate buttons.
     private var filterBar: some View {
         HStack(spacing: Metrics.space2) {
-            Image(systemName: "line.3.horizontal.decrease.circle")
-                .foregroundStyle(Palette.textMuted)
-                .accessibilityHidden(true)
-
-            TextField(model.plantIdLabel, text: $model.plantIdFilter)
-                .textFieldStyle(.roundedBorder)
-                .submitLabel(.search)
-                .onSubmit { Task { await model.load() } }
-                .accessibilityIdentifier("observations.filter.plantIdField")
+            SearchStrip(
+                accessibilityName: model.plantIdLabel,
+                placeholder: model.plantIdLabel,
+                clearLabel: model.closeTitle,
+                query: $model.plantIdFilter,
+                search: { _ in await model.load() }
+            )
+            .accessibilityIdentifier("observations.filter.plantIdField")
 
             if model.plantIdFilter.isEmpty {
                 Button {

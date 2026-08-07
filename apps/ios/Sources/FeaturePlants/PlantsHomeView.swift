@@ -172,25 +172,18 @@ public struct PlantsHomeView: View {
                     VStack(alignment: .leading, spacing: Metrics.space3) {
                         InlineMessage(model.openHint, tone: .neutral)
 
-                        HStack(spacing: Metrics.space2) {
-                            TextField(model.openIdLabel, text: $model.openPlantId)
-                                .textFieldStyle(.roundedBorder)
-                                .submitLabel(.go)
-                                .onSubmit { model.openPlant() }
-                                .accessibilityIdentifier("plants.open.idField")
-
-                            Button {
-                                model.openPlant()
-                            } label: {
-                                Label(model.openSubmitTitle, systemImage: "arrow.right.circle.fill")
-                                    .labelStyle(.iconOnly)
-                                    .font(Typography.title)
-                            }
-                            .tint(Palette.interaction)
-                            .disabled(model.openPlantId.trimmingCharacters(in: .whitespaces).isEmpty)
-                            .accessibilityLabel(model.openSubmitTitle)
-                            .accessibilityIdentifier("plants.open.submit")
-                        }
+                        // The manual fallback for a plant link, now that a staked QR
+                        // label is the ordinary way in. One control rather than a box
+                        // beside an arrow.
+                        ComposerField(
+                            symbol: "arrow.right.circle",
+                            accessibilityName: model.openIdLabel,
+                            placeholder: model.openIdLabel,
+                            commitLabel: model.openSubmitTitle,
+                            text: $model.openPlantId,
+                            commit: { model.openPlant() }
+                        )
+                        .accessibilityIdentifier("plants.open.idField")
                     }
                 }
             }

@@ -127,24 +127,18 @@ public struct SignInView: View {
             .accessibilityIdentifier("auth.signIn.emailSent")
         } else {
             VStack(alignment: .leading, spacing: Metrics.space3) {
-                HStack(spacing: Metrics.space2) {
-                    Image(systemName: "envelope.fill")
-                        .foregroundStyle(Palette.textMuted)
-                        .accessibilityHidden(true)
-
-                    TextField(model.emailLabel, text: $model.email)
-                        #if os(iOS)
-                            .textInputAutocapitalization(.never)
-                            .keyboardType(.emailAddress)
-                            .textContentType(.emailAddress)
-                        #endif
-                        .autocorrectionDisabled()
-                        .textFieldStyle(.roundedBorder)
-                        .focused($isEmailFocused)
-                        .submitLabel(.go)
-                        .onSubmit(sendLink)
-                        .accessibilityIdentifier("auth.signIn.emailField")
-                }
+                // The composer carries the leading symbol, so the separate
+                // icon and the bordered box are both gone. The commit is the
+                // same one the button below performs.
+                ComposerField(
+                    symbol: "envelope.fill",
+                    accessibilityName: model.emailLabel,
+                    placeholder: model.emailLabel,
+                    commitLabel: model.emailSubmitTitle,
+                    text: $model.email,
+                    commit: sendLink
+                )
+                .accessibilityIdentifier("signIn.emailField")
 
                 Button(action: sendLink) {
                     Label(model.emailSubmitTitle, systemImage: "paperplane.fill")
