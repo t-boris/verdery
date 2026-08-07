@@ -12,15 +12,14 @@
    */
   min-height: var(--control-min-size);
   /*
-   * Sized by its own content, never stretched by its container. Most forms
-   * here are flex COLUMNS, whose default `align-items: stretch` was turning
-   * every submit into a full-width slab — a 336px "Create task" bar next to
-   * the map rail's compact 44px controls, which is what made the rest of the
-   * application look like a different product. In a flex ROW this only
-   * top-aligns the button, which its own `min-height` already makes
-   * indistinguishable beside another control.
+   * Sized by its own content, never stretched by a form column. An explicit
+   * inline size prevents flex-column stretching without overriding the
+   * parent's block-axis alignment. `align-self: start` used to solve the
+   * width problem, but it also defeated `align-items: flex-end` in mixed
+   * field/action rows and left buttons one label-height above their fields.
    */
-  align-self: start;
+  inline-size: fit-content;
+  max-inline-size: 100%;
   padding: var(--space-2) var(--space-4);
   border: var(--border-width) solid transparent;
   border-radius: var(--radius-md);
