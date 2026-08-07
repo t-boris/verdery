@@ -85,6 +85,29 @@ export interface TaxonEnrichmentSweepResult {
   readonly stoppedOnQuotaExhaustion: boolean;
   /** P11-OBS-01: "enrichment duration" — wall-clock time for this run's own DB/provider work, measured here (not by the worker's HTTP round-trip, which would also fold in network latency the sweep itself has no control over). */
   readonly durationMs: number;
+  /**
+   * ADR-0013's proposal phase, when it is switched on: seasonal timing
+   * drafted into the review queue for taxa a garden grows and nobody has
+   * timing for. `null` when the capability is off — the phase does not
+   * exist and no provider call can happen, the same structural rollback
+   * the AI-explanation phase's own `null` embellisher gives.
+   */
+  readonly seasonalProposals: SeasonalProposalPhaseResult | null;
+}
+
+/** The proposal phase's own counters — see `ProposeSeasonalTiming`. */
+export interface SeasonalProposalPhaseResult {
+  readonly considered: number;
+  readonly proposed: number;
+  readonly declined: number;
+  readonly alreadyPresent: number;
+  readonly unavailable: number;
+  readonly stoppedOnQuotaExhaustion: boolean;
+}
+
+/** The narrow slice of `ProposeSeasonalTiming` this sweep drives — structural, so tests fake it without the full constructor. */
+export interface SeasonalTimingProposer {
+  execute(): Promise<SeasonalProposalPhaseResult>;
 }
 
 export class RunTaxonEnrichmentSweep {
@@ -95,6 +118,16 @@ export class RunTaxonEnrichmentSweep {
     /** Ordered, most preferred first — see this file's own header on why one list serves both roles. */
     private readonly sourcePriority: readonly string[],
     private readonly clock: Clock,
+    /**
+     * ADR-0013's proposal phase. `null` = switched off: the phase is
+     * skipped structurally and zero provider calls can happen.
+     *
+     * Runs LAST, after enrichment, deliberately: enrichment may have just
+     * produced a reviewed fact for a taxon, and proposing timing for a
+     * taxon that now has some would be spend on a queue entry a reviewer
+     * would immediately discard.
+     */
+    private readonly proposeSeasonalTiming: SeasonalTimingProposer | null = null,
   ) {}
 
   async execute(): Promise<TaxonEnrichmentSweepResult> {
@@ -142,6 +175,13 @@ export class RunTaxonEnrichmentSweep {
       }
     }
 
+    // Last, and never allowed to fail the run: a drafting phase that
+    // cannot reach its provider must not lose the enrichment work already
+    // committed above. Its own degradations are typed counts in its own
+    // summary, exactly like the AI-embellishment phase's.
+    const seasonalProposals =
+      this.proposeSeasonalTiming === null ? null : await this.proposeSeasonalTiming.execute();
+
     return {
       taxaConsidered,
       refreshed,
@@ -150,6 +190,7 @@ export class RunTaxonEnrichmentSweep {
       degradationReasons,
       stoppedOnQuotaExhaustion,
       durationMs: this.clock.now().getTime() - startedAt.getTime(),
+      seasonalProposals,
     };
   }
 }

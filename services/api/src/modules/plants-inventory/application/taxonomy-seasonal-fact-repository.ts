@@ -54,6 +54,43 @@ export interface TaxonomySeasonalFactRepository {
    * unauthorized probe confirm an id exists.
    */
   approve(id: Uuid, reviewedBy: string, reviewedOn: string): Promise<boolean>;
+
+  /**
+   * Inserts a proposal for a `(taxon, hemisphere)` that has none, always
+   * `awaiting_horticultural_review`. Returns `false` when a row already
+   * exists for that pair — the table's own unique key — so a repeated pass
+   * proposes nothing twice and never overwrites a reviewer's work.
+   *
+   * There is no update path and no `insertReviewed`: a proposal can only
+   * ever enter the queue, and the only way out of the queue is
+   * `approve`.
+   */
+  insertProposal(input: TaxonomySeasonalFactProposalInput): Promise<boolean>;
+}
+
+/**
+ * A drafted proposal. `authoringMethod` is fixed at `ai_proposed_reviewed`
+ * rather than accepted from the caller: this port exists for exactly one
+ * lane, and letting a caller name a different authoring method here would
+ * let AI output be recorded as human-authored or as extracted from a source
+ * that does not exist.
+ */
+export interface TaxonomySeasonalFactProposalInput {
+  readonly id: Uuid;
+  readonly taxonomyReferenceId: Uuid;
+  readonly hemisphere: Hemisphere;
+  readonly sowIndoorsStartMonth: number | null;
+  readonly sowIndoorsEndMonth: number | null;
+  readonly sowOutdoorsStartMonth: number | null;
+  readonly sowOutdoorsEndMonth: number | null;
+  readonly transplantStartMonth: number | null;
+  readonly transplantEndMonth: number | null;
+  readonly harvestStartMonth: number | null;
+  readonly harvestEndMonth: number | null;
+  readonly daysToMaturityMin: number | null;
+  readonly daysToMaturityMax: number | null;
+  readonly successionIntervalDays: number | null;
+  readonly rotationRestSeasons: number | null;
 }
 
 /**

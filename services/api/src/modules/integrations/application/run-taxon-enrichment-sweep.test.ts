@@ -100,6 +100,7 @@ describe('RunTaxonEnrichmentSweep', () => {
       degradationReasons: {},
       stoppedOnQuotaExhaustion: false,
       durationMs: 0,
+      seasonalProposals: null,
     });
     expect(refresher.calls).toEqual([
       { taxonomyReferenceId: TAXON_A, providerKey: 'usda-plants' },
@@ -135,6 +136,7 @@ describe('RunTaxonEnrichmentSweep', () => {
       degradationReasons: {},
       stoppedOnQuotaExhaustion: false,
       durationMs: 0,
+      seasonalProposals: null,
     });
   });
 

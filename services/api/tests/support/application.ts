@@ -281,6 +281,7 @@ export async function buildTestApplication(
     // P7-AI-01 / ADR-0015: `null` exactly as main.ts passes with each
     // kill-switch off.
     aiExplanationAdapter: null,
+    seasonalTimingAdapter: null,
     // P12-GEO-01: a geocoder that refuses by default, so a suite that does not
     // configure one cannot silently call the real service over the network.
     addressGeocoder: options.addressGeocoder ?? refusingAddressGeocoder(),

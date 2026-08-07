@@ -72,6 +72,10 @@ class FakeRepository implements TaxonomySeasonalFactRepository {
     this.approvedWith = { id, reviewedBy, reviewedOn };
     return Promise.resolve(true);
   }
+
+  insertProposal(): Promise<boolean> {
+    throw new Error('not used by this suite');
+  }
 }
 
 const clock = { now: () => NOW };

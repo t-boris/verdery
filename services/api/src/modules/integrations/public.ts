@@ -294,6 +294,20 @@ export { registerTaxonEnrichmentSweepRoute } from './transport/taxon-enrichment-
 export type { TaxonEnrichmentSweepRouteDependencies } from './transport/taxon-enrichment-sweep-route.js';
 
 // P11-PROV-01: the horticultural-review surface.
+// ADR-0013's proposal lane: the seasonal-timing drafting port and its
+// Vertex adapter. Consumed by plants-inventory's `ProposeSeasonalTiming` —
+// the same cross-module port injection precedent as weather.
+export type {
+  SeasonalTimingDraft,
+  SeasonalTimingProposalOutcome,
+  SeasonalTimingProposalProvider,
+  SeasonalTimingProposalRequest,
+} from './application/seasonal-timing-proposal-provider.js';
+export {
+  VertexAiSeasonalTimingAdapter,
+  VERTEX_SEASONAL_TIMING_PROMPT_TEMPLATE_VERSION,
+} from './persistence/vertex-ai-seasonal-timing-adapter.js';
+export type { VertexSeasonalTimingAdapterConfiguration } from './persistence/vertex-ai-seasonal-timing-adapter.js';
 export { requirePlantReviewerAccess } from './application/plant-reviewer-authorization.js';
 export type { PlantReviewerActor } from './application/plant-reviewer-authorization.js';
 export { ListPlantAssertionsAwaitingReview } from './application/list-plant-assertions-awaiting-review.js';

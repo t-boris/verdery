@@ -527,6 +527,10 @@ export class FakeTaxonomySeasonalFactRepository implements TaxonomySeasonalFactR
     return Promise.resolve(items);
   }
 
+  insertProposal(): Promise<boolean> {
+    throw new Error('not used by this suite');
+  }
+
   approve(id: Uuid, reviewedBy: string, reviewedOn: string): Promise<boolean> {
     for (const [key, fact] of this.facts) {
       if (fact.id !== id || fact.reviewStatus !== 'awaiting_horticultural_review') {

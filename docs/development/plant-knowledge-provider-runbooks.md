@@ -339,3 +339,36 @@ approve anything you would not stand behind. `rotationRestSeasons` drives how lo
 `crop-rotation-caution` warns against replanting the same family; `successionIntervalDays` drives
 how often `succession.replanting-reminder` fires. A `null` means the source did not support a
 value, never that none exists.
+
+### Where proposals come from
+
+Two things fill the review queue.
+
+The **seed** (`1789300000000_seasonal-timing-seed.sql`) is fifteen taxa extracted from cited
+public-domain USDA publications — ADR-0013's extraction lane, where the model is a parser and the
+record's source stays the underlying text.
+
+The **proposal phase** drafts timing for taxa a garden actually grows and nobody has timing for.
+It runs at the end of the taxon-enrichment sweep — never during a user request, per ADR-0013 — and
+only when the AI switch is on. Adding a plant does not call Vertex; it makes that plant's taxon
+eligible for the next pass, which keeps the add-a-plant path free of provider latency, outages and
+spend.
+
+Proposals are `authoring_method = 'ai_proposed_reviewed'` with no source citation, because an
+accepted proposal becomes this project's own authored content rather than a borrowed source. Every
+one lands `awaiting_horticultural_review` and is invisible to the rules until signed off. Demand is
+the ordering principle: only taxa with an active plant in an active, georeferenced garden are
+proposed for, so the queue's length is a property of what people actually grow rather than of the
+catalogue's size.
+
+**What the model may not draft, structurally.** Edibility, toxicity and chemical application are
+excluded from AI authoring by ADR-0013, and the response schema has no property that could carry
+them. A prompt instruction can drift; an absent schema field cannot.
+
+**Null is a correct answer.** Every timing field is nullable, and a proposal where the model claims
+nothing is recorded as a decline rather than as an empty queue entry. A reviewer can correct a null;
+a reviewer cannot tell a confident guess from knowledge.
+
+Spend is bounded by the same per-hour and per-day budgets as the explanation capability, with its
+own `vertex-ai-seasonal-timing` quota key so drafting spend stays measurable apart from explanation
+spend, a per-run cap of ten taxa, and a strict per-call deadline.

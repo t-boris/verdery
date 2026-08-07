@@ -187,6 +187,16 @@ export {
   SEASONAL_REVIEW_QUEUE_MAX_LIMIT,
 } from './application/review-taxonomy-seasonal-facts.js';
 export type { ApproveTaxonomySeasonalFactResult } from './application/review-taxonomy-seasonal-facts.js';
+export {
+  ProposeSeasonalTiming,
+  SEASONAL_PROPOSAL_BATCH_LIMIT,
+} from './application/propose-seasonal-timing.js';
+export type {
+  ProposeSeasonalTimingResult,
+  SeasonalProposalCandidate,
+  SeasonalProposalCandidateSource,
+} from './application/propose-seasonal-timing.js';
+export { KyselySeasonalProposalCandidateSource } from './persistence/kysely-seasonal-proposal-candidate-source.js';
 export { registerSeasonalFactReviewRoutes } from './transport/seasonal-fact-review-routes.js';
 export type { SeasonalFactReviewRoutesDependencies } from './transport/seasonal-fact-review-routes.js';
 export { KyselyTaxonomySeasonalFactRepository } from './persistence/kysely-taxonomy-seasonal-fact-repository.js';

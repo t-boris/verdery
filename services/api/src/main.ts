@@ -15,12 +15,14 @@ import { buildApplication } from './app.js';
 import { registerGracefulShutdown } from './bootstrap/graceful-shutdown.js';
 import {
   VertexAiExplanationAdapter,
+  VertexAiSeasonalTimingAdapter,
   VertexAiAerialTracingAdapter,
   VertexAiPlantConditionAnalysisAdapter,
   VertexAiPlantSpeciesIdentificationAdapter,
   VertexAiPlatExtractionAdapter,
 } from './modules/integrations/public.js';
 import type {
+  SeasonalTimingProposalProvider,
   AiExplanationProviderAdapter,
   AerialTracingProviderAdapter,
   PlantConditionAnalysisProviderAdapter,
@@ -139,6 +141,28 @@ async function main(): Promise<void> {
         )
       : null;
 
+  // ADR-0013's proposal lane, on the SAME switch and the same client
+  // construction as the explanation adapter above: both are the same
+  // provider commitment and the same cost decision, so a separate flag
+  // would be one more thing to forget rather than one more choice worth
+  // having.
+  const seasonalTimingAdapter: SeasonalTimingProposalProvider | null =
+    aiConfiguration.enabled &&
+    aiConfiguration.vertexProjectId !== null &&
+    aiConfiguration.model !== null
+      ? new VertexAiSeasonalTimingAdapter(
+          new GoogleGenAI({
+            vertexai: true,
+            project: aiConfiguration.vertexProjectId,
+            location: aiConfiguration.vertexLocation,
+          }),
+          {
+            model: aiConfiguration.model,
+            maxOutputTokens: aiConfiguration.maxOutputTokens,
+          },
+        )
+      : null;
+
   // ADR-0015: same construction shape as `aiExplanationAdapter` above, one
   // adapter per capability's own kill-switch. Both reuse the recommendation
   // capability's Vertex project/location (`aiConfiguration.vertexProjectId`/
@@ -230,6 +254,7 @@ async function main(): Promise<void> {
     mediaStorageGateway,
     cloudTasksInvocationVerifier,
     aiExplanationAdapter,
+    seasonalTimingAdapter,
     plantSpeciesIdentificationAdapter,
     plantConditionAnalysisAdapter,
     platExtractionAdapter,

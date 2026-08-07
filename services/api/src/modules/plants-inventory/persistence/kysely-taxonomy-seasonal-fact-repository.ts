@@ -2,6 +2,7 @@ import type { Kysely } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type {
+  TaxonomySeasonalFactProposalInput,
   TaxonomySeasonalFactRepository,
   TaxonomySeasonalFactReviewItem,
 } from '../application/taxonomy-seasonal-fact-repository.js';
@@ -159,5 +160,45 @@ export class KyselyTaxonomySeasonalFactRepository implements TaxonomySeasonalFac
       .executeTakeFirst();
 
     return Number(result.numUpdatedRows) > 0;
+  }
+
+  async insertProposal(input: TaxonomySeasonalFactProposalInput): Promise<boolean> {
+    const inserted = await this.db
+      .insertInto('plants_inventory.taxonomy_seasonal_fact')
+      .values({
+        id: input.id,
+        taxonomy_reference_id: input.taxonomyReferenceId,
+        hemisphere: input.hemisphere,
+        sow_indoors_start_month: input.sowIndoorsStartMonth,
+        sow_indoors_end_month: input.sowIndoorsEndMonth,
+        sow_outdoors_start_month: input.sowOutdoorsStartMonth,
+        sow_outdoors_end_month: input.sowOutdoorsEndMonth,
+        transplant_start_month: input.transplantStartMonth,
+        transplant_end_month: input.transplantEndMonth,
+        harvest_start_month: input.harvestStartMonth,
+        harvest_end_month: input.harvestEndMonth,
+        days_to_maturity_min: input.daysToMaturityMin,
+        days_to_maturity_max: input.daysToMaturityMax,
+        succession_interval_days: input.successionIntervalDays,
+        rotation_rest_seasons: input.rotationRestSeasons,
+        // Fixed, never caller-supplied: this path exists for one lane, and
+        // recording AI output as human-authored would be a provenance lie.
+        // The migration's own citation-linkage CHECK requires a NULL
+        // citation for this method, which is why none is written.
+        authoring_method: 'ai_proposed_reviewed',
+        source_citation: null,
+        review_status: 'awaiting_horticultural_review',
+        reviewed_by: null,
+        reviewed_on: null,
+      })
+      // The table's unique `(taxonomy_reference_id, hemisphere)` key does
+      // the work: a second pass over the same taxon proposes nothing, and a
+      // reviewer's approved row is never overwritten.
+      .onConflict((conflict) =>
+        conflict.columns(['taxonomy_reference_id', 'hemisphere']).doNothing(),
+      )
+      .executeTakeFirst();
+
+    return Number(inserted.numInsertedOrUpdatedRows ?? 0) > 0;
   }
 }

@@ -69,6 +69,7 @@ import type {
   PlantConditionAnalysisProviderAdapter,
   PlantSpeciesIdentificationProviderAdapter,
   TaxonEnrichmentSweepRouteDependencies,
+  SeasonalTimingProposalProvider,
   TransactionalEmailAdapter,
   WeatherRefreshSweepRouteDependencies,
   WeatherRoutesDependencies,
@@ -77,6 +78,9 @@ import type { GardenAuthorization } from './modules/gardens-mapping/public.js';
 import { KyselyGeoreferenceRepository } from './modules/gardens-mapping/public.js';
 import {
   KyselyPlantProfileVersionRepository,
+  KyselySeasonalProposalCandidateSource,
+  KyselyTaxonomySeasonalFactRepository,
+  ProposeSeasonalTiming,
   RebuildPlantProfileVersion,
 } from './modules/plants-inventory/public.js';
 import type {
@@ -104,6 +108,8 @@ export const AI_EXPLANATION_PROVIDER_KEY = 'vertex-ai-explanation';
 export const PLANT_SPECIES_AI_PROVIDER_KEY = 'vertex-ai-plant-species';
 /** ADR-0015: the plant-condition-analysis adapter's quota-accounting key and stored-observation provenance. */
 export const PLANT_CONDITION_AI_PROVIDER_KEY = 'vertex-ai-plant-condition';
+/** ADR-0013's proposal lane: its own quota-accounting key, so drafting spend is measurable apart from explanation spend even though both share a switch. */
+export const SEASONAL_TIMING_PROVIDER_KEY = 'vertex-ai-seasonal-timing';
 
 export interface IntegrationsComposition {
   /** Consumed by tasks-recommendations' `EvaluateGardenRecommendations` — the cross-module use-case injection precedent. */
@@ -139,6 +145,8 @@ export function composeIntegrations(
   weather: WeatherConfiguration,
   aiExplanation: AiExplanationConfiguration,
   aiExplanationAdapter: AiExplanationProviderAdapter | null,
+  /** ADR-0013's proposal lane. Shares the AI-explanation switch, since both are the same provider commitment and the same kill-switch decision. */
+  seasonalTimingAdapter: SeasonalTimingProposalProvider | null,
   plantSpeciesAi: PlantSpeciesAiConfiguration,
   plantSpeciesIdentificationAdapter: PlantSpeciesIdentificationProviderAdapter | null,
   plantConditionAi: PlantConditionAiConfiguration,
@@ -374,6 +382,26 @@ export function composeIntegrations(
     generateUuidV7,
     clock,
   );
+  // ADR-0013's proposal lane. The adapter is INJECTED, like every other
+  // Vertex adapter here — `main.ts` owns client construction so no test
+  // suite can reach the network. `null` whenever the AI switch is off,
+  // which is every environment but development.
+  const proposeSeasonalTiming = new ProposeSeasonalTiming(
+    seasonalTimingAdapter,
+    new KyselySeasonalProposalCandidateSource(database.queries),
+    new KyselyTaxonomySeasonalFactRepository(database.queries),
+    providerQuotas,
+    {
+      providerKey: SEASONAL_TIMING_PROVIDER_KEY,
+      callTimeoutMs: aiExplanation.callTimeoutMs,
+      quotaLimits: {
+        maxCallsPerHour: aiExplanation.maxCallsPerHour,
+        maxCallsPerDay: aiExplanation.maxCallsPerDay,
+      },
+    },
+    clock,
+  );
+
   const taxonEnrichmentSweepRouteDependencies: TaxonEnrichmentSweepRouteDependencies = {
     runTaxonEnrichmentSweep: new RunTaxonEnrichmentSweep(
       new KyselyTaxonEnrichmentCandidateSource(database.queries),
@@ -381,6 +409,9 @@ export function composeIntegrations(
       rebuildPlantProfileVersion,
       taxonSourcePriority,
       clock,
+      // `null` when the switch is off: the phase does not exist and no
+      // provider call can happen.
+      seasonalTimingAdapter === null ? null : proposeSeasonalTiming,
     ),
     cloudTasksInvocationVerifier,
   };

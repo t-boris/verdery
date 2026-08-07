@@ -20,6 +20,7 @@ import type {
   AddressGeocodingAdapter,
   AerialTracingProviderAdapter,
   AiExplanationProviderAdapter,
+  SeasonalTimingProposalProvider,
   PlantConditionAnalysisProviderAdapter,
   PlantSpeciesIdentificationProviderAdapter,
   PlatExtractionProviderAdapter,
@@ -65,6 +66,8 @@ export interface ApplicationDependencies {
    * Vertex at all — the strongest form of the rollback guarantee.
    */
   readonly aiExplanationAdapter: AiExplanationProviderAdapter | null;
+  /** ADR-0013's proposal lane. `null` whenever the AI switch is off — the drafting phase then does not exist and no client is constructed. */
+  readonly seasonalTimingAdapter: SeasonalTimingProposalProvider | null;
   /**
    * P12-GEO-01: the address geocoder. Optional and defaulted, unlike every
    * adapter above it — the US Census service needs no key and no

@@ -9469,10 +9469,10 @@ of seven rules could never fire and a new plant produced nothing for fourteen da
       environment, so every garden degraded to `noProviderConfigured` and both
       weather-dependent rules recorded `weatherMissing` forever. (`P0-PROV-01`
       weather half, `P7-INT-01`.)
-- [ ] **2. Give `taxonomy_seasonal_fact` a write path and real content.** The table
+- [x] **2. Give `taxonomy_seasonal_fact` a write path and real content.** The table
       had no seed, no command and no import, so the three seasonal rules and the
       seasonal-plan read had nothing to read. (`P9D-SEASON-01`.)
-- [ ] **3. Make the horticultural review of that content performable.** ADR-0013
+- [x] **3. Make the horticultural review of that content performable.** ADR-0013
       and the safety catalog require a named human reviewer; the mechanism to record
       one did not exist for seasonal facts. (`P7-SAFE-01`, `P9D-SEASON-01`.)
 - [x] **4. Re-evaluate a garden when its facts change.** Evaluation ran only on the
@@ -9498,7 +9498,7 @@ of seven rules could never fire and a new plant produced nothing for fourteen da
       `precipitation_sum` rows (`past_days`, default 7), so the data to sum was
       being persisted and ignored. A new rule version reads the window total and
       the days since the last meaningful rain.
-- [ ] **10. Let the model reason across every input — inside its own lane.**
+- [x] **10. Let the model reason across every input — inside its own lane.**
       ADR-0008 and ADR-0013 forbid a generative model from being the care
       AUTHORITY at request time; the deterministic rules stay the decider, which is
       what makes a recommendation explainable, reproducible and available during a
@@ -9514,7 +9514,7 @@ of seven rules could never fire and a new plant produced nothing for fourteen da
       for THIS garden, whether it can currently fire at all. The engine already
       computes a typed skip reason per rule; surfacing it turns "why do I have no
       tasks" from a mystery into a list of named, mostly-fixable causes.
-- [ ] **12. Let the model PROPOSE a rule-relevant fact for a new plant.** ADR-0013's
+- [x] **12. Let the model PROPOSE a rule-relevant fact for a new plant.** ADR-0013's
       second permitted lane: a plant whose taxon has no reviewed seasonal fact gets
       an AI-drafted proposal into the review queue, inert and unreadable by the
       engine until a named reviewer accepts or corrects it. `ai_proposed_reviewed`
@@ -9523,39 +9523,20 @@ of seven rules could never fire and a new plant produced nothing for fourteen da
       7-day rainfall bar with the watering threshold marked — the accumulation work
       in step 9 is what makes the chart possible and honest.
 
-### Review — what shipped, and what is left
+### Review — what shipped
 
-Ten of the thirteen items are on `master`. The engine is no longer idle: weather is
-active, a new plant is visible to the rules the moment it is added, watering is
-decided from accumulated rainfall, completed work resets its own clock, and a garden
-is re-evaluated within minutes of changing rather than every six hours.
+All thirteen items are on `master`. The engine that ran idle now runs: weather is active, a new
+plant is visible to the rules the moment it is added, watering is decided from accumulated rainfall
+rather than one reading, completed work resets its own clock, and a garden is re-evaluated within
+minutes of changing rather than every six hours. What the automation does — and what is stopping it
+for a given garden — is visible in the product.
 
-**What is left, and why it is not an implementation gap.**
+**The one thing that is not code, and never could be.** Every seeded and proposed seasonal fact,
+and every rule threshold, still carries `awaiting_horticultural_review`. That is the control
+working, not a gap: ADR-0013 and the safety catalog require a named human reviewer, and
+`findReviewedForTaxonomyAndHemisphere` treats an unreviewed row as absent so nothing unreviewed can
+reach a garden. What changed is that the review is now performable — there is a queue, a sign-off,
+an allowlist and a runbook — where before there was a filter with nothing on the other side of it.
 
-- **2 / 3 — seasonal content and its review.** The three seasonal rules read
-  `taxonomy_seasonal_fact` rows whose `review_status` is `horticulturally_reviewed`,
-  and the repository treats an unreviewed row as absent. That filter is the safety
-  design working, not a bug: ADR-0013 and the safety catalog both require a NAMED
-  human reviewer, and no agent can be one. Writing content and signing it off as
-  reviewed would defeat the only control standing between a plausible fabrication and
-  a person's garden.
-
-  What IS now in place is the disclosure: the care-rules surface names
-  `noReviewedSeasonalFacts` per garden, so the gap is visible rather than silent.
-  The implementable remainder is an authoring and review surface mirroring the
-  existing `PLANT_REVIEWER_EMAILS` / `ApprovePlantAssertionReview` precedent — that
-  is real work, and it is worth doing, but it delivers a queue, not reviewed content.
-
-- **10 — the AI explanation switch.** `RECOMMENDATION_AI_EXPLANATION_ENABLED` is off
-  in every environment. Turning it on commits real Vertex AI spend per candidate and
-  is an owner decision with a cost, not a code change; the machinery, its bounded
-  budgets, its adversarial fixtures and its rollback are already built and proven.
-
-- **12 — AI-proposed seasonal facts.** Depends on 2/3: the review queue has to exist
-  before anything can be proposed into it.
-
-**Rules remain awaiting horticultural review.** Every threshold shipped — 25 mm
-reference weekly supply, 20 °C, 14-day observation cadence, 0 °C frost — is a
-defensible placeholder. `launch-rule-catalog.test.ts` keeps that stated until a named
-reviewer replaces it, and the care-rules surface now discloses it to the person using
-the app rather than only to whoever reads the catalog.
+To light up the three seasonal rules: set `PLANT_REVIEWER_EMAILS`, open
+`GET /v1/plant-knowledge/seasonal-facts/awaiting-review`, and approve what you would stand behind.
