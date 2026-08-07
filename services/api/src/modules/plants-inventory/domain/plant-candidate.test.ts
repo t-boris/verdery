@@ -54,6 +54,7 @@ describe('createCandidate', () => {
       displayName: 'Maybe a fig tree',
       taxonomyReferenceId: null,
       varietyLabel: null,
+      photoAnalysis: null,
       groupingKind: 'individual',
       quantity: null,
       status: 'active',
