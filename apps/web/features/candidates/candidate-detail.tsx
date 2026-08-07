@@ -10,6 +10,7 @@ import { CandidateConvertForm } from './candidate-convert-form';
 import { CandidateDeleteControl } from './candidate-delete-control';
 import { CandidateDetailsForm } from './candidate-details-form';
 import { CandidateIdentificationPanel } from './candidate-identification-panel';
+import { CandidatePhotoAnalysisPanel } from './candidate-photo-analysis-panel';
 import styles from './candidate-detail.module.css';
 import { CandidatePhotoGallery } from './candidate-photo-gallery';
 import { CandidateStatusControls } from './candidate-status-controls';
@@ -21,10 +22,36 @@ import {
   candidateStatusTone,
 } from './labels';
 import { useCandidate, useCandidatePhotos } from './queries';
+import { useTaxonomyReferenceSearch } from './taxonomy-queries';
 
 export interface CandidateDetailProps {
   readonly gardenId: string;
   readonly candidateId: string;
+}
+
+function CandidateTaxonomySummary({
+  gardenId,
+  taxonomyReferenceId,
+  displayName,
+}: {
+  readonly gardenId: string;
+  readonly taxonomyReferenceId: string;
+  readonly displayName: string;
+}) {
+  const { t } = useLocalization();
+  const search = useTaxonomyReferenceSearch(gardenId, displayName);
+  const reference = search.data?.items.find((item) => item.id === taxonomyReferenceId);
+
+  if (reference === undefined) {
+    return <span>{t('candidates.taxonomyLinked')}</span>;
+  }
+
+  return (
+    <span>
+      <i>{reference.scientificName}</i>
+      {reference.commonName === null ? '' : ` · ${reference.commonName}`}
+    </span>
+  );
 }
 
 /**
@@ -95,18 +122,30 @@ export function CandidateDetail({ gardenId, candidateId }: CandidateDetailProps)
             })}
           </span>
         )}
-        {candidate.taxonomyReferenceId === null && <span>{t('candidates.taxonomyNone')}</span>}
+        {candidate.taxonomyReferenceId === null ? (
+          <span>{t('candidates.taxonomyNone')}</span>
+        ) : (
+          <CandidateTaxonomySummary
+            gardenId={gardenId}
+            taxonomyReferenceId={candidate.taxonomyReferenceId}
+            displayName={candidate.displayName}
+          />
+        )}
       </div>
 
       <CandidatePhotoGallery gardenId={gardenId} candidateId={candidate.id} />
 
-      {!isConverted &&
-        candidate.taxonomyReferenceId === null &&
-        (photosQuery.data?.length ?? 0) > 0 && (
-          <Card title={t('candidates.identificationTitle')}>
-            <CandidateIdentificationPanel gardenId={gardenId} candidate={candidate} />
-          </Card>
-        )}
+      {candidate.photoAnalysis !== null && (
+        <Card title={t('candidates.photoAnalysisTitle')}>
+          <CandidatePhotoAnalysisPanel analysis={candidate.photoAnalysis} />
+        </Card>
+      )}
+
+      {!isConverted && (photosQuery.data?.length ?? 0) > 0 && (
+        <Card title={t('candidates.identificationTitle')}>
+          <CandidateIdentificationPanel gardenId={gardenId} candidate={candidate} />
+        </Card>
+      )}
 
       {isConverted && (
         <Alert tone="info" title={t('candidates.alreadyConverted')}>

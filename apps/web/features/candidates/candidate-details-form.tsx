@@ -156,6 +156,7 @@ export function CandidateDetailsForm({ gardenId, candidate }: CandidateDetailsFo
       <TaxonomyReferenceField
         gardenId={gardenId}
         value={taxonomyReferenceId}
+        initialSelectionLabel={candidate.displayName}
         onChange={setTaxonomyReferenceId}
       />
       <TextField

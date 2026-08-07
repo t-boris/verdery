@@ -50,6 +50,8 @@ export interface PlantSpeciesIdentificationRequest {
 export interface PlantSpeciesCandidate {
   readonly commonName: string;
   readonly scientificNameGuess: string | null;
+  readonly familyNameGuess: string | null;
+  readonly genusNameGuess: string | null;
   readonly confidenceScore: number;
   /** e.g. "Cherry Tomato" vs the plain `commonName` "Tomato" — `null` when the model saw nothing distinct from the species itself. */
   readonly varietyGuess: string | null;
@@ -71,6 +73,9 @@ export interface PlantSpeciesCandidate {
    * suggested field here already establishes.
    */
   readonly acquisitionDateGuess: string | null;
+  /** Best visible-maturity age range. Both bounds are whole months and the minimum never exceeds the maximum. */
+  readonly estimatedAgeMonthsMin: number;
+  readonly estimatedAgeMonthsMax: number;
 }
 
 export interface PlantIdentificationModelIdentity {

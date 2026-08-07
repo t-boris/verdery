@@ -63,6 +63,7 @@ function candidate(overrides: Partial<PlantCandidate> = {}): PlantCandidate {
     priceCurrency: null,
     purchaseSource: null,
     alternativeToCandidateId: null,
+    photoAnalysis: null,
     revision: 1,
     createdByProfileId: 'profile-1',
     createdAt: '2026-07-21T09:00:00Z',
@@ -95,6 +96,50 @@ describe('CandidateDetail — active candidate', () => {
     expect(
       screen.queryByText('This candidate has already been converted and cannot be edited.'),
     ).toBeNull();
+  });
+
+  it('shows the complete structured photo analysis', () => {
+    candidateState = {
+      isPending: false,
+      isLoadingError: false,
+      isError: false,
+      data: candidate({
+        taxonomyReferenceId: 'taxon-1',
+        photoAnalysis: {
+          commonName: 'Green ash',
+          scientificName: 'Fraxinus pennsylvanica',
+          familyName: 'Oleaceae',
+          genusName: 'Fraxinus',
+          varietyLabel: null,
+          identificationConfidenceScore: 0.91,
+          estimatedAgeMonthsMin: 12,
+          estimatedAgeMonthsMax: 24,
+          lifecycleStage: 'growing',
+          estimatedAcquisitionDate: '2025-03-01',
+          analyzedAt: '2026-08-06T12:00:00Z',
+          condition: {
+            kind: 'stress',
+            label: 'Mild leaf curl',
+            confidenceScore: 0.72,
+            evidenceSummary: 'Several leaves curl at the edges.',
+            alternativeExplanations: ['Heat exposure'],
+            safetyClass: 'monitor',
+            requestedAdditionalEvidence: true,
+            requestedViewPurposes: ['leaf_back'],
+            careGuidance: 'Check soil moisture consistency.',
+          },
+        },
+      }),
+    };
+
+    renderDetail();
+
+    expect(screen.getByText('Fraxinus pennsylvanica')).toBeTruthy();
+    expect(screen.getByText('Oleaceae')).toBeTruthy();
+    expect(screen.getByText('12–24 months')).toBeTruthy();
+    expect(screen.getByText('Mild leaf curl')).toBeTruthy();
+    expect(screen.getByText(/Several leaves curl at the edges/)).toBeTruthy();
+    expect(screen.getByText(/Check soil moisture consistency/)).toBeTruthy();
   });
 });
 

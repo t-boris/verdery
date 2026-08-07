@@ -3,10 +3,12 @@ import { sql } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type {
+  ProviderTaxonomySuggestion,
   TaxonomyNameMatch,
   TaxonomyReferenceRepository,
   TaxonomySearchResult,
 } from '../application/taxonomy-reference-repository.js';
+import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { TaxonomyNameKind } from '../domain/taxonomy-name.js';
 import type { TaxonomyReference, TaxonomySource } from '../domain/taxonomy-reference.js';
 
@@ -205,5 +207,61 @@ export class KyselyTaxonomyReferenceRepository implements TaxonomyReferenceRepos
         locale: row.matched_locale,
       } satisfies TaxonomyNameMatch,
     }));
+  }
+
+  async resolveProviderSuggestion(
+    suggestion: ProviderTaxonomySuggestion,
+  ): Promise<TaxonomyReference> {
+    const existing = await this.db
+      .selectFrom('plants_inventory.taxonomy_reference')
+      .selectAll()
+      .where(sql<boolean>`lower(scientific_name) = lower(${suggestion.scientificName})`)
+      .orderBy(
+        sql`CASE source WHEN 'system_catalog' THEN 0 WHEN 'user_defined' THEN 1 ELSE 2 END`,
+        'asc',
+      )
+      .executeTakeFirst();
+
+    if (existing !== undefined) {
+      return toTaxonomyReference(existing);
+    }
+
+    const inserted = await sql<TaxonomyReferenceRowLike>`
+      INSERT INTO plants_inventory.taxonomy_reference (
+        id,
+        scientific_name,
+        common_name,
+        variety_name,
+        family,
+        genus,
+        source,
+        created_by_profile_id
+      ) VALUES (
+        ${generateUuidV7()},
+        ${suggestion.scientificName},
+        ${suggestion.commonName},
+        NULL,
+        ${suggestion.familyName},
+        ${suggestion.genusName},
+        'provider_sourced',
+        NULL
+      )
+      ON CONFLICT (lower(scientific_name)) WHERE source = 'provider_sourced'
+      DO NOTHING
+      RETURNING *
+    `.execute(this.db);
+
+    const created = inserted.rows[0];
+    if (created !== undefined) {
+      return toTaxonomyReference(created);
+    }
+
+    const concurrent = await this.db
+      .selectFrom('plants_inventory.taxonomy_reference')
+      .selectAll()
+      .where('source', '=', 'provider_sourced')
+      .where(sql<boolean>`lower(scientific_name) = lower(${suggestion.scientificName})`)
+      .executeTakeFirstOrThrow();
+    return toTaxonomyReference(concurrent);
   }
 }

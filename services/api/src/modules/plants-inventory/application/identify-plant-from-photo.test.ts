@@ -51,6 +51,9 @@ class EmptyTaxonomyReferenceRepository implements TaxonomyReferenceRepository {
   searchAcrossNames(): Promise<TaxonomySearchResult[]> {
     return Promise.resolve([]);
   }
+  resolveProviderSuggestion(): Promise<TaxonomyReference> {
+    throw new Error('not used without a scientific-name guess');
+  }
 }
 
 function capturingLogger() {
@@ -72,10 +75,14 @@ describe('identifyPlantFromPhoto (P11-OBS-01 telemetry)', () => {
           candidate: {
             commonName: 'Tomato',
             scientificNameGuess: null,
+            familyNameGuess: null,
+            genusNameGuess: null,
             confidenceScore: 0.8,
             varietyGuess: null,
             lifecycleStageGuess: null,
             acquisitionDateGuess: null,
+            estimatedAgeMonthsMin: 0,
+            estimatedAgeMonthsMax: 0,
           },
         },
       },

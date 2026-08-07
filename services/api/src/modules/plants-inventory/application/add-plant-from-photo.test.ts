@@ -37,7 +37,11 @@ const PROVIDER_KEY = 'vertex-ai-plant-species';
 
 /** Matches `SearchTaxonomyReferences.test.ts`'s own local-fake convention — no shared double exists for this narrow repository. */
 class FakeTaxonomyReferenceRepository implements TaxonomyReferenceRepository {
-  constructor(private readonly catalog: readonly TaxonomyReference[] = []) {}
+  private readonly catalog: TaxonomyReference[];
+
+  constructor(catalog: readonly TaxonomyReference[] = []) {
+    this.catalog = [...catalog];
+  }
 
   findById(id: string): Promise<TaxonomyReference | null> {
     return Promise.resolve(this.catalog.find((entry) => entry.id === id) ?? null);
@@ -54,6 +58,30 @@ class FakeTaxonomyReferenceRepository implements TaxonomyReferenceRepository {
 
   searchAcrossNames(): ReturnType<TaxonomyReferenceRepository['searchAcrossNames']> {
     throw new Error('not used by this test');
+  }
+
+  resolveProviderSuggestion(
+    suggestion: Parameters<TaxonomyReferenceRepository['resolveProviderSuggestion']>[0],
+  ): Promise<TaxonomyReference> {
+    const existing = this.catalog.find(
+      (entry) => entry.scientificName.toLowerCase() === suggestion.scientificName.toLowerCase(),
+    );
+    if (existing !== undefined) {
+      return Promise.resolve(existing);
+    }
+    const created: TaxonomyReference = {
+      id: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a2b',
+      scientificName: suggestion.scientificName,
+      commonName: suggestion.commonName,
+      varietyName: null,
+      family: null,
+      genus: null,
+      source: 'provider_sourced',
+      createdByProfileId: null,
+      createdAt: NOW,
+    };
+    this.catalog.push(created);
+    return Promise.resolve(created);
   }
 }
 
@@ -330,10 +358,14 @@ describe('AddPlantFromPhoto', () => {
       candidate: {
         commonName: 'Tomato',
         scientificNameGuess: 'Solanum lycopersicum',
+        familyNameGuess: 'Solanaceae',
+        genusNameGuess: 'Solanum',
         confidenceScore: 0.9,
         varietyGuess: null,
         lifecycleStageGuess: null,
         acquisitionDateGuess: null,
+        estimatedAgeMonthsMin: 2,
+        estimatedAgeMonthsMax: 4,
       },
     });
     const identifyPlantSpecies = identifyPlantSpeciesWith(adapter);
@@ -375,17 +407,21 @@ describe('AddPlantFromPhoto', () => {
     expect(identification?.confidenceScore).toBe(0.9);
   });
 
-  it('preserves the AI raw name guess when a confident candidate has no catalog match', async () => {
+  it('creates a provider-sourced taxonomy reference when a confident candidate has no catalog match', async () => {
     const fakes = fakesWithMedia();
     const adapter = new FakePlantSpeciesIdentificationProviderAdapter({
       kind: 'candidate',
       candidate: {
         commonName: 'Green ash',
         scientificNameGuess: 'Fraxinus pennsylvanica',
+        familyNameGuess: 'Oleaceae',
+        genusNameGuess: 'Fraxinus',
         confidenceScore: 0.88,
         varietyGuess: null,
         lifecycleStageGuess: null,
         acquisitionDateGuess: null,
+        estimatedAgeMonthsMin: 12,
+        estimatedAgeMonthsMax: 24,
       },
     });
     const identifyPlantSpecies = identifyPlantSpeciesWith(adapter);
@@ -408,9 +444,9 @@ describe('AddPlantFromPhoto', () => {
     );
 
     const identification = [...fakes.plantIdentifications.identifications.values()][0];
-    expect(identification?.suggestedTaxonomyId).toBeNull();
-    expect(identification?.suggestedCommonName).toBe('Green ash');
-    expect(identification?.suggestedScientificName).toBe('Fraxinus pennsylvanica');
+    expect(identification?.suggestedTaxonomyId).toBe('019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a2b');
+    expect(identification?.suggestedCommonName).toBeNull();
+    expect(identification?.suggestedScientificName).toBeNull();
     expect(identification?.confidenceScore).toBe(0.88);
   });
 
@@ -421,10 +457,14 @@ describe('AddPlantFromPhoto', () => {
       candidate: {
         commonName: 'Tomato',
         scientificNameGuess: 'Solanum lycopersicum',
+        familyNameGuess: 'Solanaceae',
+        genusNameGuess: 'Solanum',
         confidenceScore: 0.9,
         varietyGuess: 'Roma',
         lifecycleStageGuess: 'flowering',
         acquisitionDateGuess: '2026-05-01',
+        estimatedAgeMonthsMin: 2,
+        estimatedAgeMonthsMax: 4,
       },
     });
     const conditionAdapter = new FakePlantConditionAnalysisProviderAdapter({

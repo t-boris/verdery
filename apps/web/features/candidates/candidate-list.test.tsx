@@ -50,6 +50,7 @@ function candidate(id: string, displayName: string): PlantCandidate {
     priceCurrency: null,
     purchaseSource: null,
     alternativeToCandidateId: null,
+    photoAnalysis: null,
     revision: 1,
     createdByProfileId: 'profile-1',
     createdAt: '2026-07-21T09:00:00Z',

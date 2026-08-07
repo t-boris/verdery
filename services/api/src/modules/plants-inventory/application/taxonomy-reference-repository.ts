@@ -15,6 +15,13 @@ export interface TaxonomySearchResult {
   readonly matchedName: TaxonomyNameMatch | null;
 }
 
+export interface ProviderTaxonomySuggestion {
+  readonly scientificName: string;
+  readonly commonName: string;
+  readonly familyName: string;
+  readonly genusName: string;
+}
+
 export interface TaxonomyReferenceRepository {
   /**
    * A single reference by id, or `null` when unknown. P9D-SEASON-RULES-01's
@@ -61,4 +68,12 @@ export interface TaxonomyReferenceRepository {
    * table.
    */
   searchAcrossNames(query: string | null, limit: number): Promise<TaxonomySearchResult[]>;
+
+  /**
+   * Resolves a confident model suggestion to an existing canonical reference,
+   * or creates an explicitly provider-sourced reference when the reviewed
+   * catalog has no row for the scientific name. Attaching it to a real plant
+   * still requires the existing human confirmation step.
+   */
+  resolveProviderSuggestion(suggestion: ProviderTaxonomySuggestion): Promise<TaxonomyReference>;
 }

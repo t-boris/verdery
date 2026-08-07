@@ -462,6 +462,12 @@ export class FakeTaxonomyReferenceRepository implements TaxonomyReferenceReposit
   searchAcrossNames(): ReturnType<TaxonomyReferenceRepository['searchAcrossNames']> {
     throw new Error('not used by this test');
   }
+
+  resolveProviderSuggestion(): ReturnType<
+    TaxonomyReferenceRepository['resolveProviderSuggestion']
+  > {
+    throw new Error('not used by this test');
+  }
 }
 
 /** Keyed by `${taxonomyReferenceId}:${hemisphere}`, mirroring the real repository's own unique key — re-applies the SAME `horticulturally_reviewed` filter the real Kysely repository's SQL enforces, so a seeded `awaiting_horticultural_review` row is honestly invisible here too. */

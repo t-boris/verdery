@@ -41,6 +41,34 @@ export interface CandidatePurchaseFacts {
   readonly purchaseSource: string | null;
 }
 
+export interface CandidatePhotoConditionAnalysis {
+  readonly kind: 'stress' | 'disease' | 'pest' | 'other';
+  readonly label: string;
+  readonly confidenceScore: number;
+  readonly evidenceSummary: string;
+  readonly alternativeExplanations: readonly string[];
+  readonly safetyClass: 'informational' | 'monitor' | 'expert_review_recommended';
+  readonly requestedAdditionalEvidence: boolean;
+  readonly requestedViewPurposes: readonly string[];
+  readonly careGuidance: string;
+}
+
+/** Structured snapshot of every plant fact inferred from the candidate's primary photo. */
+export interface CandidatePhotoAnalysis {
+  readonly commonName: string;
+  readonly scientificName: string;
+  readonly familyName: string;
+  readonly genusName: string;
+  readonly varietyLabel: string | null;
+  readonly identificationConfidenceScore: number;
+  readonly estimatedAgeMonthsMin: number;
+  readonly estimatedAgeMonthsMax: number;
+  readonly lifecycleStage: string;
+  readonly estimatedAcquisitionDate: string | null;
+  readonly condition: CandidatePhotoConditionAnalysis | null;
+  readonly analyzedAt: string;
+}
+
 export interface PlantCandidate {
   readonly id: Uuid;
   readonly gardenId: Uuid;
@@ -59,6 +87,7 @@ export interface PlantCandidate {
   readonly purchaseSource: string | null;
   /** A single, deliberately narrow self-reference — see the migration's own header for why this is not a full alternatives-set model. */
   readonly alternativeToCandidateId: Uuid | null;
+  readonly photoAnalysis: CandidatePhotoAnalysis | null;
   readonly revision: number;
   readonly createdByProfileId: Uuid;
   readonly createdAt: Date;
@@ -103,6 +132,7 @@ export function createCandidate(
   alternativeToCandidateId: Uuid | null,
   createdByProfileId: Uuid,
   now: Date,
+  photoAnalysis: CandidatePhotoAnalysis | null = null,
 ): PlantCandidate {
   const validatedPurchaseFacts = validatePurchaseFacts(purchaseFacts);
   return {
@@ -122,9 +152,28 @@ export function createCandidate(
     priceCurrency: validatedPurchaseFacts.priceCurrency,
     purchaseSource: validatedPurchaseFacts.purchaseSource,
     alternativeToCandidateId,
+    photoAnalysis,
     revision: 1,
     createdByProfileId,
     createdAt: now,
+    updatedAt: now,
+  };
+}
+
+/** Replaces the latest AI snapshot atomically with the candidate fields derived from it. */
+export function applyCandidatePhotoAnalysis(
+  candidate: PlantCandidate,
+  analysis: CandidatePhotoAnalysis,
+  taxonomyReferenceId: Uuid,
+  now: Date,
+): PlantCandidate {
+  return {
+    ...candidate,
+    displayName: validateDisplayName(analysis.commonName),
+    taxonomyReferenceId,
+    varietyLabel: analysis.varietyLabel,
+    photoAnalysis: analysis,
+    revision: candidate.revision + 1,
     updatedAt: now,
   };
 }

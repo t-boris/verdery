@@ -6137,10 +6137,10 @@ export interface components {
          */
         PlantStatus: "active" | "dormant" | "archived" | "removed" | "dead";
         /**
-         * @description Whether a taxonomy reference was seeded independently of any profile, or defined by one.
+         * @description Whether a taxonomy reference was seeded independently, defined by a profile, or created from an unreviewed provider identification.
          * @enum {string}
          */
-        TaxonomySource: "system_catalog" | "user_defined";
+        TaxonomySource: "system_catalog" | "user_defined" | "provider_sourced";
         /**
          * @description Which name form matched a search query (P11-SEARCH-01). `accepted_scientific`/
          *     `common` represent a match against the taxonomy reference's own
@@ -6311,6 +6311,35 @@ export interface components {
         PlantCandidateStatus: "active" | "converted" | "archived" | "rejected";
         /** @enum {string} */
         PlantCandidatePriority: "low" | "medium" | "high";
+        CandidatePhotoConditionAnalysis: {
+            /** @enum {string} */
+            kind: "stress" | "disease" | "pest" | "other";
+            label: string;
+            confidenceScore: number;
+            evidenceSummary: string;
+            alternativeExplanations: string[];
+            /** @enum {string} */
+            safetyClass: "informational" | "monitor" | "expert_review_recommended";
+            requestedAdditionalEvidence: boolean;
+            requestedViewPurposes: string[];
+            careGuidance: string;
+        };
+        CandidatePhotoAnalysis: {
+            commonName: string;
+            scientificName: string;
+            familyName: string;
+            genusName: string;
+            varietyLabel: string | null;
+            identificationConfidenceScore: number;
+            estimatedAgeMonthsMin: number;
+            estimatedAgeMonthsMax: number;
+            /** @enum {string} */
+            lifecycleStage: "seed" | "seedling" | "transplanted" | "growing" | "flowering" | "fruiting" | "ready_to_harvest";
+            /** Format: date */
+            estimatedAcquisitionDate: string | null;
+            condition: components["schemas"]["CandidatePhotoConditionAnalysis"] | null;
+            analyzedAt: components["schemas"]["Timestamp"];
+        };
         PlantCandidate: {
             id: components["schemas"]["Uuid"];
             gardenId: components["schemas"]["Uuid"];
@@ -6329,6 +6358,8 @@ export interface components {
             purchaseSource: string | null;
             /** @description A single, deliberately narrow self-reference — not a full alternatives-set model. */
             alternativeToCandidateId: components["schemas"]["Uuid"] | null;
+            /** @description Complete structured result of the latest primary-photo analysis, or null for a manually created candidate. */
+            photoAnalysis: components["schemas"]["CandidatePhotoAnalysis"] | null;
             revision: components["schemas"]["Revision"];
             createdByProfileId: components["schemas"]["Uuid"];
             createdAt: components["schemas"]["Timestamp"];

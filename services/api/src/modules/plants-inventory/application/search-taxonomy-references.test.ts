@@ -37,6 +37,10 @@ class FakeTaxonomyReferenceRepository implements TaxonomyReferenceRepository {
       { reference: TOMATO, matchedName: { nameKind: 'common', nameText: 'Tomato', locale: null } },
     ]);
   }
+
+  resolveProviderSuggestion(): Promise<TaxonomyReference> {
+    throw new Error('not used by taxonomy search');
+  }
 }
 
 describe('SearchTaxonomyReferences', () => {

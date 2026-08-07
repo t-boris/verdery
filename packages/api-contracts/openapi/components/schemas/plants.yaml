@@ -33,8 +33,8 @@ PlantStatus:
 
 TaxonomySource:
   type: string
-  enum: [system_catalog, user_defined]
-  description: Whether a taxonomy reference was seeded independently of any profile, or defined by one.
+  enum: [system_catalog, user_defined, provider_sourced]
+  description: Whether a taxonomy reference was seeded independently, defined by a profile, or created from an unreviewed provider identification.
 
 TaxonomyNameKind:
   type: string

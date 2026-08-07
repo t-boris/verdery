@@ -40,6 +40,7 @@ export function buildCandidate(
     priceCurrency: null,
     purchaseSource: null,
     alternativeToCandidateId: null,
+    photoAnalysis: null,
     revision: 1,
     createdByProfileId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a99',
     createdAt: new Date('2026-07-01T00:00:00Z'),

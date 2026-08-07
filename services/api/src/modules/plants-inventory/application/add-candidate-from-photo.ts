@@ -25,10 +25,13 @@ import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type { GardenAuthorization } from '../../gardens-mapping/public.js';
-import type { IdentifyPlantSpecies, PlantPhotoReference } from '../../integrations/public.js';
+import type {
+  AnalyzePlantCondition,
+  IdentifyPlantSpecies,
+  PlantPhotoReference,
+} from '../../integrations/public.js';
 import { confidenceBucket } from './add-plant-from-photo.js';
 import {
-  candidateIdentificationNoMatchError,
   candidateIdentificationSourceNotReadyError,
   candidateMediaNotAvailableForAttachmentError,
   invalidCandidateMediaReferenceError,
@@ -37,7 +40,7 @@ import { toCandidateResource, type CandidateResource } from './candidate-view.js
 import { createCandidate } from '../domain/plant-candidate.js';
 import type { CandidatePlacement } from '../domain/plant-candidate.js';
 import { createPlantCandidatePhoto } from '../domain/plant-candidate-photo.js';
-import { identifyPlantFromPhoto } from './identify-plant-from-photo.js';
+import { analyzeCandidatePhoto } from './analyze-candidate-photo.js';
 import type { PlantsInventoryUnitOfWork } from './plants-inventory-unit-of-work.js';
 import { requireCandidatePlacementReferencesGardenObjects } from './require-candidate-placement-in-garden.js';
 import { runIdempotentCommand } from './run-idempotent-command.js';
@@ -69,6 +72,7 @@ export class AddCandidateFromPhoto {
     private readonly identifyPlantSpecies: IdentifyPlantSpecies,
     private readonly taxonomyReferences: TaxonomyReferenceRepository,
     private readonly logger: FastifyBaseLogger,
+    private readonly analyzePlantCondition: AnalyzePlantCondition,
   ) {}
 
   async execute(
@@ -125,46 +129,32 @@ export class AddCandidateFromPhoto {
           throw candidateIdentificationSourceNotReadyError();
         }
         const photoReference: PlantPhotoReference = analysisSource;
-        const suggestion = await identifyPlantFromPhoto(
+        const { analysis, taxonomyReferenceId } = await analyzeCandidatePhoto(
           this.identifyPlantSpecies,
+          this.analyzePlantCondition,
           this.taxonomyReferences,
           photoReference,
           this.logger,
+          now,
         );
-        if (suggestion.confidenceScore <= 0) {
-          throw candidateIdentificationNoMatchError();
-        }
 
         this.logger.info(
           {
             event: 'plants.candidate_identification_suggested',
-            hadCandidate: suggestion.confidenceScore > 0,
-            hasCatalogMatch: suggestion.suggestedTaxonomyId !== null,
-            confidenceBucket: confidenceBucket(suggestion.confidenceScore),
+            hadCandidate: true,
+            hasCatalogMatch: true,
+            confidenceBucket: confidenceBucket(analysis.identificationConfidenceScore),
           },
           'Photo-based species identification produced a suggestion for a new candidate.',
         );
-
-        const matchedReference =
-          suggestion.suggestedTaxonomyId !== null
-            ? await this.taxonomyReferences.findById(suggestion.suggestedTaxonomyId)
-            : null;
-        const displayName =
-          matchedReference?.commonName ??
-          matchedReference?.scientificName ??
-          suggestion.suggestedCommonName;
-
-        if (displayName === null) {
-          throw candidateIdentificationNoMatchError();
-        }
 
         const candidate = createCandidate(
           input.candidateId ?? generateUuidV7(),
           gardenId,
           placement,
-          displayName,
-          suggestion.suggestedTaxonomyId,
-          suggestion.suggestedVarietyLabel,
+          analysis.commonName,
+          taxonomyReferenceId,
+          analysis.varietyLabel,
           'individual',
           undefined,
           null,
@@ -173,6 +163,7 @@ export class AddCandidateFromPhoto {
           null,
           profileId,
           now,
+          analysis,
         );
         await context.candidates.insert(candidate);
 
