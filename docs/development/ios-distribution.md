@@ -481,12 +481,20 @@ Ordered by how much they matter.
    `CoreMediaTransfer.PhotoPreparation` strips it, and reduces an oversized capture to a 2048-pixel
    longest edge on the same pass — which also stops the identification provider refusing a
    thirty-megabyte original with a bare `400` that a person reads as "no species found".
-5. **Push notifications are declared nowhere because the client implements nothing.** `P7-NOTIF-02`
-   built server-side device registration, but `apps/ios/Sources/` contains no
-   `UNUserNotificationCenter`, no `registerForRemoteNotifications`, and no `FirebaseMessaging`. The
-   app has no `aps-environment` entitlement, correctly. When the client half is built, the entitlement
-   and a `UIBackgroundModes` entry must be added to `project.yml` and the App ID's push capability
-   enabled in the developer portal.
+5. **Push notifications are implemented; one portal action remains.** `project.yml` declares the
+   `aps-environment` entitlement (`development` locally) and the `remote-notification` background
+   mode, and `scripts/archive-and-upload.sh` rewrites the entitlement to `production` before
+   archiving — it is a plist entry, not a build setting, so an `xcodebuild` override cannot reach
+   it. Getting that value wrong fails **silently**: the app registers a token APNs never delivers
+   to and nothing reports an error, which is why the rewrite is a script step rather than a
+   convention.
+
+   **Owner action, not a code change:** the App ID `com.verdery.app` needs the Push Notifications
+   capability enabled in the developer portal, and an APNs authentication key uploaded to the
+   Firebase project, before any real device receives a push. Until then the client registers
+   nothing (no token is issued) and every notification screen still works — the inbox is the
+   durable record and push only announces it.
+
 6. **App Check was not provisioned for `verdery-dev` during this inventory.**
    `firebaseappcheck.googleapis.com` was enabled on July 27, 2026, and the web
    reCAPTCHA provider was registered. Native enforcement is still blocked:

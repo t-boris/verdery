@@ -49,3 +49,14 @@ public struct TodaySeasonalPlanRoute: Hashable, Sendable {
         self.gardenId = gardenId
     }
 }
+
+/// The notification inbox, pushed onto Today's own stack.
+///
+/// Not a sixth tab and not a toolbar slot on all five: the inbox is mostly
+/// about care recommendations — the two entries this server produces are a new
+/// recommendation and a finished export — and Today is where a recommendation
+/// is acted on. Reaching it from anywhere else would be reaching past the thing
+/// it is about.
+public struct TodayNotificationsRoute: Hashable, Sendable {
+    public init() {}
+}

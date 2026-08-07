@@ -32,8 +32,24 @@ public struct TodayView: View {
             // Its own task: conditions are a separate read that fails
             // separately, and the list must not wait on them.
             .task { await model.conditions?.load(gardenId: model.gardenId) }
+            // The badge's own read, separate again: a failing inbox leaves an
+            // unbadged bell rather than a wrong number.
+            .task { await model.notifications?.load() }
             .navigationDestination(for: TodayItemDetailRoute.self) { route in
                 TodayItemDetailView(model: model, itemId: route.itemId)
+            }
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    NavigationLink(value: TodayNotificationsRoute()) {
+                        // The badge is what makes this worth a slot: a bell
+                        // that never changes is furniture, and one that says
+                        // "three" is a reason to press it.
+                        Label(model.notificationsTitle, systemImage: "bell")
+                            .labelStyle(.iconOnly)
+                    }
+                    .badge(model.unreadNotificationCount)
+                    .accessibilityIdentifier("today.notifications")
+                }
             }
     }
 

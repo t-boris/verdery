@@ -44,7 +44,9 @@ public final class AppCompositionRoot {
     // `seasonalPlanGateway` below is `let`.
     let mapGateway: any MapGateway
     let plantGateway: any PlantGateway
-    private let observationGateway: any ObservationGateway
+    /// `let`: read by `AppCompositionRoot+Observations.swift`'s factories,
+    /// the same reason `plantGateway` is.
+    let observationGateway: any ObservationGateway
     // `let`, not `private let`: read by `AppCompositionRoot+Candidates.swift`'s
     // factories, the same reason `plantGateway` above is `let`.
     let plantCandidateGateway: any PlantCandidateGateway
@@ -68,6 +70,9 @@ public final class AppCompositionRoot {
     /// `AppCompositionRoot+Plants.swift`'s factory, a same-type extension in
     /// another file, which `private` (a file scope) would exclude.
     let weatherGateway: any WeatherGateway
+    /// The notification inbox, its preferences, and this device's push
+    /// channel. `let`: read by `AppCompositionRoot+Notifications.swift`.
+    let notificationGateway: any NotificationGateway
     // The Seasonal plan and Context quality surfaces (P9D-UX-01) — same
     // scope as `recommendationGateway` immediately above: both are ONLINE,
     // gateway-backed capabilities with no local read-model table (see each
@@ -94,6 +99,12 @@ public final class AppCompositionRoot {
     // `let` for the same reason `syncGateway` above is: `makeSyncEngine()`
     // now lives in a same-type extension in another file.
     let clientInstallationStore: any ClientInstallationIdentityStore
+    /// This installation's FCM registration token, behind a protocol so no
+    /// target above `CoreAuthentication` imports a Firebase SDK.
+    let pushTokenProvider: any PushTokenProvider
+    /// One per process. Permission and registration are device facts, and iOS
+    /// grants a permission prompt exactly once.
+    public let pushRegistration: PushRegistrationController
     // Module-internal, not `private`: read by the per-profile store
     // factories in `AppCompositionRoot+LocalStores.swift`, and — for the two
     // below — by the account screen's factory in `AccountEntryPoint.swift`.
@@ -125,6 +136,20 @@ public final class AppCompositionRoot {
     /// Called once the shell has opened it, so a stale link cannot re-fire.
     public func clearPendingPlantLink() {
         pendingPlantLink = nil
+    }
+
+    /// A tapped notification, waiting for the shell in exactly the same way and
+    /// for exactly the same reason: it may need a sign-in or a garden switch
+    /// before its destination can be shown.
+    public internal(set) var pendingNotificationLink: NotificationDeepLink?
+
+    /// Records a tapped notification's destination.
+    public func openNotificationDeepLink(_ deepLink: NotificationDeepLink) {
+        pendingNotificationLink = deepLink
+    }
+
+    public func clearPendingNotificationLink() {
+        pendingNotificationLink = nil
     }
 
     /// The two synchronization triggers `RootScene` used to document as
@@ -298,6 +323,13 @@ public final class AppCompositionRoot {
             appCheckTokenProvider: appCheckTokenProvider,
             log: log
         )
+        self.notificationGateway = URLSessionNotificationGateway(
+            configuration: configuration,
+            session: session,
+            authTokenProvider: tokenProvider,
+            appCheckTokenProvider: appCheckTokenProvider,
+            log: log
+        )
         // Weather is garden context: an ordinary `viewGarden` read of what
         // the scheduled sweep already fetched, never a call to a provider.
         self.weatherGateway = URLSessionWeatherGateway(
@@ -387,6 +419,18 @@ public final class AppCompositionRoot {
             log.record(.error, "Could not open the client installation id file; falling back to an in-memory store.")
             self.clientInstallationStore = InMemoryClientInstallationIdentityStore()
         }
+
+        // The real provider on a device; a no-op on the headless macOS build
+        // and in tests, where no APNs exists and absence of a token is an
+        // ordinary state rather than a failure.
+        let pushTokens: any PushTokenProvider = FirebasePushTokenProvider()
+        self.pushTokenProvider = pushTokens
+        self.pushRegistration = PushRegistrationController(
+            gateway: self.notificationGateway,
+            installationStore: self.clientInstallationStore,
+            strings: strings,
+            currentPushToken: { await pushTokens.currentPushToken() }
+        )
 
         // Eager, app-lifetime construction — see `mediaUploadTransport`'s
         // and `mediaUploadCoordinator`'s own doc comments above for why.
@@ -481,70 +525,6 @@ public final class AppCompositionRoot {
             listGardenPlanMedia: ListGardenPlanMedia(gateway: mediaGateway),
             loadPlanBackgroundImage: LoadPlanBackgroundImage(gateway: mediaGateway),
             strings: strings
-        )
-    }
-
-    public func makeObservationsTimelineViewModel(gardenId: String) -> ObservationsTimelineViewModel {
-        let store = localObservationStore()
-        let profileId = currentProfileIdentifier()
-
-        return ObservationsTimelineViewModel(
-            gardenId: gardenId,
-            recordObservation: RecordObservation(localStore: store, profileId: profileId),
-            listObservationsForGarden: ListObservationsForGarden(gateway: observationGateway, localStore: store),
-            listObservationsForPlant: ListObservationsForPlant(gateway: observationGateway),
-            correctObservation: CorrectObservation(localStore: store, profileId: profileId),
-            setHealthSuggestionDisposition: SetHealthSuggestionDisposition(gateway: observationGateway),
-            strings: strings,
-            // P6-IOS-01: real background-capable upload capability for the
-            // record-observation form's photo attachment — see
-            // `makePhotoAttachmentController`'s own doc comment.
-            photoAttachment: makePhotoAttachmentController(gardenId: gardenId, mediaClass: .gardenPhoto)
-        )
-    }
-
-    /// One plant's journal sequence (P11-MEDIA-01): the frames read straight
-    /// from the server, and the media gateway each frame's signed URL is
-    /// resolved through — the same pair `makePlantDetailViewModel`'s own photo
-    /// gallery already uses.
-    public func makePlantJournalViewModel(gardenId: String, plantId: String) -> PlantJournalViewModel {
-        PlantJournalViewModel(
-            gardenId: gardenId,
-            plantId: plantId,
-            listPlantJournalFrames: ListPlantJournalFrames(gateway: observationGateway),
-            mediaGateway: mediaGateway,
-            strings: strings
-        )
-    }
-
-    /// The garden's property-plan upload screen (P6-PLAN iOS parity):
-    /// the shared attachment controller with `media_class: 'imported_plan'`
-    /// — the same background upload session as every photo attachment —
-    /// plus the media gateway the processed plan's derivative preview is
-    /// resolved through.
-    public func makeGardenPlanUploadViewModel(gardenId: String) -> GardenPlanUploadViewModel {
-        GardenPlanUploadViewModel(
-            gardenId: gardenId,
-            attachment: makePhotoAttachmentController(gardenId: gardenId, mediaClass: .importedPlan),
-            mediaGateway: mediaGateway,
-            strings: strings
-        )
-    }
-
-    /// One fresh `PhotoAttachmentController` per screen (unlike
-    /// `mediaUploadCoordinator` itself, this IS cheap and safe to construct
-    /// per call — it holds no background session, only a subscription to
-    /// the one shared coordinator's per-transfer update stream, torn down
-    /// naturally once the screen's own view model is released) — wired to
-    /// the single shared `mediaUploadCoordinator`, so every attachment
-    /// still funnels through the one real background upload session
-    /// regardless of which screen started it.
-    func makePhotoAttachmentController(gardenId: String, mediaClass: MediaClass) -> PhotoAttachmentController {
-        PhotoAttachmentController(
-            coordinator: mediaUploadCoordinator,
-            gardenId: gardenId,
-            profileId: currentProfileIdentifier(),
-            mediaClass: mediaClass
         )
     }
 

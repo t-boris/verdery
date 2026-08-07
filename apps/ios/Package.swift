@@ -96,13 +96,11 @@ let package = Package(
             dependencies: ["CoreDomain", "CoreObservability"]
         ),
 
-        // The only target that imports FirebaseAuth, FirebaseAppCheck, or
-        // GoogleSignIn. Exposes `AuthTokenProvider` and `AppCheckTokenProvider`
-        // (both declared in CoreDomain) so CoreNetworking depends on those
-        // protocols, never on this target or on an SDK directly.
-        //
-        // Source: architecture/ios-application-design.md, section "21. Dependency Rules" ("Firebase
-        // ... types remain inside adapters or feature infrastructure").
+        // The only target that imports a Firebase SDK or GoogleSignIn. Exposes
+        // `AuthTokenProvider`/`AppCheckTokenProvider` (declared in CoreDomain)
+        // and `PushTokenProvider`, so every other target depends on those
+        // protocols and never on an SDK. Source: ios-application-design.md,
+        // section "21. Dependency Rules".
         .target(
             name: "CoreAuthentication",
             dependencies: [
@@ -110,6 +108,8 @@ let package = Package(
                 "CoreObservability",
                 .product(name: "FirebaseAuth", package: "firebase-ios-sdk"),
                 .product(name: "FirebaseAppCheck", package: "firebase-ios-sdk"),
+                // The FCM registration token, behind `PushTokenProvider`.
+                .product(name: "FirebaseMessaging", package: "firebase-ios-sdk"),
                 // iOS only: the SDK's sign-in flow is `TARGET_OS_IOS`-only, and
                 // the headless macOS build this package keeps ships no product.
                 .product(name: "GoogleSignIn", package: "GoogleSignIn-iOS", condition: .when(platforms: [.iOS])),

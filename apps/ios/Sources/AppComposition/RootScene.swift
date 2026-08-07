@@ -108,8 +108,20 @@ public struct RootView: View {
         // site keeps the rule where the state lives, and makes it hold for
         // every way a session can end, including one Firebase ends itself.
         .onChange(of: composition.sessionObserver.isSignedIn) { _, isSignedIn in
-            guard !isSignedIn else { return }
+            guard !isSignedIn else {
+                // A push channel belongs to a profile, not to a device. Signing
+                // in re-registers this installation's token so a channel that
+                // an earlier sign-out removed comes back, and one a provider
+                // verdict disabled is reactivated.
+                Task { await composition.pushRegistration.registerCurrentToken() }
+                return
+            }
             selectedGarden = nil
+            // The channel goes with the session. The installation identity
+            // stays, because the next person to sign in here is still this
+            // phone — and leaving a live channel behind would push one
+            // profile's suggestions at whoever signs in next.
+            Task { await composition.pushRegistration.unregister() }
         }
     }
 

@@ -93,6 +93,15 @@ public enum JSONValue: Codable, Equatable, Sendable {
         guard case let .object(fields) = self else { return nil }
         return fields[key]
     }
+
+    /// This value's own fields when it is an object, and an empty dictionary
+    /// otherwise — used for a notification's structured template parameters,
+    /// where a non-object is a server contract break the client renders
+    /// through its generic fallback rather than crashing on.
+    public var fields: [String: JSONValue] {
+        guard case let .object(fields) = self else { return [:] }
+        return fields
+    }
 }
 
 public extension JSONValue {

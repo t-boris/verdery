@@ -23,16 +23,26 @@ public struct ProfileView: View {
     /// learn about databases or media files.
     private let makeDeleteModel: (() -> DeleteAccountViewModel)?
     private let makeExportModel: (() -> ExportViewModel)?
+    private let makeNotificationsModel: (() -> NotificationPreferencesViewModel)?
+    /// The device's push channel. A single long-lived controller, because
+    /// permission and registration are device facts and iOS grants a
+    /// permission prompt exactly once.
+    private let pushRegistration: PushPermissionPresenting?
     @State private var isExportPresented = false
+    @State private var isNotificationsPresented = false
 
     public init(
         model: ProfileViewModel,
         makeDeleteModel: (() -> DeleteAccountViewModel)? = nil,
-        makeExportModel: (() -> ExportViewModel)? = nil
+        makeExportModel: (() -> ExportViewModel)? = nil,
+        makeNotificationsModel: (() -> NotificationPreferencesViewModel)? = nil,
+        pushRegistration: PushPermissionPresenting? = nil
     ) {
         _model = State(wrappedValue: model)
         self.makeDeleteModel = makeDeleteModel
         self.makeExportModel = makeExportModel
+        self.makeNotificationsModel = makeNotificationsModel
+        self.pushRegistration = pushRegistration
     }
 
     public var body: some View {
@@ -40,6 +50,7 @@ public struct ProfileView: View {
             VStack(alignment: .leading, spacing: Metrics.space5) {
                 identityCard
                 aboutSection
+                notificationsSection
                 exportSection
                 signOutSection
                 deleteAccountSection
@@ -113,6 +124,29 @@ public struct ProfileView: View {
                             tone: .neutral
                         )
                     }
+                }
+            }
+        }
+    }
+
+    /// Above export and deletion, because it is the one somebody opens on
+    /// purpose rather than once ever.
+    @ViewBuilder
+    private var notificationsSection: some View {
+        if let makeNotificationsModel {
+            Button {
+                isNotificationsPresented = true
+            } label: {
+                Label(model.notificationsTitle, systemImage: "bell")
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .accessibilityIdentifier("profile.notifications")
+            .sheet(isPresented: $isNotificationsPresented) {
+                NotificationPreferencesView(
+                    model: makeNotificationsModel(),
+                    pushRegistration: pushRegistration
+                ) {
+                    isNotificationsPresented = false
                 }
             }
         }

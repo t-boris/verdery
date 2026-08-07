@@ -1096,3 +1096,53 @@
 "care.dueBy" = "До {time}";
 "care.gardenRainfallNote" = "Измерено над садом, а не у этого растения. Это тот же ряд, который читает проверка полива.";
 "care.openAction" = "Открыть";
+
+/* Долговременный список уведомлений. Запись создаётся в момент появления
+   события — до и независимо от попытки отправить push, — поэтому список верен
+   даже когда push не дошёл или не был разрешён. */
+"notifications.title" = "Уведомления";
+"notifications.emptyTitle" = "Ничего не ждёт";
+"notifications.emptyMessage" = "Здесь появятся новые подсказки и готовые архивы.";
+"notifications.offline" = "Для списка нужна связь.";
+"notifications.retry" = "Повторить";
+"notifications.markRead" = "Отметить прочитанным";
+"notifications.dismiss" = "Убрать";
+"notifications.unreadBadge" = "{count} непрочитанных";
+"notifications.loadMore" = "Показать старые";
+"notifications.expires" = "До {time}";
+"notifications.template.careRecommendation.title" = "Новая подсказка";
+"notifications.template.careRecommendation.body" = "В этом саду что-то требует внимания. Срочность: {urgency}.";
+"notifications.template.exportReady.title" = "Архив готов";
+"notifications.template.exportReady.body" = "Копию ваших данных можно скачать, пока не истечёт ссылка.";
+"notifications.template.generic.title" = "Что-то новое";
+"notifications.template.generic.body" = "Эта версия приложения пока не умеет это описывать. Открыть всё равно можно.";
+"notifications.urgency.low" = "низкая";
+"notifications.urgency.normal" = "обычная";
+"notifications.urgency.high" = "высокая";
+"notifications.urgency.urgent" = "срочная";
+
+/* Настройки уведомлений. */
+"notificationPreferences.title" = "Уведомления";
+"notificationPreferences.open" = "Настройки уведомлений";
+"notificationPreferences.explanation" = "Список уведомлений хранит запись всегда. Эти настройки определяют, что дополнительно придёт как push и когда push не приходит.";
+"notificationPreferences.inApp" = "Хранить в списке";
+"notificationPreferences.inAppHint" = "Если выключить, для этого типа не сохранится вообще ничего.";
+"notificationPreferences.push" = "Присылать push";
+"notificationPreferences.pushHint" = "Придёт на телефон, даже когда приложение закрыто.";
+"notificationPreferences.quietHours" = "Тихие часы";
+"notificationPreferences.quietHoursHint" = "Внутри этого окна push не отправляется. Список получает всё, поэтому ничего не теряется.";
+"notificationPreferences.quietWindow" = "с {start} до {end}";
+"notificationPreferences.type.careRecommendation" = "Подсказки по уходу";
+"notificationPreferences.type.exportReady" = "Готовые архивы";
+"notificationPreferences.save" = "Сохранить";
+"notificationPreferences.saved" = "Сохранено.";
+"notificationPreferences.conflict" = "Настройки изменились в другом месте. Ваша версия не сохранена — откройте экран заново, чтобы увидеть текущие.";
+"notificationPreferences.failed" = "Сохранить настройки не удалось. Ничего не изменилось.";
+
+/* Системное разрешение на push — описано тем, чем оно является. */
+"push.permissionTitle" = "Push-уведомления";
+"push.permissionExplanation" = "Push — это ускоритель, а не канал: всё сохраняется в списке независимо от того, разрешите вы его или нет.";
+"push.permissionAsk" = "Разрешить push";
+"push.permissionDenied" = "Push для приложения выключен в настройках iOS. На список это не влияет.";
+"push.permissionGranted" = "Push включён для этого устройства.";
+"push.openSettings" = "Открыть настройки";

@@ -68,6 +68,11 @@ public final class TodayViewModel {
     /// weather gateway simply omits the panel, and separate from this model's
     /// own state so a weather failure cannot take the list down with it.
     public let conditions: ConditionsController?
+    /// The inbox's unread count, for the bell's badge. Optional and separately
+    /// loaded, so a failing inbox read leaves an unbadged bell rather than a
+    /// wrong number — an overstated count sends somebody looking for something
+    /// that is not there.
+    public let notifications: NotificationInboxViewModel?
 
     /// Module-internal, not `private`: read by
     /// `TodayViewModelActions.swift`'s `performItemAction` for the revision
@@ -85,7 +90,8 @@ public final class TodayViewModel {
         markRecommendationIrrelevant: MarkRecommendationIrrelevant,
         convertRecommendationToTask: ConvertRecommendationToTask,
         strings: LocalizedStrings,
-        conditions: ConditionsController? = nil
+        conditions: ConditionsController? = nil,
+        notifications: NotificationInboxViewModel? = nil
     ) {
         self.gardenId = gardenId
         self.loadToday = loadToday
@@ -96,6 +102,7 @@ public final class TodayViewModel {
         self.convertRecommendationToTask = convertRecommendationToTask
         self.strings = strings
         self.conditions = conditions
+        self.notifications = notifications
     }
 
     /// The Seasonal plan card's title/subtitle (P9D-UX-01) — resolved from
@@ -135,6 +142,9 @@ public final class TodayViewModel {
     public var convertedMessage: String? {
         convertedTask.map { strings.string(.todayConvertedMessage, parameters: ["title": $0.title]) }
     }
+
+    public var notificationsTitle: String { strings(.notificationsTitle) }
+    public var unreadNotificationCount: Int { notifications?.unreadCount ?? 0 }
 
     public func load() async {
         if lastResult == nil {

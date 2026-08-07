@@ -73,6 +73,15 @@ struct GardenTabView: View {
             Tab(strings(.shellTabToday), systemImage: "sun.max.fill", value: 0) {
                 stack {
                     TodayView(model: composition.makeTodayViewModel(gardenId: gardenId))
+                        // The durable inbox. Reachable with push refused or
+                        // never asked for, because the inbox is the record and
+                        // push only announces it.
+                        .navigationDestination(for: TodayNotificationsRoute.self) { _ in
+                            NotificationInboxView(
+                                model: composition.makeNotificationInboxViewModel(),
+                                open: { composition.openNotificationDeepLink($0) }
+                            )
+                        }
                         .navigationDestination(for: TodayTasksRoute.self) { _ in
                             TasksListView(model: composition.makeTasksListViewModel(gardenId: gardenId))
                         }

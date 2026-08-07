@@ -21,7 +21,8 @@ extension AppCompositionRoot {
             conditions: ConditionsController(
                 getWeather: FeatureRecommendations.GetGardenWeather(gateway: weatherGateway),
                 strings: strings
-            )
+            ),
+            notifications: makeNotificationInboxViewModel()
         )
     }
 }

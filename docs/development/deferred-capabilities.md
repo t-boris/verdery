@@ -552,11 +552,18 @@ moved), and the Stage 23 freshness classification — before any FCM send throug
 messaging surface. Invalid/unregistered token verdicts disable the device record idempotently;
 transients retry under a bounded backoff budget; the P7-NOTIF-01 at-scale `pending -> expired`
 close now runs in this sweep. What remains open, honestly:
-(1) **Client-side FCM wiring** — no client obtains or registers a token yet: the iOS app needs
-APNs entitlements, Firebase Messaging SDK integration, token registration against the new contract
-ops, and foreground/background presentation of the data-only payload (the server sends
-`content-available` data messages; visible-notification presentation is the client's rendering
-decision, locale-late); the web app needs a service worker plus the same registration calls.
+(1) **Client-side FCM wiring — closed on iOS, still open on web.** The iOS app now carries the
+`aps-environment` entitlement and the `remote-notification` background mode, links
+`FirebaseMessaging` behind `CoreAuthentication.PushTokenProvider` (so no target above it imports a
+Firebase SDK), hands APNs its device token explicitly rather than through SDK swizzling, and
+registers the installation against `PUT /notification-devices/{id}` keyed by the same durable
+installation id synchronization already mints. The data-only payload is presented by
+`AppComposition.PushRelay`: it reads the inbox the push announced, renders the entry through
+`CoreLocalization.NotificationPresentation` in the reader's own language, and posts a local
+notification carrying the deep link — locale-late, exactly as designed, and with an unknown
+template key falling back generically rather than showing a raw key. Permission is asked for from
+one button on the notification settings screen and never at launch, because iOS grants the prompt
+once. The web app still needs a service worker plus the same registration calls.
 (2) **Live FCM send verification** — deliberately unverifiable today: no real device token exists
 anywhere (no app installs), so the FCM edge is proven at the port boundary
 (`FakePushMessageSender` + the adapter's classification tests over constructed SDK error shapes);
@@ -565,8 +572,13 @@ the first client stage that registers a real token is where a live push is first
 `earliest_delivery_at`'s own minute granularity; a per-intent Cloud Task is a recorded refinement
 if delivery precision ever needs to be finer (notifications.md section 9).
 Still open from P7-NOTIF-01's own list: the one-type vocabulary (`care_recommendation`; P9 brings
-publication/invitation types, email, and opt-out classification), digest behavior (not offered),
-and the client inbox UI.
+publication/invitation types, email, and opt-out classification) and digest behavior (not offered).
+**The client inbox UI is closed on iOS**: `FeatureRecommendations.NotificationInboxView` (reached
+from a badged bell on Today, because the inbox is mostly about recommendations) and
+`FeatureAuthentication.NotificationPreferencesView` (account-scoped, editing the global rows plus
+quiet hours). Both work with push refused or never asked for — the inbox is written when the intent
+is created, before any delivery attempt, and every screen says so rather than implying push is the
+channel.
 
 **Offline Today actions in the sync protocol — decided by P7-IOS-01: not built.** The P7-BE-01
 recommendation commands are deliberately NOT routed through `POST /v1/sync/push`: recommendations

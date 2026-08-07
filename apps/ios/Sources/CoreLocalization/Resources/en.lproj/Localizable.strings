@@ -1097,3 +1097,53 @@
 "care.dueBy" = "By {time}";
 "care.gardenRainfallNote" = "Measured over the garden, not at this plant. It is the same series the watering check reads.";
 "care.openAction" = "Open";
+
+/* The durable notification inbox. Written when the intent is created, before
+   and independent of any push attempt, so it is correct even when push fails
+   or was never permitted. */
+"notifications.title" = "Notifications";
+"notifications.emptyTitle" = "Nothing waiting";
+"notifications.emptyMessage" = "New suggestions and finished exports appear here.";
+"notifications.offline" = "The inbox needs a connection.";
+"notifications.retry" = "Try again";
+"notifications.markRead" = "Mark as read";
+"notifications.dismiss" = "Dismiss";
+"notifications.unreadBadge" = "{count} unread";
+"notifications.loadMore" = "Show older";
+"notifications.expires" = "Until {time}";
+"notifications.template.careRecommendation.title" = "A new suggestion";
+"notifications.template.careRecommendation.body" = "Something in this garden wants attention. Urgency: {urgency}.";
+"notifications.template.exportReady.title" = "Your package is ready";
+"notifications.template.exportReady.body" = "The copy of your data you asked for can be downloaded until the link expires.";
+"notifications.template.generic.title" = "Something new";
+"notifications.template.generic.body" = "This version of the application does not know how to describe this yet. Opening it still works.";
+"notifications.urgency.low" = "low";
+"notifications.urgency.normal" = "normal";
+"notifications.urgency.high" = "high";
+"notifications.urgency.urgent" = "urgent";
+
+/* Notification preferences. */
+"notificationPreferences.title" = "Notifications";
+"notificationPreferences.open" = "Notification settings";
+"notificationPreferences.explanation" = "The inbox always keeps a record. These settings control what also reaches you as a push, and when it may not.";
+"notificationPreferences.inApp" = "Keep in the inbox";
+"notificationPreferences.inAppHint" = "Turning this off means no record is kept for this kind at all.";
+"notificationPreferences.push" = "Send as a push";
+"notificationPreferences.pushHint" = "Reaches your phone while the application is closed.";
+"notificationPreferences.quietHours" = "Quiet hours";
+"notificationPreferences.quietHoursHint" = "No push is sent inside this window. The inbox still receives everything, so nothing is lost.";
+"notificationPreferences.quietWindow" = "{start} to {end}";
+"notificationPreferences.type.careRecommendation" = "Care suggestions";
+"notificationPreferences.type.exportReady" = "Finished exports";
+"notificationPreferences.save" = "Save";
+"notificationPreferences.saved" = "Saved.";
+"notificationPreferences.conflict" = "These settings changed elsewhere. Your version was not saved — reopen the screen to see the current ones.";
+"notificationPreferences.failed" = "The settings could not be saved. Nothing changed.";
+
+/* The system push permission, described for what it actually does. */
+"push.permissionTitle" = "Push notifications";
+"push.permissionExplanation" = "Push is an accelerator, not the channel: everything is kept in the inbox whether you allow this or not.";
+"push.permissionAsk" = "Allow push";
+"push.permissionDenied" = "Push is switched off for this application in iOS Settings. The inbox is unaffected.";
+"push.permissionGranted" = "Push is on for this device.";
+"push.openSettings" = "Open Settings";

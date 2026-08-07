@@ -115,6 +115,11 @@ targets:
           - com.verdery.app.sync
         UIBackgroundModes:
           - processing
+          # The server sends DATA-ONLY pushes, so iOS displays nothing on its
+          # own and this application must wake to render the banner in the
+          # reader's language. Without this mode the push is delivered only
+          # when the application is already open, which defeats the point.
+          - remote-notification
         # Landscape is DECLARED here but allowed at runtime on one screen
         # only. An orientation absent from this list can never be entered, so
         # the map — where a wide canvas is worth real estate — needs it
@@ -179,6 +184,13 @@ targets:
       properties:
         com.apple.developer.applesignin:
           - Default
+        # Push. `development` is the local-build default; scripts/
+        # archive-and-upload.sh rewrites this one key to `production` in the
+        # generated entitlements before it archives, because this is a plist
+        # entry and not a build setting — an `xcodebuild` override cannot
+        # reach it. Getting it wrong fails silently: the app registers a token
+        # APNs simply never delivers to.
+        aps-environment: development
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.verdery.app

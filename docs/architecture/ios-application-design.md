@@ -357,6 +357,51 @@ Attribution is rendered verbatim whenever a reading is displayed — a licence
 obligation carried on the record itself, snapshotted at fetch time, not a
 courtesy. [Source: architecture/external-integrations.md, section "5. Weather"]
 
+### 14.3 Notifications
+
+The inbox is the channel; push only announces it. A notification intent writes
+its inbox row when it is created, before and independent of any delivery
+attempt, so every notification surface works for somebody who refused push, has
+no signal, or is on a build with no APNs entitlement. Nothing in this
+application blocks on push permission and nothing asks for it at launch — the
+prompt is raised from one button on the notification settings screen, because
+iOS grants it exactly once and a prompt shown before its value is demonstrated
+is the prompt people refuse permanently.
+
+**Where the surfaces live.** The inbox is reached from a badged bell on Today,
+because that is what it is mostly about: the two entries this server produces
+are a new care recommendation, whose deep link opens Today, and a finished
+export. Preferences are account-scoped and sit with the account, reachable from
+every screen including the gardens list where no garden is chosen; only the
+global per-type rows and quiet hours are edited there, because a per-garden
+override is a garden-scoped decision.
+
+**The payload is data-only.** The server sends `content-available` with a
+notification id and a template key, and deliberately no `notification` block, so
+iOS displays nothing on its own. `AppComposition.PushRelay` reads the inbox the
+push announced, renders the entry in the reader's own language, and posts a
+local notification carrying the deep link. That is what "the client renders in
+the recipient's locale as late as practical" means in practice: the intent was
+written days earlier on a machine that did not know the recipient's locale.
+
+**Open vocabularies stay open.** An unknown `notificationType`, `templateKey`,
+or deep-link `kind` renders through a generic fallback rather than failing to
+decode or showing raw machine text. A new server type must never break a shipped
+client, and "something arrived that this version cannot name" is a far better
+outcome than a crash or a blank.
+
+**Absence is meaningful in preferences.** A type/garden combination with no
+entry defaults to every channel enabled. A client that read a missing row as
+"off" would silently mute somebody who never chose to be muted, so the screen is
+built from a known type list and the document is replaced whole.
+
+The FCM token is a secret: it is fetched behind `CoreAuthentication
+.PushTokenProvider`, handed to one registration request, and never logged,
+echoed, or stored anywhere on the device but Firebase's own keychain entry. No
+target above `CoreAuthentication` imports a Firebase SDK.
+[Source: architecture/notifications.md, sections "6. Device Tokens",
+"8. Localization", "11. Deep Links", and "12. In-App Inbox"]
+
 ## 15. Concurrency
 
 - Swift structured concurrency is the default asynchronous model.

@@ -158,6 +158,19 @@ log "Archiving ${SCHEME} (${CONFIGURATION}) — bundle ${BUNDLE_ID}, build ${BUI
 rm -rf "${ARCHIVE_PATH}" "${EXPORT_PATH}"
 mkdir -p "${BUILD_DIR}"
 
+# APNs environment. `aps-environment` is an entitlements plist entry, not a
+# build setting, so it cannot be overridden with an xcodebuild argument the way
+# every other per-invocation value above is. project.yml keeps `development` as
+# the local-build default and this rewrites the generated file to `production`
+# for the archive. Silent if wrong: the app registers a token APNs never
+# delivers to, and nothing anywhere reports an error.
+ENTITLEMENTS_PATH="${IOS_ROOT}/Generated/Verdery.entitlements"
+if [[ -f "${ENTITLEMENTS_PATH}" ]]; then
+  log "Setting aps-environment=production in ${ENTITLEMENTS_PATH}"
+  /usr/libexec/PlistBuddy -c "Set :aps-environment production" "${ENTITLEMENTS_PATH}" \
+    || /usr/libexec/PlistBuddy -c "Add :aps-environment string production" "${ENTITLEMENTS_PATH}"
+fi
+
 xcodebuild archive \
   -project "${IOS_ROOT}/Verdery.xcodeproj" \
   -scheme "${SCHEME}" \

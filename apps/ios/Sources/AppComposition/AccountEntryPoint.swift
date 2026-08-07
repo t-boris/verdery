@@ -114,7 +114,9 @@ struct AccountToolbarModifier: ViewModifier {
                     ProfileView(
                         model: composition.makeProfileViewModel(),
                         makeDeleteModel: composition.makeDeleteAccountViewModel,
-                        makeExportModel: composition.makeExportViewModel
+                        makeExportModel: composition.makeExportViewModel,
+                        makeNotificationsModel: composition.makeNotificationPreferencesViewModel,
+                        pushRegistration: composition.pushRegistration
                     )
                         .toolbar {
                             ToolbarItem(placement: .confirmationAction) {
@@ -149,7 +151,9 @@ extension View {
                 ProfileView(
                         model: composition.makeProfileViewModel(),
                         makeDeleteModel: composition.makeDeleteAccountViewModel,
-                        makeExportModel: composition.makeExportViewModel
+                        makeExportModel: composition.makeExportViewModel,
+                        makeNotificationsModel: composition.makeNotificationPreferencesViewModel,
+                        pushRegistration: composition.pushRegistration
                     )
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {

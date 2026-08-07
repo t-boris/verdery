@@ -175,6 +175,18 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue, parameters: parameters)
     }
 
+    /// The same resolution for the notification inbox and its preferences.
+    /// See ``NotificationLocalizationKey`` for why this is yet another key set.
+    public func callAsFunction(_ key: NotificationLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
+    /// The same parameterized resolution for ``NotificationLocalizationKey``'s
+    /// templated entries (a rendered template body, a quiet window).
+    public func string(_ key: NotificationLocalizationKey, parameters: [String: String]) -> String {
+        string(forKey: key.rawValue, parameters: parameters)
+    }
+
     /// Every key any of the application's key sets declares.
     ///
     /// Exposed so catalogue completeness stays one check over one list rather
@@ -201,6 +213,7 @@ public struct LocalizedStrings: Sendable {
         + DeleteAccountLocalizationKey.allCases.map(\.rawValue)
         + ExportLocalizationKey.allCases.map(\.rawValue)
         + WeatherLocalizationKey.allCases.map(\.rawValue)
+        + NotificationLocalizationKey.allCases.map(\.rawValue)
 
     /// Resolves an arbitrary key, used for codes that originate in Core.
     ///

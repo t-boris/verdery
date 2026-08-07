@@ -4,6 +4,11 @@ import FirebaseAppCheck
 import FirebaseCore
 import SwiftUI
 
+#if os(iOS)
+import UIKit
+import UserNotifications
+#endif
+
 /// Application entry point.
 ///
 /// It does nothing except configure Firebase, build the composition root, and
@@ -76,6 +81,15 @@ struct VerderyApp: App {
         // exact handoff (the adaptor's wrapped delegate instance already
         // exists by the time this initializer body runs).
         appDelegate.composition = root
+
+        // The notification centre's delegate must be set before launch
+        // finishes, or a notification that launched this process is delivered
+        // to nobody and the tap is lost. Registering for remote notifications
+        // here is separate from ASKING for permission, which happens only from
+        // the button that says so: an application may hold an APNs token with
+        // alerts refused, and silent data pushes still arrive.
+        UNUserNotificationCenter.current().delegate = appDelegate
+        UIApplication.shared.registerForRemoteNotifications()
         #endif
     }
 
