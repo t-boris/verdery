@@ -27,6 +27,9 @@ public final class MapEditorViewModel {
     public internal(set) var transform = MapViewportTransform(scale: 20, origin: .zero)
     public internal(set) var selectedObjectId: String?
     public var armedCreateCategory: CreatableMapObjectCategory?
+    /// The shape currently being drawn, if any — see
+    /// `MapEditorViewModel+Drafting.swift`.
+    public var draft: MapDraftSession?
     public internal(set) var isSubmitting = false
     public internal(set) var errorMessage: String?
     /// Drives property-sheet presentation; `nil` means the sheet is closed.

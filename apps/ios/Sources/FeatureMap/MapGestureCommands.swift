@@ -143,11 +143,30 @@ public enum MapGestureCommands {
         label: String?,
         fenceObjectId: String? = nil
     ) -> MapCommandPayload {
+        createCommand(
+            objectId: objectId,
+            category: category,
+            geometry: defaultGeometry(for: category, at: center),
+            label: label,
+            fenceObjectId: fenceObjectId
+        )
+    }
+
+    /// The same command, for a shape somebody drew rather than one placed at
+    /// a default size — see `MapDraftSession`. One builder, so a drawn object
+    /// and a tapped one cannot drift apart in their details or provenance.
+    public static func createCommand(
+        objectId: String,
+        category: CreatableMapObjectCategory,
+        geometry: Geometry,
+        label: String?,
+        fenceObjectId: String? = nil
+    ) -> MapCommandPayload {
         .createObject(
             CreateObjectPayload(
                 objectId: objectId,
                 category: category.category,
-                geometry: defaultGeometry(for: category, at: center),
+                geometry: geometry,
                 label: label,
                 categoryDetails: defaultDetails(for: category, fenceObjectId: fenceObjectId)
             )

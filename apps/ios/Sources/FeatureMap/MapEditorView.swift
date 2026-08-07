@@ -1,3 +1,4 @@
+import CoreDesignSystem
 import CoreDomain
 import SwiftUI
 
@@ -194,6 +195,7 @@ public struct MapEditorView: View {
                 )
             }
 
+            draftControls
             createToolbar
         }
     }
@@ -254,8 +256,17 @@ public struct MapEditorView: View {
                     vertexEditObjectId: model.vertexEditObjectId,
                     selectedVertexIndex: model.selectedVertexIndex,
                     isVertexDragSnapSuppressed: model.isVertexDragSnapSuppressed,
+                    draftScreenPoints: model.draftScreenPoints,
+                    isDrafting: model.isDrafting,
                     onViewportSizeChange: { model.updateViewportSize($0) },
-                    onTap: { point in Task { await model.handleCanvasTap(atScreen: point) } },
+                    onTap: { point in
+                        if model.isDrafting {
+                            model.addDraftPoint(atScreen: point)
+                        } else {
+                            Task { await model.handleCanvasTap(atScreen: point) }
+                        }
+                    },
+                    onTrace: { points in model.addDraftTrace(screenPoints: points) },
                     onPan: { model.pan(byScreenTranslation: $0) },
                     onObjectDragEnded: { objectId, translation in
                         Task { await model.handleObjectDragEnded(objectId: objectId, translationScreen: translation) }
@@ -396,6 +407,36 @@ public struct MapEditorView: View {
         }
     }
 
+    /// Finish, undo a point, cancel — shown only while a shape is being
+    /// drawn, and floating so the canvas keeps its height.
+    @ViewBuilder
+    private var draftControls: some View {
+        if model.isDrafting {
+            HStack(spacing: Metrics.space3) {
+                CompactActionButton(
+                    symbol: "arrow.uturn.backward",
+                    title: model.draftUndoTitle
+                ) {
+                    model.undoDraftPoint()
+                }
+                .accessibilityIdentifier("map.draft.undo")
+
+                CompactActionButton(symbol: "xmark", title: model.draftCancelTitle) {
+                    model.cancelDraft()
+                }
+                .accessibilityIdentifier("map.draft.cancel")
+
+                Button(model.draftFinishTitle) {
+                    Task { await model.finishDraft() }
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .disabled(!model.canFinishDraft)
+                .accessibilityIdentifier("map.draft.finish")
+            }
+            .padding(Metrics.space3)
+        }
+    }
+
     private var createToolbar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
@@ -405,7 +446,7 @@ public struct MapEditorView: View {
 
                 ForEach(model.creatableCategories) { category in
                     Button {
-                        model.beginCreatePlacement(category)
+                        model.beginDraft(category)
                         selectedTab = .canvas
                     } label: {
                         Text(model.creatableCategoryName(category))

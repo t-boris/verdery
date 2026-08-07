@@ -37,8 +37,18 @@ struct MapCanvasView: View {
     /// `MapEditorViewModel.isVertexDragSnapSuppressed`'s doc comment.
     let isVertexDragSnapSuppressed: Bool
 
+    /// Points placed so far in a shape being drawn, for the live preview.
+    /// Empty when nothing is being drawn.
+    var draftScreenPoints: [CGPoint] = []
+    /// True while a shape is being drawn, which changes what one finger means:
+    /// a tap places a vertex and a drag traces an edge, rather than selecting
+    /// and panning.
+    var isDrafting: Bool = false
+
     let onViewportSizeChange: (CGSize) -> Void
     let onTap: (CGPoint) -> Void
+    /// A freehand trace, in screen points, sampled during the drag.
+    var onTrace: ([CGPoint]) -> Void = { _ in }
     let onPan: (CGSize) -> Void
     let onObjectDragEnded: (String, CGSize) -> Void
     let onZoom: (Double, CGPoint) -> Void
@@ -51,7 +61,7 @@ struct MapCanvasView: View {
     /// One vertex-edit-mode gesture target, resolved once at gesture start —
     /// the same "classify once, at the boundary" discipline
     /// `MapGestureCommands.classifyDragEnd` documents for ordinary drags.
-    private enum ReshapeHandle: Equatable {
+    enum ReshapeHandle: Equatable {
         case vertex(objectId: String, index: Int)
         case midpoint(objectId: String, beforeIndex: Int)
         case resize(objectId: String)
@@ -94,6 +104,7 @@ struct MapCanvasView: View {
     @State private var activeSnapResult: MapSnapResult?
     @State private var liveZoomFactor: Double = 1
     @State private var zoomAnchor: CGPoint = .zero
+    @State private var tracedScreenPoints: [CGPoint] = []
 
     var body: some View {
         GeometryReader { proxy in
@@ -110,7 +121,7 @@ struct MapCanvasView: View {
 
     // MARK: - Gestures
 
-    private var dragGesture: some Gesture {
+    var dragGesture: some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { value in
                 if dragStartScreen == nil {
@@ -122,6 +133,13 @@ struct MapCanvasView: View {
                     }
                 }
                 liveDragTranslation = value.translation
+                if isDrafting {
+                    // Sampled rather than taken whole at the end: a finger
+                    // leaves a path, and only its shape survives
+                    // simplification anyway.
+                    tracedScreenPoints.append(value.location)
+                    return
+                }
                 if let activeHandle {
                     updateLivePreview(for: activeHandle, translation: value.translation, currentScreen: value.location)
                 }
@@ -138,6 +156,20 @@ struct MapCanvasView: View {
                 activeSnapResult = nil
 
                 guard let start else { return }
+
+                // One finger draws while a shape is being drawn. A drag long
+                // enough to have left samples is a traced edge; anything
+                // shorter was a tap, and places one vertex.
+                if isDrafting {
+                    let traced = tracedScreenPoints
+                    tracedScreenPoints = []
+                    if traced.count > 1 {
+                        onTrace(traced)
+                    } else {
+                        onTap(value.location)
+                    }
+                    return
+                }
 
                 if let handle {
                     commitReshape(handle, start: start, end: value.location)
@@ -159,7 +191,7 @@ struct MapCanvasView: View {
             }
     }
 
-    private func magnificationGesture(in size: CGSize) -> some Gesture {
+    func magnificationGesture(in size: CGSize) -> some Gesture {
         MagnificationGesture()
             .onChanged { value in
                 liveZoomFactor = value
@@ -173,7 +205,7 @@ struct MapCanvasView: View {
 
     /// The id of the currently selected object if, and only if, `point` also
     /// hits it — a drag starting anywhere else pans instead of moving it.
-    private func selectedObjectId(atScreen point: CGPoint) -> String? {
+    func selectedObjectId(atScreen point: CGPoint) -> String? {
         guard let selectedObjectId else { return nil }
 
         let local = transform.localPosition(for: point)
@@ -192,7 +224,7 @@ struct MapCanvasView: View {
     /// midpoints, then the whole-shape resize/rotate handles, matching the
     /// order they are drawn in (a vertex handle always wins a tie against a
     /// resize/rotate handle placed nearby).
-    private func handleTarget(atScreen point: CGPoint) -> ReshapeHandle? {
+    func handleTarget(atScreen point: CGPoint) -> ReshapeHandle? {
         guard let objectId = vertexEditObjectId,
             let object = snapshot.objects.first(where: { $0.id == objectId })
         else { return nil }
@@ -233,13 +265,13 @@ struct MapCanvasView: View {
         return nil
     }
 
-    private func screenDistance(_ a: CGPoint, _ b: CGPoint) -> Double {
+    func screenDistance(_ a: CGPoint, _ b: CGPoint) -> Double {
         let dx = Double(a.x - b.x)
         let dy = Double(a.y - b.y)
         return (dx * dx + dy * dy).squareRoot()
     }
 
-    private func updateLivePreview(for handle: ReshapeHandle, translation: CGSize, currentScreen: CGPoint) {
+    func updateLivePreview(for handle: ReshapeHandle, translation: CGSize, currentScreen: CGPoint) {
         guard let object = snapshot.objects.first(where: { $0.id == handle.objectId }) else { return }
 
         switch handle {
@@ -282,7 +314,7 @@ struct MapCanvasView: View {
         }
     }
 
-    private func commitReshape(_ handle: ReshapeHandle, start: CGPoint, end: CGPoint) {
+    func commitReshape(_ handle: ReshapeHandle, start: CGPoint, end: CGPoint) {
         let translation = CGSize(width: end.x - start.x, height: end.y - start.y)
         let magnitude = (translation.width * translation.width + translation.height * translation.height).squareRoot()
         let isTap = magnitude < MapGestureCommands.tapThresholdScreenPoints
@@ -322,7 +354,7 @@ struct MapCanvasView: View {
 
     // MARK: - Drawing
 
-    private func draw(context: GraphicsContext, size: CGSize) {
+    func draw(context: GraphicsContext, size: CGSize) {
         var effectiveTransform = transform
 
         if liveZoomFactor != 1 {
@@ -360,7 +392,7 @@ struct MapCanvasView: View {
         }
     }
 
-    private func draw(
+    func draw(
         _ object: MapRenderObject,
         geometry: Geometry,
         context: GraphicsContext,
@@ -415,185 +447,4 @@ struct MapCanvasView: View {
         }
     }
 
-    /// Vertex handles (draggable), edge-midpoint handles (tap to insert), and
-    /// — for a `Polygon` — the resize (square) and rotate (circle, offset
-    /// above the shape) handles. Consistent with the selection-indicator
-    /// style already used elsewhere in this view: filled white with a
-    /// coloured stroke, so a handle reads clearly against any category's fill
-    /// colour.
-    private func drawVertexHandles(for geometry: Geometry, context: GraphicsContext, transform: MapViewportTransform) {
-        let strokeColor = Color.accentColor
-
-        if let indices = MapVertexEditCommands.renderableVertexIndices(of: geometry) {
-            for index in indices {
-                guard let position = MapVertexEditCommands.vertexPosition(of: geometry, index: index) else { continue }
-                let isSelected = index == selectedVertexIndex
-                drawCircleHandle(
-                    at: transform.screenPoint(for: position),
-                    context: context,
-                    color: strokeColor,
-                    radius: isSelected ? 8 : 6,
-                    filled: isSelected
-                )
-            }
-        }
-
-        if let beforeIndices = MapVertexEditCommands.midpointBeforeIndices(of: geometry) {
-            for beforeIndex in beforeIndices {
-                guard let position = MapVertexEditCommands.midpoint(of: geometry, beforeIndex: beforeIndex) else {
-                    continue
-                }
-                let center = transform.screenPoint(for: position)
-                let radius: CGFloat = 4
-                let rect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
-                context.fill(Path(ellipseIn: rect), with: .color(strokeColor.opacity(0.55)))
-            }
-        }
-
-        if let resizePoint = resizeHandleScreenPoint(for: geometry, transform: transform) {
-            drawSquareHandle(at: resizePoint, context: context, color: strokeColor)
-        }
-
-        if let rotatePoint = rotateHandleScreenPoint(for: geometry, transform: transform),
-            let topCenterScreen = topCenterScreenPoint(for: geometry, transform: transform) {
-            var connector = Path()
-            connector.move(to: topCenterScreen)
-            connector.addLine(to: rotatePoint)
-            context.stroke(connector, with: .color(strokeColor.opacity(0.6)), lineWidth: 1)
-            drawCircleHandle(at: rotatePoint, context: context, color: .orange, radius: 7, filled: false)
-        }
-    }
-
-    /// The colour every ``MapSnapKind`` renders as — one consistent colour
-    /// for "something snapped," distinguished from the ordinary handle's
-    /// accent colour, is enough of a cue without needing a colour per kind.
-    private static let snapIndicatorColor = Color.green
-
-    /// A lightweight cue for whichever snap `result` reports: a highlighted
-    /// ring at the snapped position, plus — for a reference-relative snap
-    /// (horizontal/vertical/angle/distance) — a short dashed guide line back
-    /// to `referencePoint`, so the alignment reads visually rather than only
-    /// being inferable from where the handle jumped to. Reuses
-    /// `drawCircleHandle`'s existing look rather than introducing a new
-    /// handle style, matching this view's "does not need to be elaborate"
-    /// brief.
-    private func drawSnapIndicator(
-        _ result: MapSnapResult,
-        referencePoint: Position?,
-        context: GraphicsContext,
-        transform: MapViewportTransform
-    ) {
-        let targetScreen = transform.screenPoint(for: result.position)
-
-        if let referencePoint, isReferenceRelative(result.kind) {
-            var guideLine = Path()
-            guideLine.move(to: transform.screenPoint(for: referencePoint))
-            guideLine.addLine(to: targetScreen)
-            context.stroke(
-                guideLine,
-                with: .color(Self.snapIndicatorColor.opacity(0.7)),
-                style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])
-            )
-        }
-
-        drawCircleHandle(at: targetScreen, context: context, color: Self.snapIndicatorColor, radius: 9, filled: false)
-    }
-
-    private func isReferenceRelative(_ kind: MapSnapKind?) -> Bool {
-        switch kind {
-        case .horizontal, .vertical, .angleIncrement, .roundDistance: true
-        case .vertex, .edge, nil: false
-        }
-    }
-
-    private func drawCircleHandle(at center: CGPoint, context: GraphicsContext, color: Color, radius: CGFloat, filled: Bool) {
-        let rect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
-        context.fill(Path(ellipseIn: rect), with: .color(filled ? color : .white))
-        context.stroke(Path(ellipseIn: rect), with: .color(color), lineWidth: 2)
-    }
-
-    private func drawSquareHandle(at center: CGPoint, context: GraphicsContext, color: Color, halfSide: CGFloat = 6) {
-        let rect = CGRect(x: center.x - halfSide, y: center.y - halfSide, width: halfSide * 2, height: halfSide * 2)
-        context.fill(Path(rect), with: .color(.white))
-        context.stroke(Path(rect), with: .color(color), lineWidth: 2)
-    }
-
-    /// Fixed screen-point offset of the rotate handle above the shape's
-    /// bounding box — the classic "handle floating above a connector line"
-    /// pattern, recomputed from the current geometry every draw rather than
-    /// tracked as its own persistent state.
-    private static let rotateHandleOffsetScreenPoints: CGFloat = 28
-
-    private func resizeHandleScreenPoint(for geometry: Geometry, transform: MapViewportTransform) -> CGPoint? {
-        guard case .polygon = geometry, let vertices = MapVertexEditCommands.editableVertices(of: geometry),
-            let bounds = boundingBox(of: vertices)
-        else { return nil }
-        return transform.screenPoint(for: Position(x: bounds.max.x, y: bounds.max.y))
-    }
-
-    private func topCenterScreenPoint(for geometry: Geometry, transform: MapViewportTransform) -> CGPoint? {
-        guard case .polygon = geometry, let vertices = MapVertexEditCommands.editableVertices(of: geometry),
-            let bounds = boundingBox(of: vertices)
-        else { return nil }
-        return transform.screenPoint(for: Position(x: (bounds.min.x + bounds.max.x) / 2, y: bounds.max.y))
-    }
-
-    private func rotateHandleScreenPoint(for geometry: Geometry, transform: MapViewportTransform) -> CGPoint? {
-        guard let topCenterScreen = topCenterScreenPoint(for: geometry, transform: transform) else { return nil }
-        return CGPoint(x: topCenterScreen.x, y: topCenterScreen.y - Self.rotateHandleOffsetScreenPoints)
-    }
-
-    private func boundingBox(of positions: [Position]) -> (min: Position, max: Position)? {
-        guard let first = positions.first else { return nil }
-
-        var minX = first.x
-        var maxX = first.x
-        var minY = first.y
-        var maxY = first.y
-
-        for position in positions.dropFirst() {
-            minX = min(minX, position.x)
-            maxX = max(maxX, position.x)
-            minY = min(minY, position.y)
-            maxY = max(maxY, position.y)
-        }
-
-        return (Position(x: minX, y: minY), Position(x: maxX, y: maxY))
-    }
-
-    private func rings(of geometry: Geometry) -> [[Position]] {
-        switch geometry {
-        case let .polygon(rings): rings
-        case let .multiPolygon(polygons): polygons.flatMap { $0 }
-        case .point, .lineString, .multiLineString: []
-        }
-    }
-
-    private func lines(of geometry: Geometry) -> [[Position]] {
-        switch geometry {
-        case let .lineString(line): [line]
-        case let .multiLineString(lines): lines
-        case .point, .polygon, .multiPolygon: []
-        }
-    }
-
-    /// One distinct system colour per category — resolved here, and only
-    /// here, so `MapObjectColorToken` itself stays free of a SwiftUI import.
-    private static func color(for token: MapObjectColorToken) -> Color {
-        switch token {
-        case .lot: .brown
-        case .structure: .gray
-        case .fence: .orange
-        case .gate: .yellow
-        case .path: .indigo
-        case .zone: .mint
-        case .bed: .green
-        case .waterFeature: .blue
-        case .utilityExclusion: .red
-        case .tree: .teal
-        case .plant: .pink
-        case .annotation: .purple
-        case .importedBackground: .cyan
-        }
-    }
 }
