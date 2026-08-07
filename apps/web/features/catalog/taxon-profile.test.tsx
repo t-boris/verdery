@@ -12,7 +12,7 @@ vi.mock('./queries', () => ({ useTaxonProfile: vi.fn() }));
 
 const mockedUseTaxonProfile = vi.mocked(useTaxonProfile);
 
-const PROFILE: PlantTaxonProfileResult['profile'] = {
+const PROFILE: NonNullable<PlantTaxonProfileResult['profile']> = {
   id: 'profile-1',
   taxonomyReferenceId: 'taxon-1',
   isPartial: false,
@@ -72,18 +72,18 @@ describe('TaxonProfile', () => {
     expect(screen.getByText('USDA PLANTS Database')).toBeTruthy();
   });
 
-  it('says an unassembled profile is missing knowledge, not a failure', () => {
+  it('treats a null fact profile as ordinary missing knowledge', () => {
     mockedUseTaxonProfile.mockReturnValue({
       isPending: false,
-      isError: true,
-      error: failure(404),
+      isError: false,
+      data: { profile: null, images: [] },
     } as never);
 
     renderProfile();
 
-    expect(screen.getByText(/Nothing has been assembled about this plant yet/)).toBeTruthy();
-    // A `404` here is an honest answer to a well-formed request; showing the
-    // error envelope would tell the reader to retry something that cannot help.
+    expect(
+      screen.getByText('This profile was assembled without any reviewed facts in it.'),
+    ).toBeTruthy();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 

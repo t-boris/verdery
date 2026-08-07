@@ -50,6 +50,7 @@ import {
   TransitionPlantLifecycleStage,
   UpdateCandidateDetails,
   UpdatePlantDetails,
+  type TaxonImageEnricher,
 } from './modules/plants-inventory/public.js';
 import type {
   CandidateRoutesDependencies,
@@ -97,6 +98,7 @@ export function composePlantsInventory(
   logger: FastifyBaseLogger,
   analyzePlantCondition: AnalyzePlantCondition,
   recordObservation: RecordObservation,
+  taxonImageEnricher: TaxonImageEnricher,
 ): {
   plantRoutesDependencies: PlantRoutesDependencies;
   candidateRoutesDependencies: CandidateRoutesDependencies;
@@ -289,6 +291,7 @@ export function composePlantsInventory(
   const getTaxonProfile = new GetTaxonProfile(
     plantProfileVersionRepository,
     new KyselyTaxonImageSource(database.queries),
+    taxonImageEnricher,
   );
 
   return {

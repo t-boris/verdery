@@ -1789,11 +1789,12 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get a taxon's materialized knowledge profile
+         * Get a taxon's knowledge profile and reference images
          * @description A shared reference resource, not garden-scoped — the same "no
          *     per-garden authorization" posture `searchTaxonomyReferences` takes
-         *     for the identical reason. An honest 404 when no profile version has
-         *     ever been assembled for this taxon.
+         *     for the identical reason. When no licensed image is cached, configured
+         *     global providers are queried on demand. The fact profile is nullable
+         *     because reviewed facts and reference imagery have independent lifecycles.
          *
          *     Source: implementation-plan.md work package P11-DATA-02, P11-API-01.
          */
@@ -6527,14 +6528,15 @@ export interface components {
             organ?: string | null;
         };
         /**
-         * @description The taxon profile read: the materialized fact projection plus the
-         *     imagery permitted to accompany it. Images travel beside the profile
-         *     rather than inside it because the profile is a stored, rebuilt
-         *     projection while eligibility is decided per read — a licence category's
-         *     standing can change without rebuilding anything.
+         * @description A taxon knowledge read: the optional materialized fact projection plus
+         *     licensed reference imagery. Images travel beside the profile because the
+         *     profile is a stored, rebuilt projection while imagery is enriched and
+         *     filtered independently. A null profile never prevents reference images
+         *     from being returned.
          */
         PlantTaxonProfileResult: {
-            profile: components["schemas"]["PlantProfileVersion"];
+            /** @description The latest reviewed fact projection, or null when no fact projection has been assembled yet. */
+            profile: components["schemas"]["PlantProfileVersion"] | null;
             images: components["schemas"]["PlantTaxonImage"][];
         };
         /**
@@ -10776,7 +10778,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The latest materialized profile, with the imagery permitted to accompany it. */
+            /** @description The optional latest materialized profile, with licensed reference imagery permitted to accompany it. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -10786,7 +10788,6 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
         };
     };
     listObservationsForGarden: {

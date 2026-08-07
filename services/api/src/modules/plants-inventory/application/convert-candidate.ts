@@ -25,6 +25,7 @@ import type { AcquisitionDateType, PlantPlacement } from '../domain/plant.js';
 import { convertCandidateToPlant, markCandidateConverted } from '../domain/candidate-conversion.js';
 import type { CandidateConversion } from '../domain/candidate-conversion.js';
 import type { PlantCandidate } from '../domain/plant-candidate.js';
+import { createPlantPhoto } from '../domain/plant-photo.js';
 import { candidateAlreadyConvertedError, candidateStaleRevisionError } from './candidate-errors.js';
 import { toCandidateResource, type CandidateResource } from './candidate-view.js';
 import type { PlantCandidateRepository } from './plant-candidate-repository.js';
@@ -142,6 +143,23 @@ export class ConvertCandidate {
           now,
         );
         await context.plants.insert(plant);
+
+        // Candidate photographs are observations of this exact specimen, not
+        // disposable input to identification. Conversion creates new plant-
+        // photo links to the same immutable media records, preserving order
+        // and the primary choice while retaining the candidate's audit trail.
+        const candidatePhotos = await context.candidatePhotos.findAllForCandidate(candidateId);
+        for (const candidatePhoto of candidatePhotos) {
+          await context.plantPhotos.insert(
+            createPlantPhoto(
+              generateUuidV7(),
+              plant.id,
+              candidatePhoto.mediaId,
+              candidatePhoto.isPrimary,
+              candidatePhoto.createdAt,
+            ),
+          );
+        }
         await context.revisionJournal.record({
           plantId: plant.id,
           revision: plant.revision,

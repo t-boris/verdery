@@ -35,9 +35,8 @@ function factValue(fact: ResolvedFact): string {
  * is incomplete in a way the reader must not mistake for "nothing more is
  * true".
  *
- * A `404` is the honest answer for a taxon nobody has assembled a profile for.
- * It is shown as that sentence, not as a failure alert — the request was fine,
- * the knowledge simply does not exist yet.
+ * Facts and reference images have independent lifecycles. A null fact profile
+ * therefore still renders any licensed images returned by the server.
  *
  * Source: packages/api-contracts/openapi.yaml, operation `getTaxonProfile`.
  */
@@ -50,20 +49,18 @@ export function TaxonProfile({ taxonomyReferenceId }: TaxonProfileProps) {
   }
 
   if (query.isError) {
-    return query.error.failure.status === 404 ? (
-      <p className={styles['status']}>{t('catalog.profileMissing')}</p>
-    ) : (
-      <FailureAlert failure={query.error.failure} />
-    );
+    return <FailureAlert failure={query.error.failure} />;
   }
 
   const { profile, images } = query.data;
 
   return (
     <div className={styles['profile']}>
-      <p className={styles['assembled']}>
-        {t('catalog.profileAssembled', { date: formatInstant(profile.createdAt, locale) })}
-      </p>
+      {profile !== null && (
+        <p className={styles['assembled']}>
+          {t('catalog.profileAssembled', { date: formatInstant(profile.createdAt, locale) })}
+        </p>
+      )}
 
       {images.length > 0 && (
         <ul className={styles['images']}>
@@ -92,13 +89,13 @@ export function TaxonProfile({ taxonomyReferenceId }: TaxonProfileProps) {
         </ul>
       )}
 
-      {profile.isPartial && (
+      {profile?.isPartial === true && (
         <Alert tone="info" title={t('catalog.profilePartialTitle')}>
           {t('catalog.profilePartial')}
         </Alert>
       )}
 
-      {profile.resolvedFacts.length === 0 ? (
+      {profile === null || profile.resolvedFacts.length === 0 ? (
         <p className={styles['status']}>{t('catalog.profileNoFacts')}</p>
       ) : (
         <dl className={styles['facts']}>

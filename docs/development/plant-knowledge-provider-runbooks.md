@@ -253,7 +253,9 @@ catalog, since the provider offers no server-side name search). All four registr
 pushed into `composeIntegrations`'s `sourcePriority` in this order — World Flora Online, USDA
 PLANTS, GBIF, USA-NPN — each still kill-switched off by default (`GBIF_PROVIDER_ENABLED`,
 `USA_NPN_PROVIDER_ENABLED`, `WORLD_FLORA_ONLINE_PROVIDER_ENABLED`, all default `false`, no
-environment enables any of the four today). Every fetched assertion still lands
+environment implicitly enables any of the four). Development explicitly enables GBIF as of
+2026-08-06 so an identified plant can cache licensed, worldwide reference imagery on first read;
+production remains off until configured deliberately. Every fetched assertion still lands
 `awaiting_horticultural_review`; nothing is visible in a materialized profile or a suitability
 finding until a human reviewer promotes it — and, as of this same pass, that promotion surface
 now exists: `GET /v1/plant-assertion-reviews` lists every pending fact and distribution assertion

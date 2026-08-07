@@ -234,6 +234,8 @@ The upload controller persists recoverable metadata for large imports where brow
 
 Attaching an uploaded photograph to a domain record is a second step, never folded into the upload. The server refuses media that has not finished validation, so an attach control appears only once the upload reaches `processed`. A photograph attached to an observation also carries a purpose label chosen by the person attaching it; the label is not defaulted silently, because a mislabelled shot lands in a comparison sequence it does not belong to and nothing downstream can tell.
 
+Candidate conversion preserves every candidate-photo link by creating plant-photo links to the same immutable media records; the candidate links remain for audit. These specimen photographs are never mixed with taxon reference imagery. An identified plant reads licensed reference photographs through the plant-catalog profile endpoint, and the UI labels them separately so "this exact plant" and "a representative image of this species" remain distinct records with distinct provenance.
+
 Uploading needs the media feature, so any form that attaches media is composed at the route layer rather than inside another feature — see section 20. The observation form receives its attachments as a prop; the route owns the list and clears it when the record succeeds.
 
 ## 13. Error Boundaries

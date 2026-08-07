@@ -8,22 +8,21 @@ parameters:
 get:
   operationId: getTaxonProfile
   tags: [PlantCatalog]
-  summary: Get a taxon's materialized knowledge profile
+  summary: Get a taxon's knowledge profile and reference images
   description: |
     A shared reference resource, not garden-scoped — the same "no
     per-garden authorization" posture `searchTaxonomyReferences` takes
-    for the identical reason. An honest 404 when no profile version has
-    ever been assembled for this taxon.
+    for the identical reason. When no licensed image is cached, configured
+    global providers are queried on demand. The fact profile is nullable
+    because reviewed facts and reference imagery have independent lifecycles.
 
     Source: implementation-plan.md work package P11-DATA-02, P11-API-01.
   responses:
     '200':
-      description: The latest materialized profile, with the imagery permitted to accompany it.
+      description: The optional latest materialized profile, with licensed reference imagery permitted to accompany it.
       content:
         application/json:
           schema:
             $ref: '../../components/schemas/plant-candidates.yaml#/PlantTaxonProfileResult'
     '401':
       $ref: '../../components/responses.yaml#/Unauthorized'
-    '404':
-      $ref: '../../components/responses.yaml#/NotFound'

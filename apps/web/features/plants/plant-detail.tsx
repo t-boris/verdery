@@ -28,6 +28,7 @@ import { PlantDetailsForm } from './plant-details-form';
 import { PlantLifecycleControls } from './plant-lifecycle-controls';
 import { PlantMoveForm } from './plant-move-form';
 import { PlantPhotoGallery } from './plant-photo-gallery';
+import { PlantReferenceGallery } from './plant-reference-gallery';
 import {
   useConfirmPlantIdentification,
   usePlant,
@@ -192,6 +193,9 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
       </div>
 
       <PlantPhotoGallery gardenId={gardenId} plantId={plant.id} />
+      {plant.taxonomyReferenceId !== null && (
+        <PlantReferenceGallery taxonomyReferenceId={plant.taxonomyReferenceId} />
+      )}
 
       {(hasConfirmableSuggestion || suggestedConditionNote !== null) &&
         identification.data !== null &&

@@ -77,6 +77,11 @@ export const englishPlantsMessages = {
   'plants.mediaGapDescription':
     'This plant’s attached photos are shown below. Attaching an additional photo after creation, and choosing a primary one, both need a step not yet built. This action is intentionally left out of this page rather than shown as a control that would only fail.',
   'plants.photoGalleryTitle': 'Photos',
+  'plants.referencePhotosTitle': 'Reference photos',
+  'plants.referencePhotosDescription':
+    'Licensed images of this species from global biodiversity sources. These are separate from photos of your own plant.',
+  'plants.referencePhotosLoading': 'Loading reference photos.',
+  'plants.referencePhotosEmpty': 'No licensed reference photos are available for this species yet.',
   'plants.addFromPhotoTitle': 'Add from a photo',
   'plants.addFromPhotoDescription':
     'Upload a photo of the plant. It is created for you, and the AI’s guess at its species is shown for you to confirm.',

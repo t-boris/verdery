@@ -5,6 +5,7 @@ import {
 } from '../../../platform/errors/application-error.js';
 import type { MapObjectSummary } from '../../gardens-mapping/public.js';
 import { ConvertCandidate } from './convert-candidate.js';
+import { createPlantCandidatePhoto } from '../domain/plant-candidate-photo.js';
 import { buildCandidate } from './plant-candidate-test-doubles.js';
 import {
   authorizationGranting,
@@ -90,6 +91,45 @@ describe('ConvertCandidate', () => {
     expect(fakes.revisionJournal.entries).toEqual([
       expect.objectContaining({ plantId: result.plant.id, commandType: 'convertCandidate' }),
     ]);
+  });
+
+  it('preserves every candidate photo on the converted plant, including the primary choice', async () => {
+    const fakes = fakesWithCandidate();
+    fakes.candidatePhotos.photos.set(
+      '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a18',
+      createPlantCandidatePhoto(
+        '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a18',
+        CANDIDATE_ID,
+        '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a19',
+        true,
+        NOW,
+      ),
+    );
+    const convertCandidate = new ConvertCandidate(
+      fakes.candidates,
+      fakes.idempotency,
+      new FakePlantsInventoryUnitOfWork(fakes),
+      authorizationGranting(OWNER_MEMBERSHIP),
+      fixedClock(NOW),
+    );
+
+    const result = await convertCandidate.execute(
+      CANDIDATE_ID,
+      PROFILE_ID,
+      1,
+      {},
+      '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a1a',
+    );
+
+    expect(await fakes.plantPhotos.findAllForPlant(result.plant.id)).toEqual([
+      expect.objectContaining({
+        plantId: result.plant.id,
+        mediaId: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a19',
+        isPrimary: true,
+        createdAt: NOW,
+      }),
+    ]);
+    expect(await fakes.candidatePhotos.findAllForCandidate(CANDIDATE_ID)).toHaveLength(1);
   });
 
   it('defaults to the proposed placement when no override is given', async () => {

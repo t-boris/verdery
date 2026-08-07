@@ -11,6 +11,7 @@ import type {
   PlantListResult,
   PlantPhoto,
   PlantStatus,
+  PlantTaxonProfileResult,
   TaxonomyReferenceListResult,
   UpdatePlantDetailsRequest,
 } from '@verdery/api-contracts';
@@ -22,6 +23,7 @@ import {
   ApiFailureError,
   createBrowserApiClient,
   createPlantGateway,
+  createPlantCatalogGateway,
   generateIdempotencyKey,
   isFailure,
   type ApiResult,
@@ -52,9 +54,15 @@ const plantSearchQueryKey = (gardenId: string, params: SearchPlantsParams) =>
   ['plants', gardenId, 'search', params] as const;
 const taxonomySearchQueryKey = (gardenId: string, query: string) =>
   ['taxonomy-references', gardenId, query] as const;
+const taxonProfileQueryKey = (taxonomyReferenceId: string) =>
+  ['plant-catalog', 'profile', taxonomyReferenceId] as const;
 
 function usePlantGateway() {
   return useMemo(() => createPlantGateway(createBrowserApiClient()), []);
+}
+
+function usePlantCatalogGateway() {
+  return useMemo(() => createPlantCatalogGateway(createBrowserApiClient()), []);
 }
 
 function unwrap<TData>(result: ApiResult<TData>): TData {
@@ -313,6 +321,18 @@ export function usePlantPhotos(gardenId: string, plantId: string) {
     queryKey: plantPhotosQueryKey(gardenId, plantId),
     queryFn: async ({ signal }) =>
       unwrap(await gateway.listPhotos(gardenId, plantId, signal)).items,
+  });
+}
+
+/** Licensed reference imagery and reviewed facts for an identified plant's taxon. */
+export function usePlantTaxonProfile(taxonomyReferenceId: string) {
+  const gateway = usePlantCatalogGateway();
+
+  return useQuery<PlantTaxonProfileResult, ApiFailureError>({
+    queryKey: taxonProfileQueryKey(taxonomyReferenceId),
+    queryFn: async ({ signal }) =>
+      unwrap(await gateway.getTaxonProfile(taxonomyReferenceId, signal)),
+    retry: false,
   });
 }
 

@@ -186,6 +186,7 @@ export async function buildApplication(
     geocodingRoutesDependencies,
     weatherRefreshSweepRouteDependencies,
     taxonEnrichmentSweepRouteDependencies,
+    taxonImageEnricher,
     plantAssertionReviewRoutesDependencies,
     transactionalEmailAdapter,
   } = composeIntegrations(
@@ -318,6 +319,7 @@ export async function buildApplication(
     logger,
     analyzePlantCondition,
     recordObservation,
+    taxonImageEnricher,
   );
 
   // tasks-recommendations: task commands (tag `Tasks`), the scheduled

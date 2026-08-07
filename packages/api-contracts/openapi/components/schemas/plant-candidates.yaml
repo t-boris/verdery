@@ -553,14 +553,17 @@ PlantTaxonProfileResult:
   additionalProperties: false
   required: [profile, images]
   description: |
-    The taxon profile read: the materialized fact projection plus the
-    imagery permitted to accompany it. Images travel beside the profile
-    rather than inside it because the profile is a stored, rebuilt
-    projection while eligibility is decided per read — a licence category's
-    standing can change without rebuilding anything.
+    A taxon knowledge read: the optional materialized fact projection plus
+    licensed reference imagery. Images travel beside the profile because the
+    profile is a stored, rebuilt projection while imagery is enriched and
+    filtered independently. A null profile never prevents reference images
+    from being returned.
   properties:
     profile:
-      $ref: '#/PlantProfileVersion'
+      description: The latest reviewed fact projection, or null when no fact projection has been assembled yet.
+      oneOf:
+        - $ref: '#/PlantProfileVersion'
+        - type: 'null'
     images:
       type: array
       items:

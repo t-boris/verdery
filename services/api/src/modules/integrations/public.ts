@@ -257,6 +257,7 @@ export type {
   PlantAssertionProviderRegistration,
 } from './application/plant-assertion-provider-registry.js';
 export { RefreshTaxonAssertions } from './application/refresh-taxon-assertions.js';
+export { EnrichTaxonImages } from './application/enrich-taxon-images.js';
 export type {
   RefreshTaxonAssertionsInput,
   RefreshTaxonAssertionsResult,

@@ -92,6 +92,9 @@ env_vars+="#PLANT_SPECIES_AI_ENABLED=${VERDERY_PLANT_SPECIES_AI_ENABLED:-false}"
 env_vars+="#PLANT_SPECIES_AI_MODEL=${VERDERY_PLANT_SPECIES_AI_MODEL:-unset}"
 env_vars+="#PLANT_CONDITION_AI_ENABLED=${VERDERY_PLANT_CONDITION_AI_ENABLED:-false}"
 env_vars+="#PLANT_CONDITION_AI_MODEL=${VERDERY_PLANT_CONDITION_AI_MODEL:-unset}"
+# Licensed taxon reference imagery. Providers remain independently
+# kill-switched per environment; dev enables GBIF explicitly in dev.env.
+env_vars+="#GBIF_PROVIDER_ENABLED=${VERDERY_GBIF_PROVIDER_ENABLED:-false}"
 
 # ADR-0018: reading an uploaded plat of survey. Its own kill-switch and its
 # own model, on the same shared Vertex project/location above — a

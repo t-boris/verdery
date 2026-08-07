@@ -57,10 +57,10 @@ export function useTaxonSearch(gardenId: string, query: string) {
 }
 
 /**
- * A taxon's profile. A `404` here means no profile version has ever been
- * assembled for this taxon — knowledge nobody has gathered yet, not an error
- * in the request — and the profile view says so in those words rather than
- * showing a failure alert.
+ * A taxon's reviewed facts and licensed reference imagery. The server may
+ * enrich an empty image cache on demand; `profile` itself stays nullable
+ * because imagery must not disappear merely because no fact projection has
+ * been assembled yet.
  */
 export function useTaxonProfile(taxonomyReferenceId: string) {
   const gateway = useMemo(() => createPlantCatalogGateway(createBrowserApiClient()), []);
@@ -69,8 +69,8 @@ export function useTaxonProfile(taxonomyReferenceId: string) {
     queryKey: ['plant-catalog', 'profile', taxonomyReferenceId] as const,
     queryFn: async ({ signal }) =>
       unwrap(await gateway.getTaxonProfile(taxonomyReferenceId, signal)),
-    // A profile that has never been assembled will not appear because the
-    // browser asked three more times.
+    // Provider calls are bounded server-side. Browser retries would only
+    // duplicate that external work after a real failure.
     retry: false,
   });
 }

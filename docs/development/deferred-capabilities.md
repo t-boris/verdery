@@ -769,6 +769,16 @@ single colon-joined lines, and Delete moved into its own clearly-destructive-sty
 inside `Alert tone="danger"`, in a new `PlantDeleteSection`, on web) instead of a plain button at the
 bottom of the same panel as unrelated stage/status controls.
 
+**Candidate specimen photos and licensed taxon reference photos — closed 2026-08-06.**
+`ConvertCandidate` now copies every candidate-photo association to the resulting plant while
+retaining the candidate associations as immutable conversion evidence. The plant detail renders
+those user-owned specimen photos separately from `PlantTaxonImage` reference photos. The latter
+are fetched cache-aside through the configured global knowledge-provider registry when an
+identified taxon has no cached presentable image; the existing server-side commercial-display
+license allowlist remains authoritative. A reviewed fact projection is no longer a prerequisite
+for imagery: `PlantTaxonProfileResult.profile` is nullable, while licensed images can still be
+returned immediately.
+
 **Photo and file attachment on iOS — resolved by `P6-IOS-01`.** The iOS half of the same gap this
 section describes for web is now closed. `CoreMediaTransfer` (new Core module) provides: durable
 local-file-first capture (`LocalMediaFileStore`/`FileManagerLocalMediaFileStore` — the file and its
