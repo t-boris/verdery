@@ -53,6 +53,11 @@ export function useTaxonSearch(gardenId: string, query: string) {
           signal,
         ),
       ),
+    // Photo identification can create a canonical taxonomy reference while
+    // another route has this browse result cached. Re-entering the catalog
+    // always reconciles with server truth instead of presenting that old
+    // result as the current catalog.
+    refetchOnMount: 'always',
   });
 }
 
@@ -68,5 +73,6 @@ export function useTaxonProfile(taxonomyReferenceId: string) {
     queryFn: async ({ signal }) =>
       unwrap(await gateway.getTaxonProfile(taxonomyReferenceId, signal)),
     retry: false,
+    refetchOnMount: 'always',
   });
 }

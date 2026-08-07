@@ -50,6 +50,8 @@ const candidateSuitabilityQueryKey = (gardenId: string, candidateId: string) =>
   ['candidates', gardenId, candidateId, 'suitability'] as const;
 const candidatePhotosQueryKey = (gardenId: string, candidateId: string) =>
   ['candidates', gardenId, candidateId, 'photos'] as const;
+const taxonomySearchQueryKeyPrefix = (gardenId: string) =>
+  ['taxonomy-references', gardenId] as const;
 
 function useCandidateGateway() {
   return useMemo(() => createCandidateGateway(createBrowserApiClient()), []);
@@ -90,6 +92,7 @@ export function useAddCandidate(gardenId: string) {
       unwrap(await gateway.add(gardenId, input, generateIdempotencyKey())),
     onSuccess: (candidate) => {
       queryClient.setQueryData(candidateQueryKey(gardenId, candidate.id), candidate);
+      void queryClient.invalidateQueries({ queryKey: taxonomySearchQueryKeyPrefix(gardenId) });
     },
   });
 }
@@ -104,6 +107,7 @@ export function useAddCandidateFromPhoto(gardenId: string) {
       unwrap(await gateway.addFromPhoto(gardenId, input, generateIdempotencyKey())),
     onSuccess: (candidate) => {
       queryClient.setQueryData(candidateQueryKey(gardenId, candidate.id), candidate);
+      void queryClient.invalidateQueries({ queryKey: taxonomySearchQueryKeyPrefix(gardenId) });
     },
     retry: (_failureCount, error) =>
       error.failure.code === 'plants_inventory.plant_candidate.identification_source_not_ready',
@@ -132,6 +136,7 @@ export function useIdentifyCandidateFromPhoto(gardenId: string) {
       ),
     onSuccess: (candidate) => {
       queryClient.setQueryData(candidateQueryKey(gardenId, candidate.id), candidate);
+      void queryClient.invalidateQueries({ queryKey: taxonomySearchQueryKeyPrefix(gardenId) });
     },
     retry: (_failureCount, error) =>
       error.failure.code === 'plants_inventory.plant_candidate.identification_source_not_ready',

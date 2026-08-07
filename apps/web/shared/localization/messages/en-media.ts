@@ -44,6 +44,11 @@ export const englishMediaMessages = {
   'media.plan.previewAlt': 'Plan preview: {filename}',
   'media.plan.readyForMap':
     'The plan is uploaded and validated. Add it to the map from the map editor’s “Plan backgrounds” panel.',
+  'media.plan.savedTitle': 'Saved property plans',
+  'media.plan.savedLoading': 'Loading saved plans.',
+  'media.plan.savedEmpty': 'No property plans have been saved yet.',
+  'media.plan.savedReady': 'Ready',
+  'media.plan.savedProcessing': 'Processing',
 
   'media.phase.idle': '',
   'media.phase.recoverable': 'An interrupted upload was found.',

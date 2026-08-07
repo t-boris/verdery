@@ -1,7 +1,7 @@
 'use client';
 
 import type { Media } from '@verdery/api-contracts';
-import { useState, type ChangeEvent } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { CloseIcon, PauseIcon, RefreshIcon, FilePicker } from '@/shared/ui/public';
 
 import { useIsOnline } from '@/core/connectivity/public';
@@ -17,7 +17,7 @@ import {
 
 import styles from './garden-plan-upload.module.css';
 import { formatBytes, uploadFailureReasonLabel, uploadPhaseLabel } from './labels';
-import { useMediaAccess } from './queries';
+import { useGardenPlanMediaList, useMediaAccess } from './queries';
 import { useMediaUpload } from './use-media-upload';
 
 export interface GardenPlanUploadProps {
@@ -141,7 +141,14 @@ export function GardenPlanUpload({ gardenId }: GardenPlanUploadProps) {
   const { t, locale } = useLocalization();
   const isOnline = useIsOnline();
   const upload = useMediaUpload(gardenId, 'imported_plan');
+  const savedPlans = useGardenPlanMediaList(gardenId);
   const [validationError, setValidationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (upload.phase === 'processed') {
+      void savedPlans.refetch();
+    }
+  }, [upload.phase, upload.mediaId, savedPlans.refetch]);
 
   const percent = percentOf(upload.uploadedBytes, upload.totalBytes);
   const inProgress =
@@ -321,6 +328,39 @@ export function GardenPlanUpload({ gardenId }: GardenPlanUploadProps) {
           <PlanPreview gardenId={gardenId} media={upload.media} />
         </>
       )}
+
+      <section className={styles['savedPlans']} aria-labelledby="saved-property-plans-title">
+        <h3 id="saved-property-plans-title" className={styles['savedPlansTitle']}>
+          {t('media.plan.savedTitle')}
+        </h3>
+        {savedPlans.isPending && <p role="status">{t('media.plan.savedLoading')}</p>}
+        {savedPlans.isError && <FailureAlert failure={savedPlans.error.failure} />}
+        {savedPlans.data !== undefined &&
+          savedPlans.data.items.filter((plan) => plan.id !== upload.mediaId).length === 0 && (
+            <p className={styles['statusLine']}>{t('media.plan.savedEmpty')}</p>
+          )}
+        {savedPlans.data !== undefined && (
+          <ul className={styles['savedPlanList']}>
+            {savedPlans.data.items
+              .filter((plan) => plan.id !== upload.mediaId)
+              .map((plan) => (
+                <li key={plan.id} className={styles['savedPlan']}>
+                  <div className={styles['savedPlanHeader']}>
+                    <strong>{plan.displayFilename}</strong>
+                    <span>
+                      {plan.uploadState === 'available' && plan.processingState === 'processed'
+                        ? t('media.plan.savedReady')
+                        : t('media.plan.savedProcessing')}
+                    </span>
+                  </div>
+                  {plan.uploadState === 'available' && plan.processingState === 'processed' && (
+                    <PlanPreview gardenId={gardenId} media={plan} />
+                  )}
+                </li>
+              ))}
+          </ul>
+        )}
+      </section>
     </Card>
   );
 }

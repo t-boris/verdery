@@ -44,6 +44,11 @@ export const russianMediaMessages: Readonly<Record<keyof typeof englishMediaMess
   'media.plan.previewAlt': 'Предпросмотр плана: {filename}',
   'media.plan.readyForMap':
     'План загружен и проверен. Добавьте его на карту через панель «Подложки плана» в редакторе карты.',
+  'media.plan.savedTitle': 'Сохранённые планы участка',
+  'media.plan.savedLoading': 'Загрузка сохранённых планов.',
+  'media.plan.savedEmpty': 'Сохранённых планов участка пока нет.',
+  'media.plan.savedReady': 'Готов',
+  'media.plan.savedProcessing': 'Обрабатывается',
 
   'media.phase.idle': '',
   'media.phase.recoverable': 'Обнаружена прерванная загрузка.',

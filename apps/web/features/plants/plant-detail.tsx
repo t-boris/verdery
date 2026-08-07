@@ -49,13 +49,7 @@ export interface PlantDetailProps {
   readonly history?: ReactNode;
 }
 
-function PlantTaxonomySummary({
-  taxonomyReferenceId,
-  displayName,
-}: {
-  readonly taxonomyReferenceId: string;
-  readonly displayName: string;
-}) {
+function PlantTaxonomySummary({ taxonomyReferenceId }: { readonly taxonomyReferenceId: string }) {
   const { t } = useLocalization();
   const profile = usePlantTaxonProfile(taxonomyReferenceId);
   const reference = profile.data?.taxonomyReference;
@@ -208,10 +202,7 @@ export function PlantDetail({
               {plant.taxonomyReferenceId === null ? (
                 t('plants.taxonomyNone')
               ) : (
-                <PlantTaxonomySummary
-                  taxonomyReferenceId={plant.taxonomyReferenceId}
-                  displayName={plant.displayName}
-                />
+                <PlantTaxonomySummary taxonomyReferenceId={plant.taxonomyReferenceId} />
               )}
             </span>
           </div>

@@ -82,7 +82,8 @@
 
 .draftCluster {
   inset-block-end: var(--space-2);
-  inset-inline-start: var(--space-2);
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
   padding: var(--space-1);
 }
 
@@ -139,6 +140,7 @@
 
   .draftCluster {
     inset-block-end: var(--space-2);
+    inset-inline-start: 50%;
   }
 
   .body > :global(aside) {

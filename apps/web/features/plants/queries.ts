@@ -56,6 +56,8 @@ const taxonomySearchQueryKey = (gardenId: string, query: string) =>
   ['taxonomy-references', gardenId, query] as const;
 const taxonProfileQueryKey = (taxonomyReferenceId: string) =>
   ['plant-catalog', 'profile', taxonomyReferenceId] as const;
+const taxonomySearchQueryKeyPrefix = (gardenId: string) =>
+  ['taxonomy-references', gardenId] as const;
 
 function usePlantGateway() {
   return useMemo(() => createPlantGateway(createBrowserApiClient()), []);
@@ -102,6 +104,7 @@ export function useAddPlant(gardenId: string) {
       unwrap(await gateway.add(gardenId, input, generateIdempotencyKey())),
     onSuccess: (plant) => {
       queryClient.setQueryData(plantQueryKey(gardenId, plant.id), plant);
+      void queryClient.invalidateQueries({ queryKey: taxonomySearchQueryKeyPrefix(gardenId) });
     },
   });
 }
@@ -116,6 +119,7 @@ export function useAddPlantFromPhoto(gardenId: string) {
       unwrap(await gateway.addFromPhoto(gardenId, input, generateIdempotencyKey())),
     onSuccess: (plant) => {
       queryClient.setQueryData(plantQueryKey(gardenId, plant.id), plant);
+      void queryClient.invalidateQueries({ queryKey: taxonomySearchQueryKeyPrefix(gardenId) });
     },
     // A large original may reach `available` before its analysis-sized
     // derivative exists. The API reports exactly this transient outcome;
@@ -158,6 +162,12 @@ export function useConfirmPlantIdentification(gardenId: string) {
     onSuccess: (plant) => {
       queryClient.setQueryData(plantQueryKey(gardenId, plant.id), plant);
       queryClient.removeQueries({ queryKey: plantIdentificationQueryKey(gardenId, plant.id) });
+      void queryClient.invalidateQueries({ queryKey: taxonomySearchQueryKeyPrefix(gardenId) });
+      if (plant.taxonomyReferenceId !== null) {
+        void queryClient.invalidateQueries({
+          queryKey: taxonProfileQueryKey(plant.taxonomyReferenceId),
+        });
+      }
     },
   });
 }

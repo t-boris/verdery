@@ -59,6 +59,28 @@ export function useMediaAccess(gardenId: string, mediaId: string, enabled: boole
 }
 
 /**
+ * Persistent property-plan library for garden settings and the map picker.
+ * The key deliberately matches `features/map/media-queries.ts`, so an upload
+ * becoming ready refreshes one shared server-backed list across both routes.
+ */
+export function useGardenPlanMediaList(gardenId: string) {
+  const gateway = useMediaGateway();
+
+  return useQuery<MediaListResult, ApiFailureError>({
+    queryKey: ['media', gardenId, 'list', 'imported_plan'] as const,
+    queryFn: async ({ signal }) =>
+      unwrap(await gateway.list(gardenId, { mediaClass: 'imported_plan' }, signal)),
+    refetchOnMount: 'always',
+    refetchInterval: (query) =>
+      query.state.data?.items.some(
+        (media) => media.uploadState !== 'available' || media.processingState === 'processing',
+      ) === true
+        ? 2_000
+        : false,
+  });
+}
+
+/**
  * Whether this garden already holds a photograph with exactly these bytes.
  *
  * Runs against `checksumSha256`, which the browser computed before

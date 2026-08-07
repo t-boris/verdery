@@ -12,6 +12,12 @@ import { useMediaUpload } from './use-media-upload';
 vi.mock('./use-media-upload', () => ({ useMediaUpload: vi.fn() }));
 vi.mock('./queries', () => ({
   useMediaAccess: vi.fn(() => ({ isPending: true, isError: false })),
+  useGardenPlanMediaList: vi.fn(() => ({
+    data: { items: [], nextCursor: null },
+    isPending: false,
+    isError: false,
+    refetch: vi.fn(),
+  })),
 }));
 
 const mockedUseMediaUpload = vi.mocked(useMediaUpload);
@@ -99,6 +105,14 @@ describe('GardenPlanUpload', () => {
 
     act(() => onlineManager.setOnline(false));
     expect(screen.getByLabelText<HTMLInputElement>('Choose a plan document').disabled).toBe(true);
+  });
+
+  it('shows the persistent saved-plan library even when this upload controller is idle', () => {
+    mockState({});
+    renderWidget();
+
+    expect(screen.getByText('Saved property plans')).toBeTruthy();
+    expect(screen.getByText('No property plans have been saved yet.')).toBeTruthy();
   });
 
   it('rejects an unsupported file type locally, before any upload starts', () => {

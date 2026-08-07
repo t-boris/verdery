@@ -313,6 +313,9 @@ unlocked.
 - The canvas is the workspace: tools, backdrop choice, zoom, the drawing hint and the draft
   controls float over it, and what were five stacked side panels — properties, object index,
   layers, imported background and calibration, warnings — share one collapsible drawer of tabs.
+  Polygonal plant and tree tools trace occupied ground/canopy area rather than a point. Their
+  Finish/Cancel control is anchored independently at the bottom center of the canvas, never inside
+  or beneath the vertical tool rail; double-click remains an equivalent pointer shortcut.
   Below the tablet breakpoint the drawer becomes an overlay; on a phone it becomes a bottom sheet
   capped at 45% of the height, so the drawing always keeps the larger half.
 - Selecting an object raises a small panel at the object itself: move, rotate/resize, edit

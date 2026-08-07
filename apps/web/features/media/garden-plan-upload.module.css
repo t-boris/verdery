@@ -79,3 +79,56 @@
   background-color: var(--color-surface-sunken);
   color: var(--color-text-muted);
 }
+
+.savedPlans {
+  display: grid;
+  gap: var(--space-3);
+  margin-block-start: var(--space-5);
+  padding-block-start: var(--space-4);
+  border-top: var(--border-width) solid var(--color-border);
+}
+
+.savedPlansTitle {
+  margin: 0;
+  font-size: var(--font-size-md);
+}
+
+.savedPlanList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: var(--space-3);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.savedPlan {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  min-inline-size: 0;
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+
+.savedPlanHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-inline-size: 0;
+  font-size: var(--font-size-sm);
+}
+
+.savedPlanHeader strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.savedPlanHeader span {
+  flex: none;
+  color: var(--color-text-muted);
+}

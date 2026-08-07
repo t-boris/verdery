@@ -252,11 +252,22 @@ for density, but the viewer never crops the source image.
 
 Photo-driven plant and candidate creation may reach the API before an oversized original's analysis-sized derivative is published. The server reports this one state as retryable; the web mutation remains in its creating state and retries only that named outcome. It does not show normal derivative preparation as a failed creation.
 
+Property-plan uploads remain visible after the upload controller is gone. Garden settings reads the
+server-backed `imported_plan` library, shows processing and ready records, and refreshes that shared
+list when an upload finishes; the map background picker uses the same query key. A reload therefore
+cannot turn an accepted plan into an apparently missing file, and every ready preview retains the
+same full-screen viewer behavior as other photographic surfaces.
+
 The catalog profile read always returns its canonical taxonomy reference beside reviewed facts and
 licensed images. The page leads with common/scientific name, family, genus, variety, and source;
 reviewed horticultural facts follow with readable labels, values, units, geographic scope, provider,
 and citation. A taxon with no reviewed care facts remains a useful botanical identity while clearly
 stating which gardening knowledge is still missing.
+
+Photo identification invalidates every cached taxonomy browse result for that garden, and catalog
+search/profile reads reconcile with the server whenever their route mounts. A newly resolved
+canonical taxon therefore appears without a hard reload, while the profile remains keyed by the
+canonical taxonomy-reference identifier rather than a mutable display name.
 
 Uploading needs the media feature, so any form that attaches media is composed at the route layer rather than inside another feature — see section 20. The observation form receives its attachments as a prop; the route owns the list and clears it when the record succeeds.
 

@@ -1,8 +1,7 @@
 .row {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: var(--space-3);
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-4);
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-lg);
   background-color: var(--color-surface);
@@ -27,15 +26,23 @@
 
 .actions {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: flex-end;
   gap: var(--space-3);
   padding-top: var(--space-3);
   border-top: var(--border-width) solid var(--color-surface-sunken);
 }
 
 .roleChange {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(10rem, 14rem) auto auto;
   align-items: flex-end;
   gap: var(--space-3);
+}
+
+@media (max-width: 40rem) {
+  .roleChange {
+    grid-template-columns: minmax(0, 1fr);
+    inline-size: 100%;
+  }
 }
