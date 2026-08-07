@@ -54,7 +54,14 @@ import type { LifecycleStage } from '../../../plants-inventory/public.js';
 import type { RuleDefinition, RuleTargetEvaluation } from '../rule-definition.js';
 import { DAY_MS, HOUR_MS, plantTarget } from './rule-support.js';
 
-const PARAMETERS = {
+/**
+ * Exported so a read model can REPORT the same numbers this rule DECIDES on
+ * — the per-plant care view quotes the window, the reference supply and the
+ * threshold. A second copy of these constants would drift from the rule
+ * within one change, and the view would then explain a decision that was
+ * never made.
+ */
+export const WATERING_DRY_SPELL_PARAMETERS = {
   /** How many elapsed days the rainfall total is summed over. */
   dryWindowDays: 7,
   /**
@@ -89,7 +96,9 @@ const CONFIDENCE_FRESH_WEATHER = 20;
 const CONFIDENCE_STALE_WEATHER = 8;
 
 /** The deficit threshold in millimetres — derived, so the two parameters cannot drift apart. */
-const DRY_THRESHOLD_MM = PARAMETERS.referenceWeeklySupplyMm * PARAMETERS.deficitFraction;
+export const DRY_THRESHOLD_MM =
+  WATERING_DRY_SPELL_PARAMETERS.referenceWeeklySupplyMm *
+  WATERING_DRY_SPELL_PARAMETERS.deficitFraction;
 
 function evaluate(facts: GardenFacts): ReturnType<RuleDefinition['evaluate']> {
   const weather = facts.weatherObservation;
@@ -122,14 +131,16 @@ function evaluate(facts: GardenFacts): ReturnType<RuleDefinition['evaluate']> {
     };
   }
 
-  const windowStart = new Date(facts.evaluatedAt.getTime() - PARAMETERS.dryWindowDays * DAY_MS);
+  const windowStart = new Date(
+    facts.evaluatedAt.getTime() - WATERING_DRY_SPELL_PARAMETERS.dryWindowDays * DAY_MS,
+  );
   const rainfall = summarizePrecipitationSince(
     facts.recentPrecipitation,
     windowStart,
-    PARAMETERS.meaningfulRainMm,
+    WATERING_DRY_SPELL_PARAMETERS.meaningfulRainMm,
   );
 
-  if (rainfall.daysCovered < PARAMETERS.minimumDaysCovered) {
+  if (rainfall.daysCovered < WATERING_DRY_SPELL_PARAMETERS.minimumDaysCovered) {
     return {
       outcome: 'skipped',
       reason: {
@@ -138,7 +149,7 @@ function evaluate(facts: GardenFacts): ReturnType<RuleDefinition['evaluate']> {
       },
     };
   }
-  if (temperatureCelsius < PARAMETERS.warmDayCelsius) {
+  if (temperatureCelsius < WATERING_DRY_SPELL_PARAMETERS.warmDayCelsius) {
     return {
       outcome: 'skipped',
       reason: {
@@ -157,7 +168,9 @@ function evaluate(facts: GardenFacts): ReturnType<RuleDefinition['evaluate']> {
     };
   }
 
-  const shortfallMm = Math.round((PARAMETERS.referenceWeeklySupplyMm - rainfall.totalMm) * 10) / 10;
+  const shortfallMm =
+    Math.round((WATERING_DRY_SPELL_PARAMETERS.referenceWeeklySupplyMm - rainfall.totalMm) * 10) /
+    10;
   const daysSinceRain =
     rainfall.lastWetDayAt === null
       ? null
@@ -190,7 +203,7 @@ function evaluate(facts: GardenFacts): ReturnType<RuleDefinition['evaluate']> {
           sourceWeatherRecordId: weather.weatherRecordId,
           factKey: 'weather.accumulated_rainfall',
           factValue: {
-            windowDays: PARAMETERS.dryWindowDays,
+            windowDays: WATERING_DRY_SPELL_PARAMETERS.dryWindowDays,
             totalMm: rainfall.totalMm,
             daysCovered: rainfall.daysCovered,
             lastWetDayAt: rainfall.lastWetDayAt?.toISOString() ?? null,
@@ -212,7 +225,10 @@ function evaluate(facts: GardenFacts): ReturnType<RuleDefinition['evaluate']> {
         {
           kind: 'urgency_window',
           contribution: 20,
-          basis: { urgency: 'normal', validityWindowHours: PARAMETERS.validityWindowHours },
+          basis: {
+            urgency: 'normal',
+            validityWindowHours: WATERING_DRY_SPELL_PARAMETERS.validityWindowHours,
+          },
         },
         {
           kind: 'weather_opportunity_or_risk',
@@ -240,11 +256,11 @@ function evaluate(facts: GardenFacts): ReturnType<RuleDefinition['evaluate']> {
       explanationFacts: {
         'plant.display_name': plant.displayName,
         'plant.lifecycle_stage': plant.lifecycleStage,
-        'weather.window_days': PARAMETERS.dryWindowDays,
+        'weather.window_days': WATERING_DRY_SPELL_PARAMETERS.dryWindowDays,
         'weather.rainfall_total_mm': rainfall.totalMm,
         'weather.rainfall_shortfall_mm': shortfallMm,
         'weather.temperature_celsius': temperatureCelsius,
-        'weather.days_since_rain': daysSinceRain ?? PARAMETERS.dryWindowDays,
+        'weather.days_since_rain': daysSinceRain ?? WATERING_DRY_SPELL_PARAMETERS.dryWindowDays,
       },
       windowEnd: null,
     };
@@ -266,8 +282,8 @@ export const wateringDrySpellCheckV2Rule: RuleDefinition = {
     'or schedule, and never claims to know the soil.',
   urgency: 'normal',
   timing: {
-    validityWindowMs: PARAMETERS.validityWindowHours * HOUR_MS,
-    recurrenceIntervalMs: PARAMETERS.recurrenceIntervalHours * HOUR_MS,
+    validityWindowMs: WATERING_DRY_SPELL_PARAMETERS.validityWindowHours * HOUR_MS,
+    recurrenceIntervalMs: WATERING_DRY_SPELL_PARAMETERS.recurrenceIntervalHours * HOUR_MS,
   },
   weatherPolicy: { use: 'required', kind: 'observation', whenStale: 'useLabeledStale' },
   requiredEvidenceKinds: ['weather', 'lifecycle_stage'],
@@ -277,7 +293,7 @@ export const wateringDrySpellCheckV2Rule: RuleDefinition = {
     'usually supplies — and the latest reading is {weather.temperature_celsius} °C. ' +
     '{plant.display_name} is in its {plant.lifecycle_stage} stage, so check whether it needs ' +
     'watering.',
-  parameters: PARAMETERS,
+  parameters: WATERING_DRY_SPELL_PARAMETERS,
   review: { reviewStatus: 'awaiting_horticultural_review', awaitingReviewBy: 'P7-SAFE-01' },
   evaluate,
 };
