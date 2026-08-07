@@ -1,3 +1,4 @@
+import CoreDesignSystem
 import CoreDomain
 import CoreLocalization
 import SwiftUI
@@ -54,8 +55,8 @@ struct MapObjectPropertyView: View {
     let onBeginJoin: () -> Void
     let onClose: () -> Void
 
-    @State private var label: String
-    @State private var details: EditableDetailsState
+    @State var label: String
+    @State var details: EditableDetailsState
 
     init(
         object: GardenMapObject,
@@ -93,68 +94,108 @@ struct MapObjectPropertyView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    TextField(strings(.mapPropertyLabelField), text: $label)
-                        .accessibilityIdentifier("map.property.labelField")
-                }
+            ScrollView {
+                VStack(alignment: .leading, spacing: Metrics.space4) {
+                    ComposerField(
+                        symbol: MapCategorySymbols.symbol(for: object.category),
+                        accessibilityName: strings(.mapPropertyLabelField),
+                        placeholder: strings(.mapPropertyLabelField),
+                        commitLabel: strings(.mapPropertySave),
+                        text: $label,
+                        commit: save
+                    )
+                    .accessibilityIdentifier("map.property.labelField")
 
-                Section(strings(.mapPropertyDetailsTitle)) {
-                    detailsFields
-                }
-
-                if object.category == .plant {
-                    assignedToSection
-                }
-
-                if let measurementText {
-                    Section {
-                        Text(measurementText).foregroundStyle(.secondary)
+                    if let measurementText {
+                        // A measured value, in the face measured values use.
+                        SurfaceCard {
+                            Text(measurementText)
+                                .font(FieldConsoleType.mono.font)
+                                .foregroundStyle(Palette.textMuted)
+                        }
                     }
-                }
 
-                Section {
-                    if supportsVertexEdit {
-                        Button(strings(.mapPropertyEditShape), action: onEditShape)
+                    VStack(alignment: .leading, spacing: Metrics.space3) {
+                        SectionEyebrow(
+                            symbol: "slider.horizontal.3",
+                            title: strings(.mapPropertyDetailsTitle)
+                        )
+                        detailsFields
+                    }
+
+                    if object.category == .plant {
+                        assignedToSection
+                    }
+
+                    // Shape, duplicate and join are things done TO the object,
+                    // so they read as a row of icon actions rather than as
+                    // three more rows in a settings stack.
+                    FlowRow(spacing: Metrics.space3) {
+                        if supportsVertexEdit {
+                            CompactActionButton(
+                                symbol: "pencil.and.outline",
+                                title: strings(.mapPropertyEditShape),
+                                action: onEditShape
+                            )
                             .accessibilityIdentifier("map.property.editShape")
-                    }
-                    Button(strings(.mapPropertyDuplicate)) {
-                        Task { await onDuplicate() }
-                    }
-                    .accessibilityIdentifier("map.property.duplicate")
-                    if canJoin {
-                        Button(strings(.mapLineworkJoinStart), action: onBeginJoin)
+                        }
+                        CompactActionButton(
+                            symbol: "plus.square.on.square",
+                            title: strings(.mapPropertyDuplicate)
+                        ) {
+                            Task { await onDuplicate() }
+                        }
+                        .accessibilityIdentifier("map.property.duplicate")
+                        if canJoin {
+                            CompactActionButton(
+                                symbol: "arrow.trianglehead.merge",
+                                title: strings(.mapLineworkJoinStart),
+                                action: onBeginJoin
+                            )
                             .accessibilityIdentifier("map.property.beginJoin")
+                        }
                     }
-                }
 
-                Section {
+                    // Destructive last, on its own, the way every record card
+                    // in this application ends.
                     if object.lifecycleState == .deleted {
                         Button(strings(.mapPropertyRestore)) {
                             Task { await onRestore() }
                         }
+                        .buttonStyle(SecondaryButtonStyle())
                         .accessibilityIdentifier("map.property.restore")
                     } else {
-                        Button(strings(.mapPropertyDelete), role: .destructive) {
+                        Button(strings(.mapPropertyDelete)) {
                             Task { await onDelete() }
                         }
+                        .buttonStyle(SecondaryButtonStyle(tone: .negative))
                         .accessibilityIdentifier("map.property.delete")
                     }
                 }
+                .padding(Metrics.space4)
             }
+            .screenBackground()
             .navigationTitle(strings(.mapPropertyTitle))
+            .inlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(strings(.mapPropertyClose), action: onClose)
                         .accessibilityIdentifier("map.property.close")
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(strings(.mapPropertySave)) {
-                        Task { await onSave(label, details.toDomain(category: object.category, existing: object.categoryDetails)) }
-                    }
-                    .accessibilityIdentifier("map.property.save")
+                    Button(strings(.mapPropertySave), action: save)
+                        .accessibilityIdentifier("map.property.save")
                 }
             }
+        }
+    }
+
+    private func save() {
+        Task {
+            await onSave(
+                label,
+                details.toDomain(category: object.category, existing: object.categoryDetails)
+            )
         }
     }
 
@@ -185,207 +226,6 @@ struct MapObjectPropertyView: View {
         )
     }
 
-    @ViewBuilder
-    private var detailsFields: some View {
-        switch object.category {
-        case .structure:
-            Picker(strings(.mapStructureKindLabel), selection: $details.structureKind) {
-                ForEach(StructureKind.allCases, id: \.self) { kind in
-                    Text(MapCategoryLocalization.name(for: kind, strings: strings)).tag(kind)
-                }
-            }
-            TextField(strings(.mapStructureHeightLabel), text: $details.structureHeightMetres)
-                .decimalKeyboard()
-
-        case .fence:
-            Picker(strings(.mapFenceKindLabel), selection: $details.fenceKind) {
-                ForEach(FenceKind.allCases, id: \.self) { kind in
-                    Text(MapCategoryLocalization.name(for: kind, strings: strings)).tag(kind)
-                }
-            }
-            TextField(strings(.mapFenceHeightLabel), text: $details.fenceHeightMetres)
-                .decimalKeyboard()
-
-        case .gate:
-            HStack {
-                Text(strings(.mapGateFenceLabel))
-                Spacer()
-                Text(resolvedGateFenceLabel).foregroundStyle(.secondary)
-            }
-            TextField(strings(.mapGateWidthLabel), text: $details.gateWidthMetres)
-                .decimalKeyboard()
-
-        case .zone:
-            Picker(strings(.mapZoneKindLabel), selection: $details.zoneKind) {
-                ForEach(ZoneKind.allCases, id: \.self) { kind in
-                    Text(MapCategoryLocalization.name(for: kind, strings: strings)).tag(kind)
-                }
-            }
-
-        case .bed:
-            Picker(strings(.mapBedKindLabel), selection: $details.bedKind) {
-                ForEach(BedKind.allCases, id: \.self) { kind in
-                    Text(MapCategoryLocalization.name(for: kind, strings: strings)).tag(kind)
-                }
-            }
-            TextField(strings(.mapBedSoilNotesLabel), text: $details.bedSoilNotes)
-
-        case .utilityExclusion:
-            Picker(strings(.mapUtilityExclusionKindLabel), selection: $details.utilityExclusionKind) {
-                ForEach(UtilityExclusionKind.allCases, id: \.self) { kind in
-                    Text(MapCategoryLocalization.name(for: kind, strings: strings)).tag(kind)
-                }
-            }
-            TextField(strings(.mapUtilityExclusionNotesLabel), text: $details.utilityExclusionNotes)
-
-        case .tree:
-            TextField(strings(.mapTreeCommonNameLabel), text: $details.treeCommonName)
-            TextField(strings(.mapTreeHeightLabel), text: $details.treeHeightMetres)
-                .decimalKeyboard()
-            TextField(strings(.mapTreeSpreadLabel), text: $details.treeSpreadMetres)
-                .decimalKeyboard()
-
-        case .plant:
-            TextField(strings(.mapPlantCommonNameLabel), text: $details.plantCommonName)
-            TextField(strings(.mapPlantQuantityLabel), text: $details.plantQuantity)
-                .integerKeyboard()
-            TextField(strings(.mapPlantSpacingLabel), text: $details.plantSpacingMetres)
-                .decimalKeyboard()
-
-        case .annotation:
-            TextField(strings(.mapAnnotationMeasurementValueLabel), text: $details.annotationMeasurementValue)
-                .decimalKeyboard()
-            Picker(strings(.mapAnnotationMeasurementUnitLabel), selection: $details.annotationMeasurementUnit) {
-                ForEach(MeasurementUnit.allCases, id: \.self) { unit in
-                    Text(MapCategoryLocalization.name(for: unit, strings: strings)).tag(unit)
-                }
-            }
-            annotationMeasurementProvenance
-
-        case .importedBackground:
-            importedBackgroundStateRows
-
-        case .lot, .path, .waterFeature:
-            EmptyView()
-        }
-    }
-
-    /// Read-only calibration state for a plan background — the same honest
-    /// wording as the canvas badge and background panel
-    /// (`MapCalibrationLabels`), plus the derived scale and transform
-    /// revision when calibrated. Managed elsewhere (background panel,
-    /// calibration flow); never edited by this form.
-    @ViewBuilder
-    private var importedBackgroundStateRows: some View {
-        if case let .importedBackground(value)? = object.categoryDetails {
-            HStack {
-                Text(strings(.mapBackgroundCalibrationStateLabel))
-                Spacer()
-                Text(MapCalibrationLabels.stateText(for: value.calibration, strings: strings))
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("map.property.calibrationState")
-            }
-            if let calibration = value.calibration {
-                Text(
-                    strings.string(
-                        .mapCalibrationScaleSummary,
-                        parameters: ["metres": strings.number(calibration.transform.metresPerPlanUnit, fractionDigits: 1)]
-                    )
-                        + " · "
-                        + strings.string(
-                            .mapCalibrationTransformRevision,
-                            parameters: ["revision": String(calibration.transformRevision)]
-                        )
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("map.property.calibrationSummary")
-            }
-        }
-    }
-
-    /// Read-only display of `uncertainty`/`acquisitionMethod`/`originalEntry`
-    /// — fields the editable value/unit fields above never touch (see
-    /// `EditableDetailsState.toDomain`'s doc comment on the `.annotation`
-    /// case) but that must never be silently hidden once already present on
-    /// the object. Reads directly from `object.categoryDetails`, not from
-    /// `EditableDetailsState`, since these three fields are never part of
-    /// what this form edits.
-    @ViewBuilder
-    private var annotationMeasurementProvenance: some View {
-        if case let .annotation(value)? = object.categoryDetails, let measurement = value.measurement {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(
-                    strings.string(
-                        .mapAnnotationAcquisitionMethodLabel,
-                        parameters: ["method": MapCategoryLocalization.name(for: measurement.acquisitionMethod, strings: strings)]
-                    )
-                )
-                if let uncertainty = measurement.uncertainty {
-                    Text(
-                        strings.string(
-                            .mapAnnotationUncertaintyLabel,
-                            parameters: [
-                                "value": formatted(uncertainty),
-                                "unit": MapCategoryLocalization.name(for: measurement.unit, strings: strings),
-                            ]
-                        )
-                    )
-                }
-                if let originalEntry = measurement.originalEntry {
-                    Text(strings.string(.mapAnnotationOriginalEntryLabel, parameters: ["value": originalEntry]))
-                }
-            }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("map.property.annotationProvenance")
-        }
-    }
-
-    /// The gate's fence, resolved to a display label when the fence object is
-    /// still loaded locally, falling back to the raw id otherwise.
-    /// Reassigning a gate to a different fence is out of scope — this is
-    /// display-only, matching `EditableDetailsState.toDomain`'s handling of
-    /// `fenceObjectId`, which always passes it through unchanged.
-    private var resolvedGateFenceLabel: String {
-        guard case let .gate(value)? = object.categoryDetails else { return "" }
-        if let label = objectsById[value.fenceObjectId]?.label, !label.isEmpty {
-            return label
-        }
-        return value.fenceObjectId
-    }
-
-    /// A real measurement overlay, computed from the object's actual stored
-    /// geometry via the same `GeometryMeasurement` functions validation
-    /// uses — not a placeholder value.
-    private var measurementText: String? {
-        switch object.geometry {
-        case let .polygon(rings):
-            guard let exterior = rings.first else { return nil }
-            return strings.string(
-                .mapPropertyMeasurementArea,
-                parameters: ["squareMetres": formatted(GeometryMeasurement.ringArea(exterior))]
-            )
-        case let .lineString(line):
-            return strings.string(
-                .mapPropertyMeasurementLength,
-                parameters: ["metres": formatted(GeometryMeasurement.lineLength(line))]
-            )
-        case .point, .multiLineString, .multiPolygon:
-            return nil
-        }
-    }
-
-    /// Two fraction digits, in the reader's locale.
-    ///
-    /// An instance method rather than a static one because the reader's
-    /// locale lives on `strings`: `String(format: "%.2f", …)` produced a
-    /// POSIX point regardless of language, so a Russian reader saw an area of
-    /// `12.50` where every other number on the screen used a comma.
-    private func formatted(_ value: Double) -> String {
-        strings.number(value, fractionDigits: 2)
-    }
 }
 
 /// Local, per-field editing state for the category-detail forms above.
