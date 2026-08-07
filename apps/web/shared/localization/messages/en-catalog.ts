@@ -33,6 +33,7 @@ export const englishCatalogMessages = {
   'catalog.profilePartial':
     'This profile is incomplete: at least one thing sources describe about this plant could not be resolved from a reviewed assertion.',
   'catalog.factProvider': 'Source: {provider}',
+  'catalog.sourcesTitle': 'Sources',
   'catalog.factSourceBacked': 'Source-backed · not horticulturist-reviewed',
   'catalog.factReviewed': 'Horticulturist-reviewed',
   'catalog.factScope': 'Applies to: {scope}',

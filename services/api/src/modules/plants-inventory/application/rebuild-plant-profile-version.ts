@@ -40,6 +40,26 @@ import type { PlantProfileVersionRepository } from './plant-profile-version-repo
 
 const HUMAN_PROVIDER_KEY = 'human';
 
+/**
+ * Fact keys that are EVIDENCE ABOUT a taxon rather than knowledge OF it, and
+ * so never enter a profile.
+ *
+ * `occurrence_evidence_count` is GBIF's count of documented sightings, stored
+ * nationwide and once per `stateProvince` facet. ADR-0016 section 4 forbids
+ * reading it as a native / introduced / invasive / regulated status claim —
+ * which is the only reading that would have helped anyone deciding what to
+ * plant. Stripped of that interpretation it is a bare number, and there is
+ * one per region, so a common taxon rendered as fifty rows all titled
+ * "Occurrence evidence count" ahead of the hardiness and water needs somebody
+ * actually opened the page for. GBIF's facet is free text as well, so those
+ * rows carried "Ca", "Dallas" and "New mexico" beside "New Mexico".
+ *
+ * The assertions are still fetched, still stored, and still available as
+ * evidence — this excludes them from the PROFILE, which answers "what is
+ * known about this plant", not "how often has it been seen".
+ */
+const NON_PROFILE_FACT_KEYS: ReadonlySet<string> = new Set(['occurrence_evidence_count']);
+
 export type RebuildPlantProfileVersionResult =
   | { readonly outcome: 'rebuilt'; readonly version: PlantProfileVersion }
   | { readonly outcome: 'nothingToResolve' };
@@ -70,6 +90,9 @@ export class RebuildPlantProfileVersion {
 
       const assertions = await this.facts.findAllForProviderTaxon(providerKey, providerTaxonId);
       for (const assertion of assertions) {
+        if (NON_PROFILE_FACT_KEYS.has(assertion.factKey)) {
+          continue;
+        }
         candidates.push({
           factKey: assertion.factKey,
           value: assertion.factValue,

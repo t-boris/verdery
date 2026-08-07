@@ -61,6 +61,7 @@ export function createUsaNpnRegistration(
       providerKey: USA_NPN_PROVIDER_KEY,
       displayName: USA_NPN_DISPLAY_NAME,
       licenseNote: LICENSE_NOTE,
+      citationText: USA_NPN_CITATION,
       attributionText: USA_NPN_CITATION,
       fetchTimeoutMs: options.fetchTimeoutMs,
       quotaLimits: options.quotaLimits,

@@ -95,6 +95,13 @@ export function TaxonProfile({ taxonomyReferenceId }: TaxonProfileProps) {
   }
 
   const { taxonomyReference, profile, images } = query.data;
+  const citations = [
+    ...new Set(
+      (profile?.resolvedFacts ?? [])
+        .map((fact) => fact.sourceCitation)
+        .filter((citation): citation is string => citation !== null && citation.trim() !== ''),
+    ),
+  ];
   const lightboxPhotos = images.map((image, index) => {
     const alt =
       image.organ === null || image.organ === undefined
@@ -232,13 +239,31 @@ export function TaxonProfile({ taxonomyReferenceId }: TaxonProfileProps) {
                     {fact.geographicScope !== null && (
                       <span>{t('catalog.factScope', { scope: fact.geographicScope })}</span>
                     )}
-                    {fact.sourceCitation !== null && <span>{fact.sourceCitation}</span>}
                   </span>
                 </dd>
               </div>
             );
           })}
         </dl>
+      )}
+
+      {/* Citations belong to the SOURCES, not to each fact, so they are
+          listed once. Rendering `sourceCitation` per row printed the same
+          sentence under every fact of the same provider — and with a
+          provider that contributes many facts, the citation was most of the
+          page. Deduplicated by text rather than by provider key: two
+          providers citing the same work should still say it once. */}
+      {citations.length > 0 && (
+        <section className={styles['citations']} aria-labelledby="taxon-citations">
+          <h3 id="taxon-citations" className={styles['citationsTitle']}>
+            {t('catalog.sourcesTitle')}
+          </h3>
+          <ul className={styles['citationList']}>
+            {citations.map((citation) => (
+              <li key={citation}>{citation}</li>
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   );

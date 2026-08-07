@@ -151,6 +151,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
           providerKey: PROVIDER_KEY,
           displayName: 'USDA PLANTS Database',
           licenseNote: 'Public domain test license.',
+          citationText: 'USDA NRCS PLANTS Database. https://plants.usda.gov.',
           attributionText: null,
           fetchTimeoutMs: 5_000,
           quotaLimits: { maxCallsPerHour: null, maxCallsPerDay: null },
@@ -321,6 +322,97 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         evidenceStatus: 'horticulturally_reviewed',
       },
     ]);
+  });
+
+  it('stores occurrence counts as evidence but keeps them out of the profile, and cites the source in one sentence', async () => {
+    const now = new Date('2026-07-31T11:00:00Z');
+    const taxonomyReferenceId = await seedTaxonomyReference(now);
+    const providerTaxonId = `test-${randomUUID()}`;
+
+    // What a real GBIF refresh produces for a common taxon: one nationwide
+    // count plus one per state facet, alongside an actual characteristic.
+    const adapter = new FakePlantAssertionProviderAdapter(
+      {
+        kind: 'succeed',
+        candidates: [{ providerTaxonId, scientificName: 'Quercus alba', confidence: null }],
+      },
+      {
+        kind: 'succeed',
+        value: [
+          {
+            factKey: 'growth_habit',
+            value: 'Tree',
+            unit: null,
+            confidence: null,
+            geographicScope: null,
+          },
+          {
+            factKey: 'occurrence_evidence_count',
+            value: '1792',
+            unit: 'records',
+            confidence: null,
+            geographicScope: null,
+          },
+          {
+            factKey: 'occurrence_evidence_count',
+            value: '53',
+            unit: 'records',
+            confidence: null,
+            geographicScope: 'Pennsylvania',
+          },
+          // GBIF's stateProvince facet is free text, so real data carries
+          // entries like this one beside the properly-spelled states.
+          {
+            factKey: 'occurrence_evidence_count',
+            value: '1',
+            unit: 'records',
+            confidence: null,
+            geographicScope: 'Dallas',
+          },
+        ],
+      },
+      { kind: 'succeed', value: [] },
+    );
+    const { facts, refreshTaxonAssertions, rebuildPlantProfileVersion } = buildAssertionPipeline(
+      now,
+      adapter,
+    );
+
+    const refreshed = await refreshTaxonAssertions.execute({
+      taxonomyReferenceId,
+      providerKey: PROVIDER_KEY,
+    });
+    expect(refreshed).toMatchObject({ outcome: 'refreshed', factsWritten: 4 });
+
+    // The evidence is kept: nothing is thrown away, it simply is not profile
+    // content.
+    const storedFacts = await facts.findAllForProviderTaxon(PROVIDER_KEY, providerTaxonId);
+    expect(storedFacts).toHaveLength(4);
+    expect(storedFacts.filter((fact) => fact.factKey === 'occurrence_evidence_count')).toHaveLength(
+      3,
+    );
+
+    // The citation stamped on every assertion is the SOURCE's one-sentence
+    // citation — not the internal compliance memo that used to be stored
+    // here and printed under every fact on the catalog page.
+    const citations = new Set(
+      storedFacts.map((fact) =>
+        fact.provenance.authoringMethod === 'ai_extracted_from_source'
+          ? fact.provenance.sourceCitation
+          : null,
+      ),
+    );
+    expect(citations).toEqual(new Set(['USDA NRCS PLANTS Database. https://plants.usda.gov.']));
+
+    const rebuilt = await rebuildPlantProfileVersion.execute(taxonomyReferenceId, [PROVIDER_KEY]);
+    expect(rebuilt.outcome).toBe('rebuilt');
+    if (rebuilt.outcome !== 'rebuilt') {
+      throw new Error('expected rebuilt');
+    }
+    // One row, and it is the characteristic somebody opened the page for —
+    // not fifty rows of sighting counts ahead of it.
+    expect(rebuilt.version.resolvedFacts).toHaveLength(1);
+    expect(rebuilt.version.resolvedFacts[0]?.factKey).toBe('growth_habit');
   });
 
   it('drives the full sweep over a real candidate end to end', async () => {
