@@ -202,6 +202,11 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue, parameters: parameters)
     }
 
+    /// The same resolution for the calibration bar's measurement controls.
+    public func callAsFunction(_ key: MapCalibrationLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
     /// The same resolution for the date dial's relative shortcuts.
     public func callAsFunction(_ key: RelativeDayLocalizationKey) -> String {
         string(forKey: key.rawValue)
@@ -249,6 +254,7 @@ public struct LocalizedStrings: Sendable {
         + GeoreferenceLocalizationKey.allCases.map(\.rawValue)
         + RelativeDayLocalizationKey.allCases.map(\.rawValue)
         + IdentificationReviewLocalizationKey.allCases.map(\.rawValue)
+        + MapCalibrationLocalizationKey.allCases.map(\.rawValue)
 
     /// Resolves an arbitrary key, used for codes that originate in Core.
     ///

@@ -1231,3 +1231,8 @@
 /* Сканирование бумажного чертежа. */
 "media.plan.scanDocument" = "Отсканировать чертёж";
 "media.plan.scanHint" = "Находит края листа и выправляет перспективу, чтобы снимок под углом всё равно правильно измерялся.";
+
+/* Измеренное расстояние на панели калибровки — числом, которое подкручивают. */
+"map.calibration.distanceUnit" = "м";
+"map.calibration.distanceIncrease" = "Длиннее";
+"map.calibration.distanceDecrease" = "Короче";

@@ -1,3 +1,4 @@
+import CoreDesignSystem
 import SwiftUI
 
 /// The calibration session's control surface (P6-PLAN-02 iOS parity),
@@ -64,24 +65,45 @@ struct MapCalibrationBarView: View {
         }
     }
 
+    /// The known distance between two picked points — the number the whole
+    /// calibration rests on. A nudgeable numeral rather than a bordered box:
+    /// it is a measurement, it wants the reader's own decimal separator, and
+    /// correcting it by a centimetre is a drag rather than a re-typing.
+    /// Written back POSIX: this string is what the calibration command
+    /// carries, and the model parses it with `Double(_:)`. A localized `12,5`
+    /// would round-trip to nothing.
+    private var distanceBinding: Binding<Double> {
+        Binding(
+            get: { Double(model.calibrationDistanceText) ?? 0 },
+            set: { newValue in
+                let rounded = (newValue * 100).rounded() / 100
+                model.setCalibrationDistanceText(String(rounded))
+            }
+        )
+    }
+
+    private var rotationBinding: Binding<Double> {
+        Binding(
+            get: { Double(model.calibrationRotationDegreesText) ?? 0 },
+            set: { newValue in
+                model.setCalibrationRotationDegrees(String(Int(newValue.rounded())))
+            }
+        )
+    }
+
     private var distanceField: some View {
-        HStack {
-            Text(model.strings(.mapCalibrationDistanceLabel))
-                .font(.callout)
-            TextField(
-                model.strings(.mapCalibrationDistanceLabel),
-                text: Binding(
-                    get: { model.calibrationDistanceText },
-                    set: { model.setCalibrationDistanceText($0) }
-                )
-            )
-            .textFieldStyle(.roundedBorder)
-            .frame(maxWidth: distanceFieldWidth)
-            #if os(iOS)
-                .keyboardType(.decimalPad)
-            #endif
-            .accessibilityIdentifier("map.calibration.distance")
-        }
+        MeasureField(
+            fieldName: model.strings(.mapCalibrationDistanceLabel),
+            unitLabel: model.strings(.mapCalibrationDistanceUnit),
+            decreaseLabel: model.strings(.mapCalibrationDistanceDecrease),
+            increaseLabel: model.strings(.mapCalibrationDistanceIncrease),
+            value: distanceBinding,
+            step: 0.1,
+            range: 0...10_000,
+            fractionDigits: 2,
+            locale: .autoupdatingCurrent
+        )
+        .accessibilityIdentifier("map.calibration.distance")
     }
 
     private var segmentAndControlPointActions: some View {
@@ -129,25 +151,17 @@ struct MapCalibrationBarView: View {
         }
     }
 
+    /// How far the drawing is turned. A dial, for the same reason the
+    /// georeference screen's north is one: the question is spatial — "it sits
+    /// like that" — and typing 37 into a box is the slowest way to answer it.
     private var rotationField: some View {
-        HStack {
-            Text(model.strings(.mapCalibrationRotationLabel))
-                .font(.callout)
-            TextField(
-                model.strings(.mapCalibrationRotationLabel),
-                text: Binding(
-                    get: { model.calibrationRotationDegreesText },
-                    set: { model.setCalibrationRotationDegrees($0) }
-                )
-            )
-            .textFieldStyle(.roundedBorder)
-            .frame(maxWidth: rotationFieldWidth)
-            #if os(iOS)
-                .keyboardType(.numbersAndPunctuation)
-            #endif
-            .disabled(!model.isCalibrationPreviewReady)
-            .accessibilityIdentifier("map.calibration.rotation")
-        }
+        CompassDial(
+            fieldName: model.strings(.mapCalibrationRotationLabel),
+            valueText: model.calibrationRotationDegreesText,
+            degrees: rotationBinding
+        )
+        .disabled(!model.isCalibrationPreviewReady)
+        .accessibilityIdentifier("map.calibration.rotation")
     }
 
     @ViewBuilder

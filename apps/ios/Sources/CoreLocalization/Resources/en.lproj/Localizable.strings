@@ -1232,3 +1232,8 @@
 /* Scanning a paper drawing. */
 "media.plan.scanDocument" = "Scan the drawing";
 "media.plan.scanHint" = "Finds the page edges and flattens the perspective, so a photograph taken at an angle still measures correctly.";
+
+/* The calibration bar's measured distance, as a nudgeable numeral. */
+"map.calibration.distanceUnit" = "m";
+"map.calibration.distanceIncrease" = "Longer";
+"map.calibration.distanceDecrease" = "Shorter";
