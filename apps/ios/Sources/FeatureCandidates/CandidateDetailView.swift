@@ -231,19 +231,55 @@ public struct CandidateDetailView: View {
         .padding(.vertical, Metrics.space1)
     }
 
+    /// The composer fields commit where the Save button commits, so pressing
+    /// Return finishes the edit rather than doing nothing.
+    private func saveDetails() {
+        Task { await model.saveDetails() }
+    }
+
+    private var quantityBinding: Binding<Double> {
+        Binding(
+            get: { Double(model.quantityText) ?? 1 },
+            set: { model.quantityText = String(Int($0.rounded())) }
+        )
+    }
+
+    /// Zero is a real price — a gift, a cutting from a neighbour — so an
+    /// unparsable or empty value reads as zero rather than as one. Written back
+    /// POSIX, because this string is the payload the command carries and the
+    /// model parses it with `Double(_:)`.
+    private var priceBinding: Binding<Double> {
+        Binding(
+            get: { Double(model.priceAmountText) ?? 0 },
+            set: { model.priceAmountText = String(($0 * 100).rounded() / 100) }
+        )
+    }
+
     private func editSection(_ candidate: PlantCandidate) -> some View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
             SectionEyebrow(symbol: CandidateSymbols.candidate, title: model.editTitle)
 
             SurfaceCard {
                 VStack(alignment: .leading, spacing: Metrics.space3) {
-                    TextField(model.displayNameLabel, text: $model.displayName)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("candidates.detail.displayNameField")
+                    ComposerField(
+                        symbol: "leaf",
+                        accessibilityName: model.displayNameLabel,
+                        placeholder: model.displayNameLabel,
+                        commitLabel: model.saveDetailsTitle,
+                        text: $model.displayName,
+                        commit: saveDetails
+                    )
+                    .accessibilityIdentifier("candidates.detail.displayNameField")
 
-                    TextField(model.varietyLabelLabel, text: $model.varietyLabel)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("candidates.detail.varietyLabelField")
+                    ComposerField(
+                        symbol: "tag",
+                        accessibilityName: model.varietyLabelLabel,
+                        placeholder: model.varietyLabelLabel,
+                        commitLabel: model.saveDetailsTitle,
+                        text: $model.varietyLabel,
+                        commit: saveDetails
+                    )
+                    .accessibilityIdentifier("candidates.detail.varietyLabelField")
 
                     Button {
                         model.isTaxonomyPickerPresented = true
@@ -260,31 +296,59 @@ public struct CandidateDetailView: View {
                     .accessibilityIdentifier("candidates.detail.taxonomyRow")
 
                     if candidate.groupingKind != .individual {
-                        TextField(model.quantityLabel, text: $model.quantityText)
-                            .textFieldStyle(.roundedBorder)
-                            #if os(iOS)
-                                .keyboardType(.numberPad)
-                            #endif
-                            .accessibilityIdentifier("candidates.detail.quantityField")
+                        MeasureField(
+                            fieldName: model.quantityLabel,
+                            unitLabel: model.quantityUnitLabel,
+                            decreaseLabel: model.quantityDecreaseLabel,
+                            increaseLabel: model.quantityIncreaseLabel,
+                            value: quantityBinding,
+                            step: 1,
+                            range: 1...9_999,
+                            fractionDigits: 0,
+                            locale: .autoupdatingCurrent
+                        )
+                        .accessibilityIdentifier("candidates.detail.quantityField")
                     }
 
-                    TextField(model.rationaleNoteLabel, text: $model.rationaleNote)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("candidates.detail.rationaleNoteField")
+                    NoteCanvas(
+                        accessibilityName: model.rationaleNoteLabel,
+                        placeholder: model.rationaleNoteLabel,
+                        text: $model.rationaleNote
+                    )
+                    .accessibilityIdentifier("candidates.detail.rationaleNoteField")
 
-                    HStack(spacing: Metrics.space2) {
-                        TextField(model.priceAmountLabel, text: $model.priceAmountText)
-                            .textFieldStyle(.roundedBorder)
-                            #if os(iOS)
-                                .keyboardType(.decimalPad)
-                            #endif
-                        TextField(model.priceCurrencyLabel, text: $model.priceCurrency)
-                            .textFieldStyle(.roundedBorder)
-                    }
+                    MeasureField(
+                        fieldName: model.priceAmountLabel,
+                        unitLabel: model.priceCurrency,
+                        decreaseLabel: model.priceDecreaseLabel,
+                        increaseLabel: model.priceIncreaseLabel,
+                        value: priceBinding,
+                        step: 1,
+                        range: 0...1_000_000,
+                        fractionDigits: 2,
+                        locale: .autoupdatingCurrent
+                    )
+                    .accessibilityIdentifier("candidates.detail.priceAmountField")
 
-                    TextField(model.purchaseSourceLabel, text: $model.purchaseSource)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("candidates.detail.purchaseSourceField")
+                    ComposerField(
+                        symbol: "coloncurrencysign",
+                        accessibilityName: model.priceCurrencyLabel,
+                        placeholder: model.priceCurrencyLabel,
+                        commitLabel: model.saveDetailsTitle,
+                        text: $model.priceCurrency,
+                        commit: saveDetails
+                    )
+                    .accessibilityIdentifier("candidates.detail.priceCurrencyField")
+
+                    ComposerField(
+                        symbol: "cart",
+                        accessibilityName: model.purchaseSourceLabel,
+                        placeholder: model.purchaseSourceLabel,
+                        commitLabel: model.saveDetailsTitle,
+                        text: $model.purchaseSource,
+                        commit: saveDetails
+                    )
+                    .accessibilityIdentifier("candidates.detail.purchaseSourceField")
 
                     Button(model.saveDetailsTitle) {
                         Task { await model.saveDetails() }
@@ -352,30 +416,43 @@ public struct CandidateDetailView: View {
                         .font(Typography.detail)
                         .foregroundStyle(Palette.textMuted)
 
-                    Toggle(model.convertAcquisitionDateToggleLabel, isOn: $model.hasConvertAcquisitionDate)
-                        .accessibilityIdentifier("candidates.detail.convertAcquisitionDateToggle")
+                    OptionalValueCard(
+                        fieldName: model.convertAcquisitionDateLabel,
+                        addPrompt: model.convertAcquisitionDateToggleLabel,
+                        clearLabel: model.closeTitle,
+                        symbol: "calendar",
+                        displayValue: model.hasConvertAcquisitionDate
+                            ? CalendarText.day(model.convertAcquisitionDate) : nil,
+                        clear: { model.hasConvertAcquisitionDate = false }
+                    ) {
+                        VStack(alignment: .leading, spacing: Metrics.space3) {
+                            DateDial(
+                                fieldName: model.convertAcquisitionDateLabel,
+                                selection: $model.convertAcquisitionDate,
+                                now: .now,
+                                calendar: .current,
+                                chipTitle: model.relativeDayTitle,
+                                dayNumber: CalendarText.dayNumber,
+                                weekdayName: CalendarText.weekday,
+                                longDate: CalendarText.day
+                            )
+                            .onAppear { model.hasConvertAcquisitionDate = true }
 
-                    if model.hasConvertAcquisitionDate {
-                        DatePicker(
-                            model.convertAcquisitionDateLabel,
-                            selection: $model.convertAcquisitionDate,
-                            displayedComponents: .date
-                        )
-                        .accessibilityIdentifier("candidates.detail.convertAcquisitionDatePicker")
-
-                        HStack(spacing: Metrics.space2) {
-                            ForEach(PlantAcquisitionDateType.allCases, id: \.self) { type in
-                                CandidateChoiceChip(
-                                    label: model.acquisitionDateTypeName(type),
-                                    isSelected: model.convertAcquisitionDateType == type
-                                ) {
-                                    model.convertAcquisitionDateType = type
-                                }
-                            }
-                            Spacer(minLength: 0)
+                            ChoiceChipGrid(
+                                fieldName: model.convertAcquisitionDateLabel,
+                                options: PlantAcquisitionDateType.allCases.map {
+                                    ChoiceChipGrid.Option(
+                                        value: $0,
+                                        label: model.acquisitionDateTypeName($0),
+                                        symbol: "calendar"
+                                    )
+                                },
+                                selection: $model.convertAcquisitionDateType
+                            )
+                            .accessibilityIdentifier("candidates.detail.convertAcquisitionDateType")
                         }
-                        .accessibilityIdentifier("candidates.detail.convertAcquisitionDateTypePicker")
                     }
+                    .accessibilityIdentifier("candidates.detail.convertAcquisitionDate")
 
                     Button {
                         isConvertConfirmationPresented = true

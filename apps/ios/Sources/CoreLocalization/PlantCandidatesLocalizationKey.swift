@@ -113,4 +113,10 @@ public enum PlantCandidatesLocalizationKey: String, Sendable, CaseIterable {
         "candidates.enum.suitabilityUnknownReason.plantFactMissing"
     case candidatesSuitabilityUnknownReasonPlacementMissing =
         "candidates.enum.suitabilityUnknownReason.placementMissing"
+
+    /// `MeasureField`'s two accessible adjust actions for a price. A drag with
+    /// no spoken equivalent is a control that does not exist for a VoiceOver
+    /// reader, so the component requires both names.
+    case candidatesPriceIncrease = "candidates.price.increase"
+    case candidatesPriceDecrease = "candidates.price.decrease"
 }

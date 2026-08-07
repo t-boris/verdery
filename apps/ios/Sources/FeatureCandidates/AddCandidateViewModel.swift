@@ -74,6 +74,11 @@ public final class AddCandidateViewModel {
     public var purchaseSourceLabel: String { strings(.candidatesPurchaseSourceLabel) }
     public var submitTitle: String { strings(.candidatesAddSubmit) }
     public var closeTitle: String { strings(.candidatesClose) }
+    public var quantityUnitLabel: String { strings(.plantsQuantityUnit) }
+    public var quantityIncreaseLabel: String { strings(.plantsQuantityIncrease) }
+    public var quantityDecreaseLabel: String { strings(.plantsQuantityDecrease) }
+    public var priceIncreaseLabel: String { strings(.candidatesPriceIncrease) }
+    public var priceDecreaseLabel: String { strings(.candidatesPriceDecrease) }
 
     public func groupingKindName(_ kind: PlantGroupingKind) -> String {
         CandidatesLocalization.groupingKindName(kind, strings: strings)

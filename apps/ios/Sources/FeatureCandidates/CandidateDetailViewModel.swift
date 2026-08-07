@@ -122,6 +122,21 @@ public final class CandidateDetailViewModel {
     public var saveDetailsTitle: String { strings(.candidatesSaveDetails) }
     public var detailsSavedMessage: String { strings(.candidatesDetailsSaved) }
     public var closeTitle: String { strings(.candidatesClose) }
+    public var quantityUnitLabel: String { strings(.plantsQuantityUnit) }
+    public var quantityIncreaseLabel: String { strings(.plantsQuantityIncrease) }
+    public var quantityDecreaseLabel: String { strings(.plantsQuantityDecrease) }
+    public var priceIncreaseLabel: String { strings(.candidatesPriceIncrease) }
+    public var priceDecreaseLabel: String { strings(.candidatesPriceDecrease) }
+
+    /// The date dial's four shortcuts, as words rather than as dates.
+    public func relativeDayTitle(_ kind: RelativeDayOption.Kind) -> String {
+        switch kind {
+        case .today: strings(.relativeDayToday)
+        case .tomorrow: strings(.relativeDayTomorrow)
+        case .thisWeekend: strings(.relativeDayThisWeekend)
+        case .nextWeek: strings(.relativeDayNextWeek)
+        }
+    }
 
     public var statusTitle: String { strings(.candidatesStatusTitle) }
     public var saveStatusTitle: String { strings(.candidatesSaveStatus) }

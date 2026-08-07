@@ -25,66 +25,108 @@ struct PlantAdvancedFiltersView: View {
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
             VStack(alignment: .leading, spacing: Metrics.space3) {
-                Picker(model.journalRecencyLabel, selection: $model.journalRecency) {
-                    ForEach(JournalRecencyOption.allCases, id: \.self) { option in
-                        Text(model.recencyTitle(option)).tag(option)
-                    }
-                }
+ChoiceChipGrid(
+                    fieldName: model.journalRecencyLabel,
+                    options: JournalRecencyOption.allCases.map {
+                        ChoiceChipGrid.Option(
+                            value: $0, label: model.recencyTitle($0), symbol: "clock"
+                        )
+                    },
+                    selection: $model.journalRecency
+                )
                 .accessibilityIdentifier("plants.list.journalRecencyFilter")
 
-                Picker(model.healthConcernLabel, selection: $model.healthConcernSelection) {
-                    Text(model.filterAnyTitle).tag(ImageAnalysisKind?.none)
-                    ForEach(ImageAnalysisKind.allCases, id: \.self) { kind in
-                        Text(model.healthConcernTitle(kind)).tag(ImageAnalysisKind?.some(kind))
-                    }
-                }
+ChoiceChipGrid(
+                    fieldName: model.healthConcernLabel,
+                    options: [ChoiceChipGrid.Option(
+                        value: ImageAnalysisKind?.none, label: model.filterAnyTitle, symbol: "circle"
+                    )] + ImageAnalysisKind.allCases.map {
+                        ChoiceChipGrid.Option(
+                            value: ImageAnalysisKind?.some($0),
+                            label: model.healthConcernTitle($0),
+                            symbol: "stethoscope"
+                        )
+                    },
+                    selection: $model.healthConcernSelection
+                )
                 .accessibilityIdentifier("plants.list.healthConcernFilter")
 
-                Picker(model.seasonalActivityLabel, selection: $model.seasonalActivitySelection) {
-                    Text(model.filterAnyTitle).tag(TaxonSeasonalActivity?.none)
-                    ForEach(TaxonSeasonalActivity.allCases, id: \.self) { activity in
-                        Text(model.seasonalActivityTitle(activity))
-                            .tag(TaxonSeasonalActivity?.some(activity))
-                    }
-                }
+ChoiceChipGrid(
+                    fieldName: model.seasonalActivityLabel,
+                    options: [ChoiceChipGrid.Option(
+                        value: TaxonSeasonalActivity?.none,
+                        label: model.filterAnyTitle,
+                        symbol: "circle"
+                    )] + TaxonSeasonalActivity.allCases.map {
+                        ChoiceChipGrid.Option(
+                            value: TaxonSeasonalActivity?.some($0),
+                            label: model.seasonalActivityTitle($0),
+                            symbol: "sun.max"
+                        )
+                    },
+                    selection: $model.seasonalActivitySelection
+                )
                 .accessibilityIdentifier("plants.list.seasonalActivityFilter")
 
                 // Disabled rather than hidden: a month with no activity means
                 // nothing, and a control that appears and vanishes is harder to
                 // follow than one that is visibly unavailable.
-                Picker(model.seasonalMonthLabel, selection: $model.seasonalMonthSelection) {
-                    Text(model.filterAnyMonthTitle).tag(Int?.none)
-                    ForEach(1...12, id: \.self) { month in
-                        Text(model.monthTitle(month)).tag(Int?.some(month))
-                    }
-                }
-                .disabled(model.seasonalActivitySelection == nil)
+ChoiceChipGrid(
+                    fieldName: model.seasonalMonthLabel,
+                    options: [ChoiceChipGrid.Option(
+                        value: Int?.none, label: model.filterAnyMonthTitle, symbol: "circle"
+                    )] + (1...12).map {
+                        ChoiceChipGrid.Option(
+                            value: Int?.some($0), label: model.monthTitle($0), symbol: "calendar"
+                        )
+                    },
+                    selection: $model.seasonalMonthSelection
+                )
                 .accessibilityIdentifier("plants.list.seasonalMonthFilter")
+                .disabled(model.seasonalActivitySelection == nil)
 
-                Picker(model.distributionStatusLabel, selection: $model.distributionStatusSelection) {
-                    Text(model.filterAnyTitle).tag(PlantDistributionStatus?.none)
-                    ForEach(PlantDistributionStatus.allCases, id: \.self) { status in
-                        Text(model.distributionStatusTitle(status))
-                            .tag(PlantDistributionStatus?.some(status))
-                    }
-                }
+ChoiceChipGrid(
+                    fieldName: model.distributionStatusLabel,
+                    options: [ChoiceChipGrid.Option(
+                        value: PlantDistributionStatus?.none,
+                        label: model.filterAnyTitle,
+                        symbol: "circle"
+                    )] + PlantDistributionStatus.allCases.map {
+                        ChoiceChipGrid.Option(
+                            value: PlantDistributionStatus?.some($0),
+                            label: model.distributionStatusTitle($0),
+                            symbol: "globe"
+                        )
+                    },
+                    selection: $model.distributionStatusSelection
+                )
                 .accessibilityIdentifier("plants.list.distributionStatusFilter")
 
-                TextField(model.distributionRegionLabel, text: $model.distributionRegionText)
-                    .textFieldStyle(.roundedBorder)
-                    .disabled(model.distributionStatusSelection == nil)
-                    .accessibilityIdentifier("plants.list.distributionRegionFilter")
-
-                Picker(
-                    model.profileCompletenessLabel,
+                ComposerField(
+                    symbol: "map",
+                    accessibilityName: model.distributionRegionLabel,
+                    placeholder: model.distributionRegionLabel,
+                    commitLabel: model.moreFiltersTitle,
+                    text: $model.distributionRegionText,
+                    commit: {}
+                )
+                .disabled(model.distributionStatusSelection == nil)
+                .accessibilityIdentifier("plants.list.distributionRegionFilter")
+                ChoiceChipGrid(
+                    fieldName: model.profileCompletenessLabel,
+                    options: [ChoiceChipGrid.Option(
+                        value: PlantProfileCompleteness?.none,
+                        label: model.filterAnyTitle,
+                        symbol: "circle"
+                    )] + PlantProfileCompleteness.allCases.map {
+                        ChoiceChipGrid.Option(
+                            value: PlantProfileCompleteness?.some($0),
+                            label: model.profileCompletenessTitle($0),
+                            symbol: "checklist"
+                        )
+                    },
                     selection: $model.profileCompletenessSelection
-                ) {
-                    Text(model.filterAnyTitle).tag(PlantProfileCompleteness?.none)
-                    ForEach(PlantProfileCompleteness.allCases, id: \.self) { value in
-                        Text(model.profileCompletenessTitle(value))
-                            .tag(PlantProfileCompleteness?.some(value))
-                    }
-                }
+                )
                 .accessibilityIdentifier("plants.list.profileCompletenessFilter")
             }
             .padding(.top, Metrics.space2)

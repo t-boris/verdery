@@ -1195,3 +1195,7 @@
 "relativeDay.tomorrow" = "Tomorrow";
 "relativeDay.thisWeekend" = "This weekend";
 "relativeDay.nextWeek" = "Next week";
+
+/* A candidate's price, as a nudgeable numeral. */
+"candidates.price.increase" = "More";
+"candidates.price.decrease" = "Less";

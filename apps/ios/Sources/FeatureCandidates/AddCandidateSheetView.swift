@@ -67,19 +67,28 @@ struct AddCandidateSheetView: View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
             SectionEyebrow(symbol: CandidateSymbols.candidate, title: model.displayNameLabel)
 
-            SurfaceCard {
-                VStack(alignment: .leading, spacing: Metrics.space3) {
-                    TextField(model.displayNameLabel, text: $model.displayName)
-                        .textFieldStyle(.roundedBorder)
-                        .focused($isDisplayNameFocused)
-                        .accessibilityIdentifier("candidates.add.displayNameField")
+            VStack(alignment: .leading, spacing: Metrics.space3) {
+                    ComposerField(
+                        symbol: "leaf",
+                        accessibilityName: model.displayNameLabel,
+                        placeholder: model.displayNameLabel,
+                        commitLabel: model.submitTitle,
+                        text: $model.displayName,
+                        commit: submit
+                    )
+                    .accessibilityIdentifier("candidates.add.displayNameField")
 
-                    TextField(model.varietyLabelLabel, text: $model.varietyLabel)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("candidates.add.varietyLabelField")
+                    ComposerField(
+                        symbol: "tag",
+                        accessibilityName: model.varietyLabelLabel,
+                        placeholder: model.varietyLabelLabel,
+                        commitLabel: model.submitTitle,
+                        text: $model.varietyLabel,
+                        commit: submit
+                    )
+                    .accessibilityIdentifier("candidates.add.varietyLabelField")
 
-                    taxonomyRow
-                }
+                    SurfaceCard { taxonomyRow }
             }
         }
     }
@@ -134,14 +143,18 @@ struct AddCandidateSheetView: View {
             .accessibilityIdentifier("candidates.add.groupingKindPicker")
 
             if model.groupingKind != .individual {
-                SurfaceCard {
-                    TextField(model.quantityLabel, text: $model.quantityText)
-                        .textFieldStyle(.roundedBorder)
-                        #if os(iOS)
-                            .keyboardType(.numberPad)
-                        #endif
-                        .accessibilityIdentifier("candidates.add.quantityField")
-                }
+                MeasureField(
+                    fieldName: model.quantityLabel,
+                    unitLabel: model.quantityUnitLabel,
+                    decreaseLabel: model.quantityDecreaseLabel,
+                    increaseLabel: model.quantityIncreaseLabel,
+                    value: quantityBinding,
+                    step: 1,
+                    range: 1...9_999,
+                    fractionDigits: 0,
+                    locale: .autoupdatingCurrent
+                )
+                .accessibilityIdentifier("candidates.add.quantityField")
             }
         }
     }
@@ -150,11 +163,15 @@ struct AddCandidateSheetView: View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
             SectionEyebrow(symbol: CandidateSymbols.priority, title: model.priorityLabel)
 
-            SurfaceCard {
-                VStack(alignment: .leading, spacing: Metrics.space3) {
-                    TextField(model.rationaleNoteLabel, text: $model.rationaleNote)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("candidates.add.rationaleNoteField")
+            VStack(alignment: .leading, spacing: Metrics.space3) {
+                    // Why this plant is being considered is a note, and notes
+                    // are content rather than controls.
+                    NoteCanvas(
+                        accessibilityName: model.rationaleNoteLabel,
+                        placeholder: model.rationaleNoteLabel,
+                        text: $model.rationaleNote
+                    )
+                    .accessibilityIdentifier("candidates.add.rationaleNoteField")
 
                     HStack(spacing: Metrics.space2) {
                         CandidateChoiceChip(label: model.priorityNoneLabel, isSelected: model.priority == nil) {
@@ -172,30 +189,70 @@ struct AddCandidateSheetView: View {
                     }
                     .accessibilityIdentifier("candidates.add.priorityPicker")
 
-                    HStack(spacing: Metrics.space2) {
-                        TextField(model.priceAmountLabel, text: $model.priceAmountText)
-                            .textFieldStyle(.roundedBorder)
-                            #if os(iOS)
-                                .keyboardType(.decimalPad)
-                            #endif
-                            .accessibilityIdentifier("candidates.add.priceAmountField")
+                    // A price is a numeral with a unit beside it, which is
+                    // exactly the shape this component has — and it is the one
+                    // that gets the reader's decimal separator right.
+                    MeasureField(
+                        fieldName: model.priceAmountLabel,
+                        unitLabel: model.priceCurrency,
+                        decreaseLabel: model.priceDecreaseLabel,
+                        increaseLabel: model.priceIncreaseLabel,
+                        value: priceBinding,
+                        step: 1,
+                        range: 0...1_000_000,
+                        fractionDigits: 2,
+                        locale: .autoupdatingCurrent
+                    )
+                    .accessibilityIdentifier("candidates.add.priceAmountField")
 
-                        TextField(model.priceCurrencyLabel, text: $model.priceCurrency)
-                            .textFieldStyle(.roundedBorder)
-                            .accessibilityIdentifier("candidates.add.priceCurrencyField")
-                    }
+                    ComposerField(
+                        symbol: "coloncurrencysign",
+                        accessibilityName: model.priceCurrencyLabel,
+                        placeholder: model.priceCurrencyLabel,
+                        commitLabel: model.submitTitle,
+                        text: $model.priceCurrency,
+                        commit: submit
+                    )
+                    .accessibilityIdentifier("candidates.add.priceCurrencyField")
 
-                    TextField(model.purchaseSourceLabel, text: $model.purchaseSource)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("candidates.add.purchaseSourceField")
+                    ComposerField(
+                        symbol: "cart",
+                        accessibilityName: model.purchaseSourceLabel,
+                        placeholder: model.purchaseSourceLabel,
+                        commitLabel: model.submitTitle,
+                        text: $model.purchaseSource,
+                        commit: submit
+                    )
+                    .accessibilityIdentifier("candidates.add.purchaseSourceField")
                 }
-            }
         }
     }
 
     private var isSubmitDisabled: Bool {
         model.state == .submitting
             || model.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// The model holds these as text, because that is what an empty field
+    /// means and what the command payload carries. The nudgeable numerals work
+    /// in numbers, so the two meet here rather than in the model.
+    private var quantityBinding: Binding<Double> {
+        Binding(
+            get: { Double(model.quantityText) ?? 1 },
+            set: { model.quantityText = String(Int($0.rounded())) }
+        )
+    }
+
+    /// Zero is a real price — a gift, a cutting from a neighbour — so an
+    /// unparsable or empty value reads as zero rather than as one.
+    private var priceBinding: Binding<Double> {
+        Binding(
+            get: { Double(model.priceAmountText) ?? 0 },
+            // Written back POSIX, not localized: this string is the payload
+            // the command carries, and the model parses it with `Double(_:)`.
+            // A localized "12,5" would round-trip to nothing.
+            set: { model.priceAmountText = String(($0 * 100).rounded() / 100) }
+        )
     }
 
     private func submit() {

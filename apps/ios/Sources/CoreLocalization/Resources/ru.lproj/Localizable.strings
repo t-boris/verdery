@@ -1194,3 +1194,7 @@
 "relativeDay.tomorrow" = "Завтра";
 "relativeDay.thisWeekend" = "В выходные";
 "relativeDay.nextWeek" = "На следующей неделе";
+
+/* Цена кандидата — числом, которое можно подкручивать. */
+"candidates.price.increase" = "Больше";
+"candidates.price.decrease" = "Меньше";
