@@ -47,12 +47,9 @@ function isJoinable(category: MapObjectRecord['category']): boolean {
  * multi-selecting, or deleting it is refused with a `map.status.layerLocked`
  * status, the same as the canvas.
  *
- * Shift-click toggles a row into a separate multi-select set (independent
- * of the single `selectedObjectId` the property panel and canvas track),
- * used only for the fence/path "Join" action below the list — the
- * lightest-weight multi-select affordance that satisfies `joinLinework`
- * needing exactly two same-category objects, not a general multi-select
- * feature.
+ * Shift-click toggles a row into the working multi-selection. Dragging any
+ * member while explicit move mode is armed moves the entire selection with
+ * one atomic command. Two compatible linework objects can also be joined.
  *
  * Source: architecture/map-rendering-and-editing.md, section "19. Accessibility".
  */
@@ -155,6 +152,7 @@ export function MapObjectList({ actions, selectedObjectId, onSelect }: MapObject
                   return;
                 }
                 if (event.shiftKey) {
+                  onSelect(record.id);
                   store.toggleMultiSelect(record.id);
                   return;
                 }

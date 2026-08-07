@@ -256,13 +256,21 @@ Property-plan uploads remain visible after the upload controller is gone. Garden
 server-backed `imported_plan` library, shows processing and ready records, and refreshes that shared
 list when an upload finishes; the map background picker uses the same query key. A reload therefore
 cannot turn an accepted plan into an apparently missing file, and every ready preview retains the
-same full-screen viewer behavior as other photographic surfaces.
+same full-screen viewer behavior as other photographic surfaces. Every saved card also exposes the
+governed media-deletion command, including records still processing; a plan already referenced by a
+map background retains the server's explicit `media.referenced` refusal.
 
-The catalog profile read always returns its canonical taxonomy reference beside reviewed facts and
-licensed images. The page leads with common/scientific name, family, genus, variety, and source;
-reviewed horticultural facts follow with readable labels, values, units, geographic scope, provider,
-and citation. A taxon with no reviewed care facts remains a useful botanical identity while clearly
-stating which gardening knowledge is still missing.
+The catalog profile read always returns its canonical taxonomy reference beside source-backed or
+horticulturally reviewed facts and licensed images. A cold read runs configured provider enrichment
+and materializes the result before returning, instead of waiting for an unrelated sweep. The page
+leads with common/scientific name, family, genus, variety, and source; facts follow with readable
+labels, values, units, geographic scope, provider, citation, and an explicit evidence status.
+Human-authored and AI-proposed claims remain hidden until review; a cited provider claim may be read
+immediately as `source_backed` but does not become horticulturally reviewed by implication.
+
+The collaborators roster uses the containing members card as its only frame. Each member is one
+full-width responsive row with identity, role, and owner actions aligned as a single unit; it does
+not introduce a narrower nested card that leaves an arbitrary empty column beside the controls.
 
 Photo identification invalidates every cached taxonomy browse result for that garden, and catalog
 search/profile reads reconcile with the server whenever their route mounts. A newly resolved

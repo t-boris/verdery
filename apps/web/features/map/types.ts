@@ -75,9 +75,9 @@ export type CreatableCategory = (typeof CREATABLE_CATEGORIES)[number];
  * draws as a short line (like a mini `fence`) even though its schema also
  * permits a bare `Point` — a short segment is the more useful default, per
  * `object-category.ts`'s comment on `ALLOWED_GEOMETRY_TYPES.gate`.
- * `annotation` draws as a point (a measurement-reference pin) even though
- * its schema also permits a `LineString` — a point is the simpler,
- * sufficient choice for this pass.
+ * `tree` and `plant` are one-click tools: the click becomes a small regular
+ * polygon so the result looks circular but remains a real editable area.
+ * `annotation` is stored as a bare point.
  */
 export const CREATABLE_GEOMETRY_KIND: Readonly<
   Record<CreatableCategory, 'polygon' | 'line' | 'point'>
@@ -91,13 +91,8 @@ export const CREATABLE_GEOMETRY_KIND: Readonly<
   bed: 'polygon',
   waterFeature: 'polygon',
   utilityExclusion: 'polygon',
-  // Trees are plants with meaningful canopy/root-zone extent. Point geometry
-  // remains readable for legacy imports, while new work traces an area.
-  tree: 'polygon',
-  // A plant occupies real ground/canopy space. The contracts already allow
-  // both Point and Polygon for imported/legacy data, but new editor work is
-  // always an area the gardener traces and can later resize.
-  plant: 'polygon',
+  tree: 'point',
+  plant: 'point',
   annotation: 'point',
 };
 

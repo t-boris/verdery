@@ -44,6 +44,8 @@ export const englishMapMessages = {
   'map.canvas.hintVertexEdit':
     'Drag a vertex to move it. Click a small midpoint handle to add a vertex. Alt-click a vertex to remove it. Shift-click a fence or path vertex to split there.',
   'map.canvas.hintTransform': 'Drag a corner to resize. Drag the handle above the shape to rotate.',
+  'map.canvas.hintMove':
+    'Drag the selected object. Shift-select several objects in the list to move them together.',
   'map.gate.promptTitle': 'Choose the fence this gate belongs to',
   'map.gate.fenceLabel': 'Fence',
   'map.gate.confirm': 'Add gate',
@@ -58,7 +60,7 @@ export const englishMapMessages = {
   'map.objectList.selectAriaLabel': 'Select {label}, {category}',
   'map.objectList.selectAriaLabelLocked': '{label}, {category}, locked layer',
   'map.objectList.lockedTooltip': 'This layer is locked',
-  'map.objectList.multiSelectedCount': '{count} selected for joining',
+  'map.objectList.multiSelectedCount': '{count} selected as a working group',
   'map.objectList.join': 'Join',
   'map.objectList.clearSelection': 'Clear selection',
   'map.properties.title': 'Properties',
@@ -160,6 +162,7 @@ export const englishMapMessages = {
   'map.category.importedBackground': 'Imported background',
   'map.status.created': '{label} created.',
   'map.status.moved': '{label} moved.',
+  'map.status.movedSelection': '{count} objects moved together.',
   'map.status.moveFailed':
     'The move could not be saved. The object was returned to its last saved position.',
   'map.status.commandFailed': 'The change could not be saved.',

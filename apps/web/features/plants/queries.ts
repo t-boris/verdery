@@ -335,7 +335,7 @@ export function usePlantPhotos(gardenId: string, plantId: string) {
   });
 }
 
-/** Reference imagery and reviewed facts for an identified plant's taxon. */
+/** Reference imagery and attributed source-backed or reviewed facts for an identified taxon. */
 export function usePlantTaxonProfile(taxonomyReferenceId: string) {
   const gateway = useMemo(() => createPlantCatalogGateway(createBrowserApiClient()), []);
 

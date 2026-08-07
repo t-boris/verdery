@@ -70,6 +70,18 @@ export interface MoveObjectPayload {
   readonly translationMetres: { readonly dx: number; readonly dy: number };
 }
 
+export interface MoveObjectsTarget {
+  readonly objectId: string;
+  readonly expectedRevision: number;
+}
+
+/** One translation applied atomically to every explicitly selected object. */
+export interface MoveObjectsPayload {
+  readonly type: 'moveObjects';
+  readonly targets: readonly MoveObjectsTarget[];
+  readonly translationMetres: { readonly dx: number; readonly dy: number };
+}
+
 export interface ReplaceGeometryPayload {
   readonly type: 'replaceGeometry';
   readonly objectId: string;
@@ -179,6 +191,7 @@ export interface DuplicateObjectPayload {
 export type MapCommandPayload =
   | CreateObjectPayload
   | MoveObjectPayload
+  | MoveObjectsPayload
   | ReplaceGeometryPayload
   | EditVertexPayload
   | SplitLineworkPayload

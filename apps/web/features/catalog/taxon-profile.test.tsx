@@ -26,6 +26,7 @@ const PROFILE: NonNullable<PlantTaxonProfileResult['profile']> = {
       providerKey: 'usda_plants',
       confidence: 0.9,
       sourceCitation: 'USDA PLANTS Database',
+      evidenceStatus: 'source_backed',
     },
   ],
 };
@@ -90,6 +91,7 @@ describe('TaxonProfile', () => {
     expect(screen.getByText('Minimum hardiness zone')).toBeTruthy();
     expect(screen.getByText('Source: usda_plants')).toBeTruthy();
     expect(screen.getByText('USDA PLANTS Database')).toBeTruthy();
+    expect(screen.getByText('Source-backed · not horticulturist-reviewed')).toBeTruthy();
   });
 
   it('treats a null fact profile as ordinary missing knowledge', () => {
@@ -101,7 +103,9 @@ describe('TaxonProfile', () => {
 
     renderProfile();
 
-    expect(screen.getByText(/Care, growing, seasonal, safety/)).toBeTruthy();
+    expect(
+      screen.getByText(/currently connected sources supplied no additional facts/),
+    ).toBeTruthy();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 

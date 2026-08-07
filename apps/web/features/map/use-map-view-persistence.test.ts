@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseMapViewPreferences } from './use-map-view-persistence';
+import {
+  migrateLegacyMapViewPreferences,
+  parseMapViewPreferences,
+} from './use-map-view-persistence';
 
 describe('parseMapViewPreferences', () => {
   it('restores viewport, rotation, backdrop, opacity, and layer states', () => {
@@ -36,5 +39,25 @@ describe('parseMapViewPreferences', () => {
         }),
       ),
     ).toBeNull();
+  });
+
+  it('keeps the legacy view while clearing automatic layer locks', () => {
+    expect(
+      migrateLegacyMapViewPreferences(
+        JSON.stringify({
+          camera: { centerX: 12, centerY: -4, scale: 48, rotationDegrees: 27 },
+          hiddenLayers: [2],
+          lockedLayers: [3, 4],
+          backgroundOpacity: 0.6,
+          backdrop: 'streets',
+        }),
+      ),
+    ).toEqual({
+      camera: { centerX: 12, centerY: -4, scale: 48, rotationDegrees: 27 },
+      hiddenLayers: [2],
+      lockedLayers: [],
+      backgroundOpacity: 0.6,
+      backdrop: 'streets',
+    });
   });
 });

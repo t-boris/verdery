@@ -155,7 +155,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     ).rejects.toThrow(/garden_object_geometry_type_check/);
   });
 
-  it('accepts a tree trunk point and a valid canopy polygon', async () => {
+  it('accepts legacy tree points and primary tree-area polygons', async () => {
     await freshGarden();
     const treeId = randomUUID();
 
@@ -169,6 +169,13 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       `INSERT INTO gardens_mapping.tree_details (garden_object_id, canopy_geometry, common_name)
        VALUES ($1, ST_GeomFromText($2, 0), 'Japanese maple')`,
       [treeId, SQUARE_POLYGON_WKT],
+    );
+
+    await client.query(
+      `INSERT INTO gardens_mapping.garden_object
+         (id, garden_id, coordinate_space_id, category, geometry, provenance, created_by_profile_id)
+       VALUES ($1, $2, $3, 'tree', ST_GeomFromText($4, 0), 'manualDrawing', $5)`,
+      [randomUUID(), gardenId, coordinateSpaceId, SQUARE_POLYGON_WKT, profileId],
     );
 
     const row = await client.query<{ common_name: string }>(

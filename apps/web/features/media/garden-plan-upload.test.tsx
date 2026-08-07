@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LocalizationProvider } from '@/shared/localization/public';
 
 import { GardenPlanUpload } from './garden-plan-upload';
+import { useDeleteGardenPlan, useGardenPlanMediaList } from './queries';
 import type { UseMediaUploadResult } from './use-media-upload';
 import { useMediaUpload } from './use-media-upload';
 
@@ -18,9 +19,16 @@ vi.mock('./queries', () => ({
     isError: false,
     refetch: vi.fn(),
   })),
+  useDeleteGardenPlan: vi.fn(() => ({
+    mutate: vi.fn(),
+    isPending: false,
+    isError: false,
+  })),
 }));
 
 const mockedUseMediaUpload = vi.mocked(useMediaUpload);
+const mockedUseGardenPlanMediaList = vi.mocked(useGardenPlanMediaList);
+const mockedUseDeleteGardenPlan = vi.mocked(useDeleteGardenPlan);
 
 const BASE_STATE: UseMediaUploadResult = {
   phase: 'idle',
@@ -84,7 +92,19 @@ function selectFile(file: File): void {
 
 afterEach(() => {
   act(() => onlineManager.setOnline(true));
+  vi.restoreAllMocks();
   vi.clearAllMocks();
+  mockedUseGardenPlanMediaList.mockReturnValue({
+    data: { items: [], nextCursor: null },
+    isPending: false,
+    isError: false,
+    refetch: vi.fn(),
+  } as never);
+  mockedUseDeleteGardenPlan.mockReturnValue({
+    mutate: vi.fn(),
+    isPending: false,
+    isError: false,
+  } as never);
 });
 
 describe('GardenPlanUpload', () => {
@@ -113,6 +133,28 @@ describe('GardenPlanUpload', () => {
 
     expect(screen.getByText('Saved property plans')).toBeTruthy();
     expect(screen.getByText('No property plans have been saved yet.')).toBeTruthy();
+  });
+
+  it('confirms and deletes a saved plan using its current revision', () => {
+    const mutate = vi.fn();
+    mockedUseGardenPlanMediaList.mockReturnValue({
+      data: { items: [processedMedia()], nextCursor: null },
+      isPending: false,
+      isError: false,
+      refetch: vi.fn(),
+    } as never);
+    mockedUseDeleteGardenPlan.mockReturnValue({
+      mutate,
+      isPending: false,
+      isError: false,
+    } as never);
+    vi.spyOn(globalThis, 'confirm').mockReturnValue(true);
+    mockState({});
+
+    renderWidget();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete plan.jpg' }));
+
+    expect(mutate).toHaveBeenCalledWith({ mediaId: 'media-1', revision: 3 });
   });
 
   it('rejects an unsupported file type locally, before any upload starts', () => {

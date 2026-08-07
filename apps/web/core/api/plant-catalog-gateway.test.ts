@@ -21,6 +21,7 @@ const PROFILE: PlantProfileVersion = {
       providerKey: 'usda_plants',
       confidence: 0.9,
       sourceCitation: 'USDA PLANTS Database',
+      evidenceStatus: 'source_backed',
     },
   ],
 };

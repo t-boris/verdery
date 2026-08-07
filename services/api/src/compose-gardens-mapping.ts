@@ -58,6 +58,7 @@ import {
   ListIncomingOwnershipTransfers,
   MediaPlatPageResolver,
   MoveMapObject,
+  MoveMapObjects,
   ReadPlatFromPlan,
   PromoteToOwner,
   RecordGardenContextFact,
@@ -199,6 +200,12 @@ export function composeGardensMapping(
       clock,
     ),
     moveMapObject: new MoveMapObject(
+      gardenIdempotency,
+      gardensMappingUnitOfWork,
+      gardenAuthorization,
+      clock,
+    ),
+    moveMapObjects: new MoveMapObjects(
       gardenIdempotency,
       gardensMappingUnitOfWork,
       gardenAuthorization,

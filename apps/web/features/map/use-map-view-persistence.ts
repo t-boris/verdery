@@ -5,7 +5,8 @@ import { useEffect, useState } from 'react';
 import type { BackdropKind, MapEditorStore, MapViewPreferences } from './editor-store';
 import type { LayerId } from './map-layers';
 
-const STORAGE_PREFIX = 'verdery.map.view.v1';
+const STORAGE_PREFIX = 'verdery.map.view.v2';
+const LEGACY_STORAGE_PREFIX = 'verdery.map.view.v1';
 const LAYERS: readonly LayerId[] = [2, 3, 4, 5];
 
 function isFiniteNumber(value: unknown): value is number {
@@ -64,6 +65,12 @@ export function parseMapViewPreferences(raw: string): MapViewPreferences | null 
   }
 }
 
+/** Keeps the version-1 view but removes its implicit lot/layout locks. */
+export function migrateLegacyMapViewPreferences(raw: string): MapViewPreferences | null {
+  const preferences = parseMapViewPreferences(raw);
+  return preferences === null ? null : { ...preferences, lockedLayers: [] };
+}
+
 /** Restores and then continuously saves the per-garden map viewport and layer preferences. */
 export function useMapViewPersistence(gardenId: string, store: MapEditorStore): boolean {
   const [ready, setReady] = useState(false);
@@ -71,7 +78,17 @@ export function useMapViewPersistence(gardenId: string, store: MapEditorStore): 
 
   useEffect(() => {
     const stored = globalThis.localStorage.getItem(`${STORAGE_PREFIX}.${gardenId}`);
-    const preferences = stored === null ? null : parseMapViewPreferences(stored);
+    const currentPreferences = stored === null ? null : parseMapViewPreferences(stored);
+    const legacyStored = globalThis.localStorage.getItem(`${LEGACY_STORAGE_PREFIX}.${gardenId}`);
+    const legacyPreferences =
+      currentPreferences === null && legacyStored !== null
+        ? migrateLegacyMapViewPreferences(legacyStored)
+        : null;
+    // Version 1 silently locked the two principal editing layers by default.
+    // Preserve every other per-garden preference during migration, but clear
+    // those ambiguous legacy locks once. Version 2 persists all later lock
+    // choices exactly as the gardener makes them.
+    const preferences = currentPreferences ?? legacyPreferences;
     if (preferences !== null) {
       store.restoreViewPreferences(preferences);
     }

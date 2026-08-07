@@ -125,7 +125,8 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         now: NOW,
       }),
     );
-    // A second, still-unreviewed source for the same fact — must be ignored.
+    // A second, still-unreviewed cited source remains displayable, but the
+    // horticulturally reviewed assertion wins the conflict.
     await facts.insert(
       createPlantFactAssertion({
         id: randomUUID(),
@@ -161,6 +162,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         providerKey: 'usda-plants',
         confidence: 0.9,
         sourceCitation: 'USDA PLANTS, accessed 2026-07-29',
+        evidenceStatus: 'horticulturally_reviewed',
       },
     ]);
     expect(result.version.isPartial).toBe(false);
@@ -204,7 +206,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     });
   });
 
-  it('reports nothingToResolve when no fact has cleared review', async () => {
+  it('materializes a cited provider fact as source-backed before horticultural review', async () => {
     await freshTaxon();
     await seedLiveMapping('usda-plants', 'PROV-USDA-2');
     const { facts, rebuild } = buildHandlers();
@@ -230,7 +232,17 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     );
 
     const result = await rebuild.execute(taxonomyReferenceId, ['usda-plants']);
-    expect(result).toEqual({ outcome: 'nothingToResolve' });
+    expect(result.outcome).toBe('rebuilt');
+    if (result.outcome !== 'rebuilt') {
+      throw new Error('expected rebuilt');
+    }
+    expect(result.version.resolvedFacts).toEqual([
+      expect.objectContaining({
+        factKey: 'hardinessZoneMin',
+        providerKey: 'usda-plants',
+        evidenceStatus: 'source_backed',
+      }),
+    ]);
   });
 
   it('skips a provider with no live mapping for this taxon entirely', async () => {

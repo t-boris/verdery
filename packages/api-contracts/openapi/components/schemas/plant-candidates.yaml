@@ -467,7 +467,8 @@ SuitabilityAssessment:
 ResolvedFact:
   type: object
   additionalProperties: false
-  required: [factKey, value, unit, geographicScope, providerKey, confidence, sourceCitation]
+  required:
+    [factKey, value, unit, geographicScope, providerKey, confidence, sourceCitation, evidenceStatus]
   properties:
     factKey:
       type: string
@@ -486,6 +487,10 @@ ResolvedFact:
         - type: 'null'
     sourceCitation:
       type: [string, 'null']
+    evidenceStatus:
+      type: string
+      enum: [source_backed, horticulturally_reviewed]
+      description: Whether this is a cited provider claim or a horticulturist-reviewed fact.
 
 PlantProfileVersion:
   type: object
@@ -493,8 +498,9 @@ PlantProfileVersion:
   required: [id, taxonomyReferenceId, resolvedFacts, isPartial, createdAt]
   description: |
     The materialized, source-priority-resolved profile
-    (plants-inventory/domain/plant-profile-version.ts). Only
-    `horticulturally_reviewed` facts ever appear in `resolvedFacts`.
+    (plants-inventory/domain/plant-profile-version.ts). Cited provider claims
+    may appear as `source_backed`; human/AI proposals require horticultural
+    review before they can appear.
   properties:
     id:
       $ref: '../../components/schemas/shared.yaml#/Uuid'
@@ -506,7 +512,7 @@ PlantProfileVersion:
         $ref: '#/ResolvedFact'
     isPartial:
       type: boolean
-      description: True when at least one fact key seen among candidate assertions never resolved (missing, or only unreviewed).
+      description: True when at least one fact key seen among candidate assertions is not displayable because it is neither reviewed nor source-backed.
     createdAt:
       $ref: '../../components/schemas/shared.yaml#/Timestamp'
 

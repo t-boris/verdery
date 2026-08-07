@@ -1,13 +1,14 @@
 'use client';
 
-import type { MediaAccess, MediaListResult } from '@verdery/api-contracts';
-import { useQuery } from '@tanstack/react-query';
+import type { Media, MediaAccess, MediaListResult } from '@verdery/api-contracts';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import {
   ApiFailureError,
   createBrowserApiClient,
   createMediaGateway,
+  generateIdempotencyKey,
   isFailure,
   type ApiResult,
 } from '@/core/api/public';
@@ -77,6 +78,22 @@ export function useGardenPlanMediaList(gardenId: string) {
       ) === true
         ? 2_000
         : false,
+  });
+}
+
+/** Deletes an uploaded property plan and reconciles every media-backed plan list. */
+export function useDeleteGardenPlan(gardenId: string) {
+  const gateway = useMediaGateway();
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    Media,
+    ApiFailureError,
+    { readonly mediaId: string; readonly revision: number }
+  >({
+    mutationFn: async ({ mediaId, revision }) =>
+      unwrap(await gateway.delete(gardenId, mediaId, revision, generateIdempotencyKey())),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['media', gardenId] }),
   });
 }
 

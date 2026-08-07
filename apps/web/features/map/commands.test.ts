@@ -11,6 +11,7 @@ import {
   buildEditVertexCommand,
   buildJoinLineworkCommand,
   buildMoveObjectCommand,
+  buildMoveObjectsCommand,
   buildReplaceGeometryCommand,
   buildSplitLineworkCommand,
   buildUpsertCalibrationCommand,
@@ -176,6 +177,26 @@ describe('command builders', () => {
       type: 'moveObject',
       objectId,
       expectedRevision: 4,
+      translationMetres: { dx: 1.5, dy: -0.5 },
+    });
+  });
+
+  it('builds one atomic moveObjects command for a working selection', () => {
+    expect(
+      buildMoveObjectsCommand(
+        [
+          { id: objectId, revision: 4 },
+          { id: secondObjectId, revision: 7 },
+        ],
+        1.5,
+        -0.5,
+      ),
+    ).toEqual({
+      type: 'moveObjects',
+      targets: [
+        { objectId, expectedRevision: 4 },
+        { objectId: secondObjectId, expectedRevision: 7 },
+      ],
       translationMetres: { dx: 1.5, dy: -0.5 },
     });
   });

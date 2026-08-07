@@ -49,6 +49,8 @@ export const englishMediaMessages = {
   'media.plan.savedEmpty': 'No property plans have been saved yet.',
   'media.plan.savedReady': 'Ready',
   'media.plan.savedProcessing': 'Processing',
+  'media.plan.delete': 'Delete {filename}',
+  'media.plan.deleteConfirm': 'Delete property plan “{filename}”? This cannot be undone.',
 
   'media.phase.idle': '',
   'media.phase.recoverable': 'An interrupted upload was found.',

@@ -216,6 +216,13 @@ export function TaxonProfile({ taxonomyReferenceId }: TaxonProfileProps) {
                     {fact.unit !== null && ` ${fact.unit}`}
                   </span>
                   <span className={styles['factMeta']}>
+                    <span className={styles['evidenceStatus']}>
+                      {t(
+                        fact.evidenceStatus === 'horticulturally_reviewed'
+                          ? 'catalog.factReviewed'
+                          : 'catalog.factSourceBacked',
+                      )}
+                    </span>
                     <span>{t('catalog.factProvider', { provider: fact.providerKey })}</span>
                     {fact.geographicScope !== null && (
                       <span>{t('catalog.factScope', { scope: fact.geographicScope })}</span>

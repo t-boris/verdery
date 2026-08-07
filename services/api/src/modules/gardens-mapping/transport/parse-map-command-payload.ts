@@ -1,5 +1,5 @@
 /**
- * Hand-written, per-type parsing of the thirteen `MapCommandPayload`
+ * Hand-written, per-type parsing of the `MapCommandPayload` variants
  * variants, matching `packages/api-contracts/openapi.yaml`'s
  * `MapCommandPayload` `oneOf` (discriminated on `type`) and returning values
  * shaped exactly like `@verdery/geometry-contracts`'s own payload
@@ -141,6 +141,46 @@ export function parseMapCommandPayload(value: unknown, pointer: string): MapComm
           `${pointer}/translationMetres`,
         ),
       };
+
+    case 'moveObjects': {
+      const rawTargets = record['targets'];
+      if (!Array.isArray(rawTargets) || rawTargets.length < 2 || rawTargets.length > 100) {
+        throw invalid(
+          `${pointer}/targets must contain between 2 and 100 objects.`,
+          'request.invalid',
+          `${pointer}/targets`,
+        );
+      }
+      const targets = rawTargets.map((target, index) => {
+        const targetRecord = requireRecord(target, `${pointer}/targets/${String(index)}`);
+        return {
+          objectId: requireUuid(
+            targetRecord['objectId'],
+            `${pointer}/targets/${String(index)}/objectId`,
+          ),
+          expectedRevision: requireInteger(
+            targetRecord['expectedRevision'],
+            `${pointer}/targets/${String(index)}/expectedRevision`,
+            1,
+          ),
+        };
+      });
+      if (new Set(targets.map((target) => target.objectId)).size !== targets.length) {
+        throw invalid(
+          `${pointer}/targets must not contain duplicate object ids.`,
+          'request.invalid',
+          `${pointer}/targets`,
+        );
+      }
+      return {
+        type: 'moveObjects',
+        targets,
+        translationMetres: requireOffset(
+          record['translationMetres'],
+          `${pointer}/translationMetres`,
+        ),
+      };
+    }
 
     case 'replaceGeometry':
       return {
@@ -363,7 +403,7 @@ export function parseMapCommandPayload(value: unknown, pointer: string): MapComm
 
     default:
       throw invalid(
-        `${pointer}/type must be one of: createObject, moveObject, replaceGeometry, editVertex, ` +
+        `${pointer}/type must be one of: createObject, moveObject, moveObjects, replaceGeometry, editVertex, ` +
           'splitLinework, joinLinework, changeProperties, assignPlant, upsertCalibration, ' +
           'decideProposal, deleteObject, restoreObject, duplicateObject.',
         'request.map_command.type.invalid',

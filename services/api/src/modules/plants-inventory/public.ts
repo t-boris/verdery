@@ -117,7 +117,7 @@ export type { RebuildPlantProfileVersionResult } from './application/rebuild-pla
 export { KyselyTaxonImageSource } from './persistence/kysely-taxon-image-source.js';
 export { KyselyPlantProfileVersionRepository } from './persistence/kysely-plant-profile-version-repository.js';
 export { GetTaxonProfile } from './application/get-taxon-profile.js';
-export type { TaxonImageEnricher } from './application/taxon-image-enricher.js';
+export type { TaxonProfileEnricher } from './application/taxon-profile-enricher.js';
 
 // Candidate suitability engine (P11-SUIT-01). Reachable over HTTP as of
 // P11-API-01 (`GetCandidateSuitability`, `recalculateCandidateSuitability`

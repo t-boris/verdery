@@ -86,13 +86,13 @@ export class RecalculateCandidateSuitability {
     const profileFacts =
       candidate.taxonomyReferenceId === null
         ? null
-        : ((
-            await this.profileVersions.findLatest(candidate.taxonomyReferenceId)
-          )?.resolvedFacts.map((fact) => ({
-            factKey: fact.factKey,
-            value: fact.value,
-            sourceCitation: fact.sourceCitation,
-          })) ?? null);
+        : ((await this.profileVersions.findLatest(candidate.taxonomyReferenceId))?.resolvedFacts
+            .filter((fact) => fact.evidenceStatus === 'horticulturally_reviewed')
+            .map((fact) => ({
+              factKey: fact.factKey,
+              value: fact.value,
+              sourceCitation: fact.sourceCitation,
+            })) ?? null);
 
     const distributionFacts: CandidateDistributionFact[] = [];
     if (candidate.taxonomyReferenceId !== null) {

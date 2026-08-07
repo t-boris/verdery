@@ -6040,7 +6040,7 @@ export interface components {
                 dy: number;
             };
         };
-        MapCommandPayload: components["schemas"]["CreateMapObjectCommand"] | components["schemas"]["MoveObjectCommand"] | components["schemas"]["ReplaceGeometryCommand"] | components["schemas"]["EditVertexCommand"] | components["schemas"]["SplitLineworkCommand"] | components["schemas"]["JoinLineworkCommand"] | components["schemas"]["ChangePropertiesCommand"] | components["schemas"]["AssignPlantCommand"] | components["schemas"]["UpsertCalibrationCommand"] | components["schemas"]["DecideProposalCommand"] | components["schemas"]["DeleteObjectCommand"] | components["schemas"]["RestoreObjectCommand"] | components["schemas"]["DuplicateObjectCommand"];
+        MapCommandPayload: components["schemas"]["CreateMapObjectCommand"] | components["schemas"]["MoveObjectCommand"] | components["schemas"]["MoveObjectsCommand"] | components["schemas"]["ReplaceGeometryCommand"] | components["schemas"]["EditVertexCommand"] | components["schemas"]["SplitLineworkCommand"] | components["schemas"]["JoinLineworkCommand"] | components["schemas"]["ChangePropertiesCommand"] | components["schemas"]["AssignPlantCommand"] | components["schemas"]["UpsertCalibrationCommand"] | components["schemas"]["DecideProposalCommand"] | components["schemas"]["DeleteObjectCommand"] | components["schemas"]["RestoreObjectCommand"] | components["schemas"]["DuplicateObjectCommand"];
         MapCommandRequest: {
             commandId: components["schemas"]["Uuid"];
             clientTimestamp: components["schemas"]["Timestamp"];
@@ -6500,6 +6500,11 @@ export interface components {
             providerKey: string;
             confidence: number | null;
             sourceCitation: string | null;
+            /**
+             * @description Whether this is a cited provider claim or a horticulturist-reviewed fact.
+             * @enum {string}
+             */
+            evidenceStatus: "source_backed" | "horticulturally_reviewed";
         };
         /**
          * @description One licensed reference image for a taxon — what the species looks like,
@@ -6547,14 +6552,15 @@ export interface components {
         };
         /**
          * @description The materialized, source-priority-resolved profile
-         *     (plants-inventory/domain/plant-profile-version.ts). Only
-         *     `horticulturally_reviewed` facts ever appear in `resolvedFacts`.
+         *     (plants-inventory/domain/plant-profile-version.ts). Cited provider claims
+         *     may appear as `source_backed`; human/AI proposals require horticultural
+         *     review before they can appear.
          */
         PlantProfileVersion: {
             id: components["schemas"]["Uuid"];
             taxonomyReferenceId: components["schemas"]["Uuid"];
             resolvedFacts: components["schemas"]["ResolvedFact"][];
-            /** @description True when at least one fact key seen among candidate assertions never resolved (missing, or only unreviewed). */
+            /** @description True when at least one fact key seen among candidate assertions is not displayable because it is neither reviewed nor source-backed. */
             isPartial: boolean;
             createdAt: components["schemas"]["Timestamp"];
         };
@@ -8298,6 +8304,22 @@ export interface components {
             /** @description Set to the current time on every successful register-or-refresh call. */
             lastSeenAt: components["schemas"]["Timestamp"];
             registeredAt: components["schemas"]["Timestamp"];
+        };
+        /** @description Applies one translation atomically to an explicit multi-object selection. */
+        MoveObjectsCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "moveObjects";
+            targets: {
+                objectId: components["schemas"]["Uuid"];
+                expectedRevision: components["schemas"]["Revision"];
+            }[];
+            translationMetres: {
+                dx: number;
+                dy: number;
+            };
         };
         /** @description A quadrant bearing exactly as a plat prints it — `S 44°55'39" E`. */
         PlatBearing: {

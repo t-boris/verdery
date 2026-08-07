@@ -43,17 +43,18 @@ export interface StatusMessage {
 }
 
 /**
- * The selected object's interaction sub-mode: `vertexEdit` renders draggable
+ * The selected object's interaction sub-mode: `move` explicitly enables
+ * whole-object dragging, `vertexEdit` renders draggable
  * per-vertex handles (`shapes/vertex-handles.tsx`), `transform` renders the
- * whole-shape resize/rotate handles (`shapes/transform-handles.tsx`). Both
- * are exclusive with plain drag-to-move, which `map-canvas.tsx` disables for
- * the selected object while either is active.
+ * whole-shape resize/rotate handles (`shapes/transform-handles.tsx`). Only
+ * `move` enables whole-object drag; `idle` keeps the shape attached while
+ * the pointer pans the shared camera.
  */
-export type InteractionMode = 'idle' | 'vertexEdit' | 'transform';
+export type InteractionMode = 'idle' | 'move' | 'vertexEdit' | 'transform';
 
 export interface EditorState {
   readonly selectedObjectId: string | null;
-  /** Ids toggled on for the fence/path join-linework flow — see `map-object-list.tsx`. Independent of `selectedObjectId`. */
+  /** Explicit working selection for atomic multi-object movement and compatible linework joining. */
   readonly multiSelectedObjectIds: readonly string[];
   readonly interactionMode: InteractionMode;
   readonly tool: ToolMode;
@@ -70,8 +71,8 @@ export interface EditorState {
    * Layer visibility/locking (`map-layers.ts`, `map-layer-panel.tsx`): a user
    * preference, not server-persisted domain state — architecture doc section
    * "12. Layer Model" ("Layer visibility and opacity are user preferences").
-   * Resets to the safe defaults on reload: traced property/layout layers are
-   * locked, while imported backgrounds and living objects remain editable.
+   * Defaults to all layers unlocked. A lock is an explicit user choice; it
+   * must never make a newly opened garden look broken or disable creation.
    */
   readonly hiddenLayers: readonly LayerId[];
   readonly lockedLayers: readonly LayerId[];
@@ -143,7 +144,7 @@ export const initialEditorState: EditorState = {
   redoStack: [],
   status: null,
   hiddenLayers: [],
-  lockedLayers: [3, 4],
+  lockedLayers: [],
   calibrationDraft: null,
   platAlignmentDraft: null,
   backgroundOpacity: 0.85,

@@ -188,6 +188,7 @@ export function toWireCommandPayload(command: MapCommandPayload): unknown {
         ? command
         : { ...command, categoryDetails: toWireCategoryDetails(command.categoryDetails) };
     case 'moveObject':
+    case 'moveObjects':
     case 'replaceGeometry':
     case 'editVertex':
     case 'splitLinework':

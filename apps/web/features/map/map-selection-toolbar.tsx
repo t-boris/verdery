@@ -27,8 +27,9 @@ export interface MapSelectionToolbarProps {
 /**
  * What can be done to the selected object, at the object.
  *
- * Moving and rotating a shape were both already implemented — whole-object
- * drag through `ObjectShape`, rotate and resize through `TransformHandles` —
+ * Movement is deliberately armed here before a shape becomes draggable, so
+ * ordinary map panning can never silently move the lot relative to imagery.
+ * Rotation and resize run through `TransformHandles`, and
  * and both were unreachable in practice: the handles lived behind a toggle in
  * the right-hand inspector, three panels down, and nothing on the canvas said
  * so. "Нет возможности вертеть лот" was a discoverability failure, not a
@@ -86,10 +87,10 @@ export function MapSelectionToolbar({
       <Button
         variant="secondary"
         iconOnly
-        aria-pressed={interactionMode === 'idle'}
+        aria-pressed={interactionMode === 'move'}
         aria-label={t('map.selection.move')}
         title={t('map.selection.move')}
-        onClick={() => onSetMode('idle')}
+        onClick={() => toggle('move')}
       >
         <CursorIcon />
       </Button>

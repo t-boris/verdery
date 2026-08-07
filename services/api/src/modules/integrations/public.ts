@@ -238,9 +238,9 @@ export { KyselyPlantDistributionAssertionRepository } from './persistence/kysely
 // ONE real, live-verified adapter (USDA PLANTS — public domain, no key, no
 // documented rate limit). Every fetched assertion lands
 // `awaiting_horticultural_review`: this pipeline is real and produces real,
-// correctly-provenanced data, but nothing it writes is visible to
-// `RebuildPlantProfileVersion`/`RecalculateCandidateSuitability` until a
-// human reviewer promotes it — a deliberately deferred later stage, see
+// correctly-provenanced data; cited facts are catalog-visible as source-backed,
+// while `RecalculateCandidateSuitability` ignores them until a human reviewer
+// promotes them — a deliberately deferred later stage, see
 // `refresh-taxon-assertions.ts`'s own header. The remaining eight sources
 // ADR-0016 names (World Flora Online, USDA Characteristics as a distinct
 // registration, Wikidata, hardiness rasters, GBIF, USA-NPN, USDA NRCS SDA,
@@ -257,7 +257,7 @@ export type {
   PlantAssertionProviderRegistration,
 } from './application/plant-assertion-provider-registry.js';
 export { RefreshTaxonAssertions } from './application/refresh-taxon-assertions.js';
-export { EnrichTaxonImages } from './application/enrich-taxon-images.js';
+export { EnrichTaxonProfile } from './application/enrich-taxon-profile.js';
 export type {
   RefreshTaxonAssertionsInput,
   RefreshTaxonAssertionsResult,

@@ -112,6 +112,7 @@ export function composeSynchronization(
     gardenObject: {
       createMapObject: mapRoutesDependencies.createMapObject,
       moveMapObject: mapRoutesDependencies.moveMapObject,
+      moveMapObjects: mapRoutesDependencies.moveMapObjects,
       replaceMapObjectGeometry: mapRoutesDependencies.replaceMapObjectGeometry,
       editMapObjectVertex: mapRoutesDependencies.editMapObjectVertex,
       splitMapObjectLinework: mapRoutesDependencies.splitMapObjectLinework,

@@ -132,3 +132,10 @@
   flex: none;
   color: var(--color-text-muted);
 }
+
+.savedPlanMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+}

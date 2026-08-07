@@ -92,3 +92,27 @@ describe('parseMapCommandPayload upsertCalibration branch', () => {
     expectRejected({ type: 'calibrate' }, '/payload/type');
   });
 });
+
+describe('parseMapCommandPayload moveObjects branch', () => {
+  const secondObjectId = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0c';
+  const validMove = {
+    type: 'moveObjects',
+    targets: [
+      { objectId: BACKGROUND_OBJECT_ID, expectedRevision: 1 },
+      { objectId: secondObjectId, expectedRevision: 3 },
+    ],
+    translationMetres: { dx: 2, dy: -1 },
+  };
+
+  it('parses a unique multi-object selection', () => {
+    expect(parseMapCommandPayload(validMove, '/payload')).toEqual(validMove);
+  });
+
+  it('rejects a one-object selection and duplicate targets', () => {
+    expectRejected({ ...validMove, targets: validMove.targets.slice(0, 1) }, '/payload/targets');
+    expectRejected(
+      { ...validMove, targets: [validMove.targets[0], validMove.targets[0]] },
+      '/payload/targets',
+    );
+  });
+});

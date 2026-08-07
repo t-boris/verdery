@@ -13,9 +13,9 @@ export interface PlantFactAssertionRepository {
   /**
    * P11-PROV-01: every fact assertion still `awaiting_horticultural_review`,
    * oldest-fetched first, capped at `limit` — the reviewer queue's own read.
-   * Nothing is visible in a materialized profile or a suitability finding
-   * until a human promotes it out of this list (`run-taxon-enrichment-
-   * sweep.ts`'s own header).
+   * Cited facts may be visible in a materialized catalog profile as
+   * source-backed, but never in a suitability finding until a human promotes
+   * them out of this list (`run-taxon-enrichment-sweep.ts`'s own header).
    */
   findAllAwaitingReview(limit: number): Promise<readonly PlantFactAssertion[]>;
 

@@ -43,6 +43,7 @@ import {
   KyselyMapObjectRepository,
   KyselyMembershipRepository,
   MoveMapObject,
+  MoveMapObjects,
   PromoteToOwner,
   RemoveMember,
   RenameGarden,
@@ -194,6 +195,12 @@ export function buildSyncTestHarness(db: Kysely<DatabaseSchema>, clock: Clock) {
     clock,
   );
   const moveMapObject = new MoveMapObject(
+    gardenIdempotency,
+    gardensMappingUnitOfWork,
+    gardenAuthorization,
+    clock,
+  );
+  const moveMapObjects = new MoveMapObjects(
     gardenIdempotency,
     gardensMappingUnitOfWork,
     gardenAuthorization,
@@ -435,6 +442,7 @@ export function buildSyncTestHarness(db: Kysely<DatabaseSchema>, clock: Clock) {
     gardenObject: {
       createMapObject,
       moveMapObject,
+      moveMapObjects,
       replaceMapObjectGeometry,
       editMapObjectVertex,
       splitMapObjectLinework,

@@ -1,6 +1,8 @@
 /**
- * Rebuilds a taxon's materialized profile version from every reviewed fact
- * assertion currently on record — the storage-to-domain-to-storage round
+ * Rebuilds a taxon's materialized profile version from every displayable
+ * assertion currently on record — horticulturally reviewed facts plus cited
+ * provider claims whose `source_backed` status remains visible in the result.
+ * This is the storage-to-domain-to-storage round
  * trip `plant-profile-version.ts`'s own header describes as a future
  * application command's job. No HTTP transport and no scheduling here: this
  * is the pure "given what is stored today, produce one version" operation

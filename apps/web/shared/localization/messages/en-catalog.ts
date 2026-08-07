@@ -21,18 +21,20 @@ export const englishCatalogMessages = {
   'catalog.backToCatalog': 'Back to the catalog',
   'catalog.profileTitle': 'What is known about this plant',
   'catalog.profileDescription':
-    'Facts assembled from reviewed external sources, each shown with where it came from.',
+    'Source-backed and horticulturist-reviewed facts, with evidence shown beside every value.',
   'catalog.profileLoading': 'Loading what is known about this plant.',
   'catalog.profileMissing':
     'Nothing has been assembled about this plant yet. That is missing knowledge, not an error.',
-  'catalog.profileNoFactsTitle': 'Reviewed gardening facts are still being assembled',
+  'catalog.profileNoFactsTitle': 'Connected sources returned no gardening facts',
   'catalog.profileNoFacts':
-    'The botanical identity above is available now. Care, growing, seasonal, safety, and garden-use facts appear here only after their sources have been reviewed.',
+    'The botanical identity and reference photos are available, but the currently connected sources supplied no additional facts for this taxon.',
   'catalog.profileAssembled': 'Assembled {date}',
   'catalog.profilePartialTitle': 'Incomplete profile',
   'catalog.profilePartial':
     'This profile is incomplete: at least one thing sources describe about this plant could not be resolved from a reviewed assertion.',
   'catalog.factProvider': 'Source: {provider}',
+  'catalog.factSourceBacked': 'Source-backed · not horticulturist-reviewed',
+  'catalog.factReviewed': 'Horticulturist-reviewed',
   'catalog.factScope': 'Applies to: {scope}',
   'catalog.imageAlt': 'A reference photograph of this plant',
   'catalog.imageAltOrgan': 'A reference photograph of this plant: {organ}',

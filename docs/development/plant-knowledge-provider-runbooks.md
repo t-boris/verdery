@@ -262,9 +262,13 @@ PLANTS, GBIF, USA-NPN — each still kill-switched off by default (`GBIF_PROVIDE
 environment implicitly enables any of the four). Development explicitly enables GBIF as of
 2026-08-06 so an identified plant can cache licensed reference imagery from confirmed US field
 observations on first read;
-production remains off until configured deliberately. Every fetched assertion still lands
-`awaiting_horticultural_review`; nothing is visible in a materialized profile or a suitability
-finding until a human reviewer promotes it — and, as of this same pass, that promotion surface
+production remains off until configured deliberately. Development enables all four implemented
+providers so the catalog can exercise taxonomy, USDA characteristics/status, occurrence imagery,
+and phenology without a county-specific source. Every fetched assertion still lands
+`awaiting_horticultural_review`. A cited provider assertion may be materialized for catalog display
+as explicitly `source_backed`; suitability and other decision surfaces continue to require
+`horticulturally_reviewed`. Human and AI proposals never become catalog facts merely by existing.
+The promotion surface
 now exists: `GET /v1/plant-assertion-reviews` lists every pending fact and distribution assertion
 (enriched with the resolved scientific name, where a live `plant_taxonomy_mapping` row exists) and
 `POST /v1/plant-assertion-reviews/:kind/:assertionId/approve` promotes one to

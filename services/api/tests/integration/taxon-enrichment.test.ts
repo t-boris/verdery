@@ -200,7 +200,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(ids).toContain(taxonomyReferenceId);
   });
 
-  it('fetches and persists real awaiting-review assertions, invisible until reviewed', async () => {
+  it('fetches and persists source-backed assertions, then prefers a reviewed assertion', async () => {
     const now = new Date('2026-07-31T10:00:00Z');
     const taxonomyReferenceId = await seedTaxonomyReference(now);
     // A unique-per-test provider taxon id: `plant_fact_assertion`/
@@ -262,11 +262,18 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     );
     expect(storedDistribution).toHaveLength(1);
 
-    // Real and stored, but not yet visible: nothing here has been reviewed.
+    // Real cited provider data is immediately visible as source-backed.
     const beforeReview = await rebuildPlantProfileVersion.execute(taxonomyReferenceId, [
       PROVIDER_KEY,
     ]);
-    expect(beforeReview).toEqual({ outcome: 'nothingToResolve' });
+    expect(beforeReview).toMatchObject({
+      outcome: 'rebuilt',
+      version: {
+        resolvedFacts: [
+          { factKey: 'growth_habit', value: 'Tree', evidenceStatus: 'source_backed' },
+        ],
+      },
+    });
 
     // Once a human reviewer promotes the SAME identity to reviewed, it
     // resolves — the exact `plant-profile-version.test.ts` reviewed-vs-
@@ -311,6 +318,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         providerKey: PROVIDER_KEY,
         confidence: null,
         sourceCitation: 'USDA PLANTS Database, reviewed copy for this test',
+        evidenceStatus: 'horticulturally_reviewed',
       },
     ]);
   });

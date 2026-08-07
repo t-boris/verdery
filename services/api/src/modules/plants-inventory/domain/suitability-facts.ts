@@ -39,7 +39,7 @@ export interface GardenSuitabilityFacts {
   readonly region: string | null;
 }
 
-/** One resolved plant-profile fact the candidate's taxon carries — the shape `PlantProfileVersion.resolvedFacts` already assembles (`plant-profile-version.ts`), passed through unchanged rather than re-resolved. */
+/** One horticulturally reviewed plant-profile fact. Source-backed catalog-only claims are filtered by the application layer before the rule engine receives them. */
 export interface CandidateProfileFact {
   readonly factKey: string;
   readonly value: unknown;

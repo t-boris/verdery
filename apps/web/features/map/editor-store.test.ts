@@ -61,6 +61,14 @@ describe('editorReducer', () => {
     expect(reselected.interactionMode).toBe('idle');
   });
 
+  it('requires an explicit move mode before whole-object dragging', () => {
+    const selected = editorReducer(initialEditorState, { type: 'select', objectId: 'obj-1' });
+    expect(selected.interactionMode).toBe('idle');
+
+    const moving = editorReducer(selected, { type: 'setInteractionMode', mode: 'move' });
+    expect(moving.interactionMode).toBe('move');
+  });
+
   it('toggles an id in and out of the multi-select set', () => {
     const added = editorReducer(initialEditorState, {
       type: 'toggleMultiSelect',
@@ -91,11 +99,11 @@ describe('editorReducer', () => {
 
   it('toggles a layer in and out of the locked set, independent of hidden layers', () => {
     const locked = editorReducer(initialEditorState, { type: 'toggleLayerLock', layer: 3 });
-    expect(locked.lockedLayers).toEqual([4]);
+    expect(locked.lockedLayers).toEqual([3]);
     expect(locked.hiddenLayers).toEqual([]);
 
     const unlocked = editorReducer(locked, { type: 'toggleLayerLock', layer: 3 });
-    expect(unlocked.lockedLayers).toEqual([4, 3]);
+    expect(unlocked.lockedLayers).toEqual([]);
   });
 
   it('sets the camera only once via initCamera, ignoring later calls', () => {

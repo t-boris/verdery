@@ -1,6 +1,6 @@
 /**
  * Routes one `recordType: 'gardenObject'` sync operation to gardens-mapping's
- * thirteen map command classes.
+ * map command classes.
  *
  * `SyncGardenObjectOperationPayload.command` reuses `MapCommandPayload`
  * verbatim (the same union `SubmitMapCommand` accepts), so this is
@@ -33,6 +33,7 @@ import type {
   JoinMapObjectLinework,
   MapCommandResultResource,
   MoveMapObject,
+  MoveMapObjects,
   ReplaceMapObjectGeometry,
   RestoreMapObject,
   SplitMapObjectLinework,
@@ -46,6 +47,7 @@ import type { SyncOperationOutcome } from './sync-operation-outcome.js';
 export interface GardenObjectOperationRouterDependencies {
   readonly createMapObject: CreateMapObject;
   readonly moveMapObject: MoveMapObject;
+  readonly moveMapObjects: MoveMapObjects;
   readonly replaceMapObjectGeometry: ReplaceMapObjectGeometry;
   readonly editMapObjectVertex: EditMapObjectVertex;
   readonly splitMapObjectLinework: SplitMapObjectLinework;
@@ -141,6 +143,16 @@ export async function routeGardenObjectOperation(
         () => runCommand(deps.moveMapObject.execute(gardenId, profileId, mapCommand, operationId)),
         fetchCurrentRecordFor(mapCommand.objectId),
       );
+    case 'moveObjects': {
+      const firstTarget = mapCommand.targets[0];
+      if (firstTarget === undefined) {
+        throw new Error('moveObjects requires at least two targets.');
+      }
+      return executeAndMapOutcome(
+        () => runCommand(deps.moveMapObjects.execute(gardenId, profileId, mapCommand, operationId)),
+        fetchCurrentRecordFor(firstTarget.objectId),
+      );
+    }
     case 'replaceGeometry':
       return executeAndMapOutcome(
         () =>

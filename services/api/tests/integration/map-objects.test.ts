@@ -1,16 +1,4 @@
-/**
- * Full-stack integration tests for the garden map's object lifecycle
- * commands against real PostgreSQL/PostGIS: real repositories, the real
- * transactional unit of work, real revision-journal and outbox rows — not
- * fakes. Mirrors the rigor of `tests/integration/gardens-mapping.test.ts`.
- *
- * Fence/gate, plant assignment, and viewport queries live in the sibling
- * file `map-objects-relationships.test.ts` — split so neither file
- * approaches the repository's 600-line source-file limit.
- *
- * Source: implementation-plan.md work packages P3-BE-01, P3-BE-02;
- * architecture/testing-strategy.md, section "6. Backend Integration Tests".
- */
+/** Full-stack PostgreSQL/PostGIS coverage for garden-map object lifecycle commands. */
 
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import type { Geometry } from '@verdery/geometry-contracts';
@@ -26,6 +14,7 @@ import { CreateMapObject } from '../../src/modules/gardens-mapping/application/c
 import { DeleteMapObject } from '../../src/modules/gardens-mapping/application/delete-map-object.js';
 import { EditMapObjectVertex } from '../../src/modules/gardens-mapping/application/edit-map-object-vertex.js';
 import { MoveMapObject } from '../../src/modules/gardens-mapping/application/move-map-object.js';
+import { MoveMapObjects } from '../../src/modules/gardens-mapping/application/move-map-objects.js';
 import { ReplaceMapObjectGeometry } from '../../src/modules/gardens-mapping/application/replace-map-object-geometry.js';
 import { RestoreMapObject } from '../../src/modules/gardens-mapping/application/restore-map-object.js';
 import { KyselyGardensMappingUnitOfWork } from '../../src/modules/gardens-mapping/persistence/kysely-gardens-mapping-unit-of-work.js';
@@ -135,6 +124,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       authorization,
       createMapObject: new CreateMapObject(idempotency, unitOfWork, authorization, clock),
       moveMapObject: new MoveMapObject(idempotency, unitOfWork, authorization, clock),
+      moveMapObjects: new MoveMapObjects(idempotency, unitOfWork, authorization, clock),
       replaceMapObjectGeometry: new ReplaceMapObjectGeometry(
         idempotency,
         unitOfWork,
@@ -306,10 +296,6 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(replaced0.revision).toBe(3);
     expect(replaced0.geometryEnvelope.geometry).toEqual(replacementGeometry);
 
-    // Vertex index 2 (an interior ring vertex, not the closing vertex shared
-    // with index 0) — moving the closing vertex itself would break the
-    // ring's closure, a documented limitation of this pass's vertex editor;
-    // see the doc comment on `domain/geometry-edit.ts`.
     const edited = await handlers.editMapObjectVertex.execute(
       gardenId,
       ownerId,
@@ -338,6 +324,62 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       .orderBy('revision')
       .execute();
     expect(revisionRows.map((row) => row.revision)).toEqual([1, 2, 3, 4]);
+  });
+
+  it('moves a multi-object selection atomically', async () => {
+    const now = new Date('2026-07-21T09:00:00Z');
+    const { ownerId, gardenId } = await createGardenWithOwner(now);
+    const handlers = buildHandlers(fixedClock(now));
+    const firstId = generateUuidV7();
+    const secondId = generateUuidV7();
+
+    for (const objectId of [firstId, secondId]) {
+      await handlers.createMapObject.execute(
+        gardenId,
+        ownerId,
+        { type: 'createObject', objectId, category: 'bed', geometry: BED_POLYGON },
+        generateUuidV7(),
+      );
+    }
+
+    await expect(
+      handlers.moveMapObjects.execute(
+        gardenId,
+        ownerId,
+        {
+          type: 'moveObjects',
+          targets: [
+            { objectId: firstId, expectedRevision: 1 },
+            { objectId: secondId, expectedRevision: 99 },
+          ],
+          translationMetres: { dx: 4, dy: 2 },
+        },
+        generateUuidV7(),
+      ),
+    ).rejects.toBeInstanceOf(StaleRevisionError);
+
+    const unchanged = await db
+      .selectFrom('gardens_mapping.garden_object')
+      .select(['id', 'current_revision'])
+      .where('id', 'in', [firstId, secondId])
+      .execute();
+    expect(unchanged.every((row) => row.current_revision === 1)).toBe(true);
+
+    const moved = await handlers.moveMapObjects.execute(
+      gardenId,
+      ownerId,
+      {
+        type: 'moveObjects',
+        targets: [
+          { objectId: firstId, expectedRevision: 1 },
+          { objectId: secondId, expectedRevision: 1 },
+        ],
+        translationMetres: { dx: 4, dy: 2 },
+      },
+      generateUuidV7(),
+    );
+    expect(moved.affectedObjects).toHaveLength(2);
+    expect(moved.affectedObjects.every((object) => object.revision === 2)).toBe(true);
   });
 
   it('changes a bed label and category details without touching its geometry', async () => {
@@ -509,7 +551,6 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       ),
     ).rejects.toBeInstanceOf(ForbiddenError);
 
-    // A viewer keeps read access, even though they cannot mutate.
     const membership = await handlers.authorization.requireCapability(
       gardenId,
       viewerId,
@@ -517,7 +558,6 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     );
     expect(membership.role).toBe('viewer');
 
-    // The owner, meanwhile, succeeds at the same mutation.
     const created = await handlers.createMapObject.execute(
       gardenId,
       ownerId,

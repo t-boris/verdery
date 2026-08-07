@@ -77,7 +77,7 @@ export interface TaxonEnrichmentSweepResult {
   readonly refreshed: number;
   /** Profile versions actually rebuilt (at least one reviewed fact resolved). */
   readonly profilesRebuilt: number;
-  /** Taxa for which the rebuild had nothing reviewed to resolve — the expected outcome until a human review workflow promotes fetched assertions. */
+  /** Taxa for which the rebuild had no reviewed or cited source-backed fact to resolve. */
   readonly profilesWithNothingToResolve: number;
   /** Degradation reasons across every (taxon, provider) attempt, by typed reason. */
   readonly degradationReasons: Readonly<Partial<Record<TaxonAssertionsUnavailableReason, number>>>;

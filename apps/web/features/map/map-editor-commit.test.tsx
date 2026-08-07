@@ -61,6 +61,18 @@ describe('objectIdOf', () => {
     expect(objectIdOf(command)).toBe(otherObjectId);
   });
 
+  it('tracks the first target for an atomic multi-object move', () => {
+    const command: MapCommandPayload = {
+      type: 'moveObjects',
+      targets: [
+        { objectId, expectedRevision: 1 },
+        { objectId: otherObjectId, expectedRevision: 2 },
+      ],
+      translationMetres: { dx: 1, dy: -1 },
+    };
+    expect(objectIdOf(command)).toBe(objectId);
+  });
+
   it('reads `plantObjectId` for assignPlant', () => {
     const command: MapCommandPayload = {
       type: 'assignPlant',
@@ -221,6 +233,8 @@ describe('useCommandCommit — offline gate (P5-WEB-01)', () => {
         ],
       },
     };
+
+    act(() => result.current.store.toggleLayerLock(3));
 
     const affected = await act(() => result.current.commit(command, null));
 

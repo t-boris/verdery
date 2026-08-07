@@ -30,7 +30,7 @@ import {
   createUsdaPlantsRegistration,
   createWorldFloraOnlineRegistration,
   FindAddressCandidates,
-  EnrichTaxonImages,
+  EnrichTaxonProfile,
   GBIF_PROVIDER_KEY,
   GenerateAiExplanation,
   GetGardenWeather,
@@ -57,7 +57,7 @@ import {
   WeatherProviderRegistry,
   WORLD_FLORA_ONLINE_PROVIDER_KEY,
 } from './modules/integrations/public.js';
-import type { TaxonImageEnricher } from './modules/plants-inventory/public.js';
+import type { TaxonProfileEnricher } from './modules/plants-inventory/public.js';
 import type {
   AddressGeocodingAdapter,
   AiExplanationProviderAdapter,
@@ -110,8 +110,8 @@ export interface IntegrationsComposition {
   readonly identifyPlantSpecies: IdentifyPlantSpecies;
   /** ADR-0015: consumed by observations-history's `RecordObservation`/`CorrectObservation` — same precedent. */
   readonly analyzePlantCondition: AnalyzePlantCondition;
-  /** Cache-aside reference-image enrichment used by the taxon profile read. */
-  readonly taxonImageEnricher: TaxonImageEnricher;
+  /** Cache-aside cited-fact and reference-image enrichment used by the taxon profile read. */
+  readonly taxonProfileEnricher: TaxonProfileEnricher;
   /** P12-GEO-01: address search, the one interactive provider call in this module. */
   readonly geocodingRoutesDependencies: GeocodingRoutesDependencies;
   readonly weatherRefreshSweepRouteDependencies: WeatherRefreshSweepRouteDependencies;
@@ -354,7 +354,11 @@ export function composeIntegrations(
     ),
     cloudTasksInvocationVerifier,
   };
-  const taxonImageEnricher = new EnrichTaxonImages(refreshTaxonAssertions, taxonSourcePriority);
+  const taxonProfileEnricher = new EnrichTaxonProfile(
+    refreshTaxonAssertions,
+    rebuildPlantProfileVersion,
+    taxonSourcePriority,
+  );
 
   // P11-PROV-01: the horticultural-review surface — gated by
   // `plantReview.reviewerEmails` (empty in every environment today, the
@@ -401,7 +405,7 @@ export function composeIntegrations(
     geocodingRoutesDependencies,
     weatherRefreshSweepRouteDependencies,
     taxonEnrichmentSweepRouteDependencies,
-    taxonImageEnricher,
+    taxonProfileEnricher,
     plantAssertionReviewRoutesDependencies,
     transactionalEmailAdapter,
   };

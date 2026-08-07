@@ -95,6 +95,19 @@ export function deriveInverseCommand(
         },
       };
 
+    case 'moveObjects':
+      return {
+        type: 'moveObjects',
+        targets: command.targets.map((target) => ({
+          objectId: target.objectId,
+          expectedRevision: target.expectedRevision + 1,
+        })),
+        translationMetres: {
+          dx: -command.translationMetres.dx,
+          dy: -command.translationMetres.dy,
+        },
+      };
+
     case 'replaceGeometry':
       if (priorSnapshot === null) return null;
       return {

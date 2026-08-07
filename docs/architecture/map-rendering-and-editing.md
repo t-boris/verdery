@@ -163,9 +163,12 @@ Curves are edited through application control points and persisted through an ap
 
 All editable objects share identity, garden, category, geometry, provenance, confidence, revision, and lifecycle state. Specialized tables and domain types hold plant, fence, structure, and other category-specific behavior.
 
-New plant placement in the web editor always traces an occupied area rather than dropping a point.
+New plant and tree placement is a one-click action. The click creates a small circle-derived polygon
+(a larger default canopy for a tree and a compact occupied area for an individual plant), so it is
+immediately visible without asking the gardener to trace it.
 The map object is the geometry; the plants-inventory record remains the actual plant identity and
-references that object through `placementMapObjectId`. After tracing, the editor resolves the reverse
+references that object through `placementMapObjectId`. The regular polygon remains ordinary editable
+geometry: it can be moved, resized, flattened, or edited vertex by vertex. After creation, the editor resolves the reverse
 link and offers exactly three paths: attach an existing inventory plant with no map placement, create
 a plant manually, or create one from a photograph. Plant search therefore supports both
 `hasMapPlacement` and exact `placementMapObjectId` filters instead of downloading an arbitrary page
@@ -298,10 +301,18 @@ Logical layers are ordered independently from rendering implementation:
 7. Selection, handles, measurements, and validation overlays.
 
 Layer visibility, locking, and opacity are per-garden user preferences. Domain objects do not store
-arbitrary visual stacking that would invalidate semantic ordering. Lot/structure and
-zone/bed/path/fence layers start locked to protect traced layout. A lock blocks creation,
-selection, dragging, geometry/property edits, duplication, joining, and deletion until explicitly
-unlocked.
+arbitrary visual stacking that would invalidate semantic ordering. Every content layer starts
+unlocked; locking is always an explicit user choice. A lock blocks creation, selection, dragging,
+geometry/property edits, duplication, joining, and deletion until explicitly unlocked. The
+version-2 preference migration preserves camera, rotation, visibility, opacity, and backdrop while
+clearing the version-1 automatic lot/layout locks once.
+
+The camera, geographic backdrop, and garden geometry share one local-metre-to-screen transform.
+Panning, zooming, or rotating the view therefore keeps every traced object attached to the same
+ground imagery and never mutates object coordinates. Whole-object movement must first be armed as
+an explicit interaction mode from the selected object's toolbar; ordinary selection mode remains
+safe for panning. Shift-selection creates a working group, and one `moveObjects` command translates
+all selected objects atomically. Vertex editing remains a separate, single-geometry operation.
 
 ## 13. Web Rendering
 
@@ -313,12 +324,13 @@ unlocked.
 - The canvas is the workspace: tools, backdrop choice, zoom, the drawing hint and the draft
   controls float over it, and what were five stacked side panels — properties, object index,
   layers, imported background and calibration, warnings — share one collapsible drawer of tabs.
-  Polygonal plant and tree tools trace occupied ground/canopy area rather than a point. Their
-  Finish/Cancel control is anchored independently at the bottom center of the canvas, never inside
-  or beneath the vertical tool rail; double-click remains an equivalent pointer shortcut.
+  Plant and tree tools place a circle-derived editable area immediately on one click and select it,
+  opening the inventory-link choices without a Finish/Cancel drafting phase. Other polygon and line
+  tools retain bottom-center Finish/Cancel controls and the double-click shortcut.
   Below the tablet breakpoint the drawer becomes an overlay; on a phone it becomes a bottom sheet
   capped at 45% of the height, so the drawing always keeps the larger half.
-- Selecting an object raises a small panel at the object itself: move, rotate/resize, edit
+- Selecting an object raises a small panel at the object itself: explicitly arm move,
+  rotate/resize, edit
   vertices, delete. The same actions remain in the properties tab, which is the keyboard and
   screen-reader route.
 - A synchronization adapter keeps viewport transforms aligned without coupling domain state to either engine.

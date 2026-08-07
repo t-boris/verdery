@@ -15,10 +15,19 @@ import type { PlantProfileVersion, ResolvedFact } from '../domain/plant-profile-
 import type { PlantProfileVersionRow } from './schema.js';
 
 function toPlantProfileVersion(row: Selectable<PlantProfileVersionRow>): PlantProfileVersion {
+  const storedFacts = row.resolved as readonly (ResolvedFact & {
+    readonly evidenceStatus?: ResolvedFact['evidenceStatus'];
+  })[];
   return {
     id: row.id,
     taxonomyReferenceId: row.taxonomy_reference_id,
-    resolvedFacts: row.resolved as readonly ResolvedFact[],
+    // Versions written before evidenceStatus existed contain only reviewed
+    // facts by construction, so this compatibility read is exact rather than
+    // a guessed fallback.
+    resolvedFacts: storedFacts.map((fact) => ({
+      ...fact,
+      evidenceStatus: fact.evidenceStatus ?? 'horticulturally_reviewed',
+    })),
     isPartial: row.is_partial,
     createdAt: row.created_at,
   };

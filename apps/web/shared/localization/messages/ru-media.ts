@@ -49,6 +49,8 @@ export const russianMediaMessages: Readonly<Record<keyof typeof englishMediaMess
   'media.plan.savedEmpty': 'Сохранённых планов участка пока нет.',
   'media.plan.savedReady': 'Готов',
   'media.plan.savedProcessing': 'Обрабатывается',
+  'media.plan.delete': 'Удалить {filename}',
+  'media.plan.deleteConfirm': 'Удалить план участка «{filename}»? Это действие нельзя отменить.',
 
   'media.phase.idle': '',
   'media.phase.recoverable': 'Обнаружена прерванная загрузка.',

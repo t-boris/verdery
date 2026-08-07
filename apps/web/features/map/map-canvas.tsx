@@ -336,11 +336,13 @@ export function MapCanvas({
   });
 
   const modeHintKey =
-    interactionMode === 'vertexEdit'
-      ? 'map.canvas.hintVertexEdit'
-      : interactionMode === 'transform'
-        ? 'map.canvas.hintTransform'
-        : null;
+    interactionMode === 'move'
+      ? 'map.canvas.hintMove'
+      : interactionMode === 'vertexEdit'
+        ? 'map.canvas.hintVertexEdit'
+        : interactionMode === 'transform'
+          ? 'map.canvas.hintTransform'
+          : null;
 
   const hintKey =
     modeHintKey ??
@@ -433,9 +435,6 @@ export function MapCanvas({
                 traced, so a visible backdrop replaces it — which is also what
                 the grid's own note means by "a visible ground".
               */}
-              {/* Suppressed over a photograph, where it is noise on the
-                  ground; kept over a street map, which carries no sense of
-                  scale of its own. */}
               {!backdrop.showsPhotograph && <CanvasGrid size={size} stroke={palette.grid} />}
               {visibleBackgrounds.map((record) => (
                 <BackgroundImageShape
@@ -449,11 +448,6 @@ export function MapCanvas({
                 />
               ))}
               {visibleRecords.map((record) => {
-                // Vertex-edit and transform handles fully own repositioning
-                // the selected object while active — whole-object drag would
-                // otherwise fight the handle gestures for the same shape.
-                const isEditingThisObject =
-                  interactionMode !== 'idle' && record.id === store.state.selectedObjectId;
                 // A locked layer's objects can be neither selected nor
                 // dragged — see `map-layers.ts` and `map-layer-panel.tsx`'s
                 // doc comment for the full set of interactions a lock blocks.
@@ -464,9 +458,18 @@ export function MapCanvas({
                     record={record}
                     camera={camera}
                     size={size}
-                    selected={record.id === store.state.selectedObjectId}
+                    selected={
+                      record.id === store.state.selectedObjectId ||
+                      store.state.multiSelectedObjectIds.includes(record.id)
+                    }
                     interactive={existingObjectsAreInteractive(tool)}
-                    draggable={tool === 'select' && !isEditingThisObject && !isLocked}
+                    draggable={
+                      tool === 'select' &&
+                      interactionMode === 'move' &&
+                      !isLocked &&
+                      (record.id === store.state.selectedObjectId ||
+                        store.state.multiSelectedObjectIds.includes(record.id))
+                    }
                     onSelect={(objectId) => {
                       if (isLocked) {
                         store.setStatus({ key: 'map.status.layerLocked', tone: 'alert' });
@@ -475,7 +478,12 @@ export function MapCanvas({
                       store.select(objectId);
                     }}
                     onMoveEnd={(objectId, dx, dy, resetPosition) => {
-                      void actions.moveObject(objectId, dx, dy).then((result) => {
+                      const selectedIds = store.state.multiSelectedObjectIds;
+                      const move =
+                        selectedIds.includes(objectId) && selectedIds.length > 1
+                          ? actions.moveObjects(selectedIds, dx, dy)
+                          : actions.moveObject(objectId, dx, dy);
+                      void move.then((result) => {
                         if (result === null) {
                           resetPosition();
                         }
@@ -485,7 +493,6 @@ export function MapCanvas({
                 );
               })}
               <PlatAlignmentLayer camera={camera} size={size} />
-              {/* After every shape, so a chip is never painted under a neighbouring object. */}
               {visibleRecords.map((record) => (
                 <ObjectLabelChip
                   key={`chip-${record.id}`}

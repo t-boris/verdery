@@ -12,12 +12,14 @@ import {
   buildCreateObjectCommand,
   buildDeleteObjectCommand,
   buildMoveObjectCommand,
+  buildMoveObjectsCommand,
   generateMapId,
 } from './commands';
 import type { HistoryEntry } from './editor-store';
 import { useMapEditorStore } from './editor-store';
 import { commandNeedsPriorSnapshot, objectIdOf, useCommandCommit } from './map-editor-commit';
 import { isCategoryLocked } from './map-layers';
+import { defaultLivingAreaGeometry } from './living-area-geometry';
 import { toObjectSnapshot } from './object-mapper';
 import { useGardenMap, useSubmitMapCommand } from './queries';
 import { deriveSaveStatus } from './save-status';
@@ -167,6 +169,29 @@ export function useMapEditorActions(gardenId: string) {
     [adjustCalibratedBackground, commit, findRecord, store],
   );
 
+  const moveObjects = useCallback(
+    async (objectIds: readonly string[], dx: number, dy: number) => {
+      const uniqueIds = [...new Set(objectIds)];
+      const targets = uniqueIds
+        .map((objectId) => findRecord(objectId))
+        .filter((record): record is MapObjectRecord => record !== null);
+      if (targets.length < 2 || targets.length !== uniqueIds.length) {
+        store.setStatus({ key: 'map.status.moveFailed', tone: 'alert' });
+        return null;
+      }
+      const affected = await commit(buildMoveObjectsCommand(targets, dx, dy), null);
+      if (affected !== null) {
+        store.setStatus({
+          key: 'map.status.movedSelection',
+          args: { count: affected.length },
+          tone: 'status',
+        });
+      }
+      return affected;
+    },
+    [commit, findRecord, store],
+  );
+
   const changeProperties = useCallback(
     async (
       objectId: string,
@@ -295,10 +320,14 @@ export function useMapEditorActions(gardenId: string) {
   const undo = useCallback(() => stepHistory('undo'), [stepHistory]);
   const redo = useCallback(() => stepHistory('redo'), [stepHistory]);
 
-  /** A point-category tool (tree, plant, annotation) commits immediately on click — no draft state involved. */
+  /** One-click placement: living categories become editable circular areas; annotations remain points. */
   const placePoint = useCallback(
     async (category: CreatableCategory, position: Position) => {
-      await createObject(category, { type: 'Point', coordinates: position });
+      const geometry =
+        category === 'tree' || category === 'plant'
+          ? defaultLivingAreaGeometry(category, position)
+          : { type: 'Point' as const, coordinates: position };
+      await createObject(category, geometry);
     },
     [createObject],
   );
@@ -378,6 +407,7 @@ export function useMapEditorActions(gardenId: string) {
     completeGateCreation,
     cancelGateCreation,
     moveObject,
+    moveObjects,
     changeProperties,
     deleteObject,
     placePoint,

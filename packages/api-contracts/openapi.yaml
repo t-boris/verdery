@@ -10260,6 +10260,7 @@ components:
       oneOf:
         - $ref: '#/components/schemas/CreateMapObjectCommand'
         - $ref: '#/components/schemas/MoveObjectCommand'
+        - $ref: '#/components/schemas/MoveObjectsCommand'
         - $ref: '#/components/schemas/ReplaceGeometryCommand'
         - $ref: '#/components/schemas/EditVertexCommand'
         - $ref: '#/components/schemas/SplitLineworkCommand'
@@ -10276,6 +10277,7 @@ components:
         mapping:
           createObject: '#/components/schemas/CreateMapObjectCommand'
           moveObject: '#/components/schemas/MoveObjectCommand'
+          moveObjects: '#/components/schemas/MoveObjectsCommand'
           replaceGeometry: '#/components/schemas/ReplaceGeometryCommand'
           editVertex: '#/components/schemas/EditVertexCommand'
           splitLinework: '#/components/schemas/SplitLineworkCommand'
@@ -11484,6 +11486,7 @@ components:
         - providerKey
         - confidence
         - sourceCitation
+        - evidenceStatus
       properties:
         factKey:
           type: string
@@ -11508,6 +11511,12 @@ components:
           type:
             - string
             - 'null'
+        evidenceStatus:
+          type: string
+          enum:
+            - source_backed
+            - horticulturally_reviewed
+          description: Whether this is a cited provider claim or a horticulturist-reviewed fact.
     PlantTaxonImage:
       type: object
       additionalProperties: false
@@ -11588,8 +11597,9 @@ components:
         - createdAt
       description: |
         The materialized, source-priority-resolved profile
-        (plants-inventory/domain/plant-profile-version.ts). Only
-        `horticulturally_reviewed` facts ever appear in `resolvedFacts`.
+        (plants-inventory/domain/plant-profile-version.ts). Cited provider claims
+        may appear as `source_backed`; human/AI proposals require horticultural
+        review before they can appear.
       properties:
         id:
           $ref: '#/components/schemas/Uuid'
@@ -11601,7 +11611,7 @@ components:
             $ref: '#/components/schemas/ResolvedFact'
         isPartial:
           type: boolean
-          description: True when at least one fact key seen among candidate assertions never resolved (missing, or only unreviewed).
+          description: True when at least one fact key seen among candidate assertions is not displayable because it is neither reviewed nor source-backed.
         createdAt:
           $ref: '#/components/schemas/Timestamp'
     ObservationActorType:
@@ -15226,6 +15236,45 @@ components:
           description: Set to the current time on every successful register-or-refresh call.
         registeredAt:
           $ref: '#/components/schemas/Timestamp'
+    MoveObjectsCommand:
+      type: object
+      additionalProperties: false
+      required:
+        - type
+        - targets
+        - translationMetres
+      description: Applies one translation atomically to an explicit multi-object selection.
+      properties:
+        type:
+          type: string
+          enum:
+            - moveObjects
+        targets:
+          type: array
+          minItems: 2
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - objectId
+              - expectedRevision
+            properties:
+              objectId:
+                $ref: '#/components/schemas/Uuid'
+              expectedRevision:
+                $ref: '#/components/schemas/Revision'
+        translationMetres:
+          type: object
+          additionalProperties: false
+          required:
+            - dx
+            - dy
+          properties:
+            dx:
+              type: number
+            dy:
+              type: number
     PlatBearing:
       type: object
       additionalProperties: false

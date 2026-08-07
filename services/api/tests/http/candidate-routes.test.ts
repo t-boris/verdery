@@ -478,6 +478,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
           providerKey: 'human',
           confidence: null,
           sourceCitation: null,
+          evidenceStatus: 'horticulturally_reviewed',
         },
       ],
       isPartial: false,

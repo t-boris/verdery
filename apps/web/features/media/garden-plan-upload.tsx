@@ -2,7 +2,7 @@
 
 import type { Media } from '@verdery/api-contracts';
 import { useEffect, useState, type ChangeEvent } from 'react';
-import { CloseIcon, PauseIcon, RefreshIcon, FilePicker } from '@/shared/ui/public';
+import { CloseIcon, PauseIcon, RefreshIcon, FilePicker, TrashIcon } from '@/shared/ui/public';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { useLocalization } from '@/shared/localization/public';
@@ -17,7 +17,7 @@ import {
 
 import styles from './garden-plan-upload.module.css';
 import { formatBytes, uploadFailureReasonLabel, uploadPhaseLabel } from './labels';
-import { useGardenPlanMediaList, useMediaAccess } from './queries';
+import { useDeleteGardenPlan, useGardenPlanMediaList, useMediaAccess } from './queries';
 import { useMediaUpload } from './use-media-upload';
 
 export interface GardenPlanUploadProps {
@@ -142,6 +142,7 @@ export function GardenPlanUpload({ gardenId }: GardenPlanUploadProps) {
   const isOnline = useIsOnline();
   const upload = useMediaUpload(gardenId, 'imported_plan');
   const savedPlans = useGardenPlanMediaList(gardenId);
+  const deletePlan = useDeleteGardenPlan(gardenId);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -171,6 +172,12 @@ export function GardenPlanUpload({ gardenId }: GardenPlanUploadProps) {
     }
     setValidationError(null);
     upload.startUpload(file);
+  };
+
+  const removePlan = (plan: Media) => {
+    if (globalThis.confirm(t('media.plan.deleteConfirm', { filename: plan.displayFilename }))) {
+      deletePlan.mutate({ mediaId: plan.id, revision: plan.revision });
+    }
   };
 
   return (
@@ -347,11 +354,24 @@ export function GardenPlanUpload({ gardenId }: GardenPlanUploadProps) {
                 <li key={plan.id} className={styles['savedPlan']}>
                   <div className={styles['savedPlanHeader']}>
                     <strong>{plan.displayFilename}</strong>
-                    <span>
-                      {plan.uploadState === 'available' && plan.processingState === 'processed'
-                        ? t('media.plan.savedReady')
-                        : t('media.plan.savedProcessing')}
-                    </span>
+                    <div className={styles['savedPlanMeta']}>
+                      <span>
+                        {plan.uploadState === 'available' && plan.processingState === 'processed'
+                          ? t('media.plan.savedReady')
+                          : t('media.plan.savedProcessing')}
+                      </span>
+                      <Button
+                        variant="destructive"
+                        iconOnly
+                        busy={deletePlan.isPending && deletePlan.variables?.mediaId === plan.id}
+                        disabled={deletePlan.isPending}
+                        onClick={() => removePlan(plan)}
+                        aria-label={t('media.plan.delete', { filename: plan.displayFilename })}
+                        title={t('media.plan.delete', { filename: plan.displayFilename })}
+                      >
+                        <TrashIcon />
+                      </Button>
+                    </div>
                   </div>
                   {plan.uploadState === 'available' && plan.processingState === 'processed' && (
                     <PlanPreview gardenId={gardenId} media={plan} />
@@ -360,6 +380,7 @@ export function GardenPlanUpload({ gardenId }: GardenPlanUploadProps) {
               ))}
           </ul>
         )}
+        {deletePlan.isError && <FailureAlert failure={deletePlan.error.failure} />}
       </section>
     </Card>
   );

@@ -1,12 +1,14 @@
 .row {
   display: grid;
+  grid-template-columns: minmax(18rem, 1fr) auto;
+  align-items: end;
   gap: var(--space-3);
-  padding: var(--space-4);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-xs);
+  padding: var(--space-3) 0;
   list-style: none;
+}
+
+.row + .row {
+  border-block-start: var(--border-width) solid var(--color-border);
 }
 
 .header {
@@ -29,8 +31,6 @@
   flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: var(--border-width) solid var(--color-surface-sunken);
 }
 
 .roleChange {
@@ -40,7 +40,12 @@
   gap: var(--space-3);
 }
 
-@media (max-width: 40rem) {
+@media (max-width: 64rem) {
+  .row {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
   .roleChange {
     grid-template-columns: minmax(0, 1fr);
     inline-size: 100%;

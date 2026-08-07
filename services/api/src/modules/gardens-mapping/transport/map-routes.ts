@@ -26,6 +26,7 @@ import type { JoinMapObjectLinework } from '../application/join-map-object-linew
 import type { MapCommandResultResource } from '../application/map-object-view.js';
 import type { ViewportBoundingBox } from '../application/map-object-repository.js';
 import type { MoveMapObject } from '../application/move-map-object.js';
+import type { MoveMapObjects } from '../application/move-map-objects.js';
 import type { ReplaceMapObjectGeometry } from '../application/replace-map-object-geometry.js';
 import type { RestoreMapObject } from '../application/restore-map-object.js';
 import type { SplitMapObjectLinework } from '../application/split-map-object-linework.js';
@@ -35,6 +36,7 @@ export interface MapRoutesDependencies {
   readonly getGardenMap: GetGardenMap;
   readonly createMapObject: CreateMapObject;
   readonly moveMapObject: MoveMapObject;
+  readonly moveMapObjects: MoveMapObjects;
   readonly replaceMapObjectGeometry: ReplaceMapObjectGeometry;
   readonly editMapObjectVertex: EditMapObjectVertex;
   readonly splitMapObjectLinework: SplitMapObjectLinework;
@@ -129,6 +131,14 @@ export function registerMapRoutes(app: FastifyInstance, dependencies: MapRoutesD
         break;
       case 'moveObject':
         result = await dependencies.moveMapObject.execute(
+          gardenId,
+          profileId,
+          payload,
+          idempotencyKey,
+        );
+        break;
+      case 'moveObjects':
+        result = await dependencies.moveMapObjects.execute(
           gardenId,
           profileId,
           payload,

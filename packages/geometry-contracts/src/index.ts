@@ -134,6 +134,8 @@ export type {
   MapCommandPayload,
   MapCommandType,
   MoveObjectPayload,
+  MoveObjectsPayload,
+  MoveObjectsTarget,
   ProposalDecision,
   ReplaceGeometryPayload,
   RestoreObjectPayload,

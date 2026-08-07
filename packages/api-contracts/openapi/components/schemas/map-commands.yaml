@@ -67,6 +67,38 @@ MoveObjectCommand:
         dy:
           type: number
 
+MoveObjectsCommand:
+  type: object
+  additionalProperties: false
+  required: [type, targets, translationMetres]
+  description: Applies one translation atomically to an explicit multi-object selection.
+  properties:
+    type:
+      type: string
+      enum: [moveObjects]
+    targets:
+      type: array
+      minItems: 2
+      maxItems: 100
+      items:
+        type: object
+        additionalProperties: false
+        required: [objectId, expectedRevision]
+        properties:
+          objectId:
+            $ref: '../../components/schemas/shared.yaml#/Uuid'
+          expectedRevision:
+            $ref: '../../components/schemas/shared.yaml#/Revision'
+    translationMetres:
+      type: object
+      additionalProperties: false
+      required: [dx, dy]
+      properties:
+        dx:
+          type: number
+        dy:
+          type: number
+
 ReplaceGeometryCommand:
   type: object
   additionalProperties: false
@@ -389,6 +421,7 @@ MapCommandPayload:
   oneOf:
     - $ref: '#/CreateMapObjectCommand'
     - $ref: '#/MoveObjectCommand'
+    - $ref: '#/MoveObjectsCommand'
     - $ref: '#/ReplaceGeometryCommand'
     - $ref: '#/EditVertexCommand'
     - $ref: '#/SplitLineworkCommand'
@@ -408,6 +441,7 @@ MapCommandPayload:
     mapping:
       createObject: '#/CreateMapObjectCommand'
       moveObject: '#/MoveObjectCommand'
+      moveObjects: '#/MoveObjectsCommand'
       replaceGeometry: '#/ReplaceGeometryCommand'
       editVertex: '#/EditVertexCommand'
       splitLinework: '#/SplitLineworkCommand'

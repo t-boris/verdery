@@ -38,9 +38,9 @@ export interface MapLayerPanelProps {
  * pattern `map-toolbar.tsx`'s tool buttons already use.
  *
  * State lives in `editor-store.tsx`'s `EditorState` as a client-only
- * preference — no command, no server round trip, resets to
- * all-visible/all-unlocked on reload — see that file's doc comment on
- * `hiddenLayers`/`lockedLayers`.
+ * preference — no command, no server round trip. It persists per garden;
+ * a garden with no saved preference starts all-visible/all-unlocked — see
+ * `use-map-view-persistence.ts`.
  */
 export function MapLayerPanel({ actions }: MapLayerPanelProps) {
   const { t } = useLocalization();

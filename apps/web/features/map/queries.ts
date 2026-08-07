@@ -116,6 +116,14 @@ export function withCurrentMapRevisions(
       const revision = revisionOf(document, payload.objectId);
       return revision === null ? payload : { ...payload, expectedRevision: revision };
     }
+    case 'moveObjects':
+      return {
+        ...payload,
+        targets: payload.targets.map((target) => ({
+          ...target,
+          expectedRevision: revisionOf(document, target.objectId) ?? target.expectedRevision,
+        })),
+      };
     case 'assignPlant': {
       const revision = revisionOf(document, payload.plantObjectId);
       return revision === null ? payload : { ...payload, expectedRevision: revision };

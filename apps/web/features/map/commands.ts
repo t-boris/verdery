@@ -30,6 +30,7 @@ import type {
   ImportedBackgroundDetails,
   JoinLineworkPayload,
   MoveObjectPayload,
+  MoveObjectsPayload,
   PlanCalibrationInput,
   ReplaceGeometryPayload,
   SplitLineworkPayload,
@@ -43,6 +44,21 @@ import type { CreatableCategory } from './types';
 /** New object or command identifier. UUIDv7, matching the contract's `Uuid` pattern. */
 export function generateMapId(): string {
   return v7();
+}
+
+export function buildMoveObjectsCommand(
+  targets: readonly { readonly id: string; readonly revision: number }[],
+  dx: number,
+  dy: number,
+): MoveObjectsPayload {
+  return {
+    type: 'moveObjects',
+    targets: targets.map((target) => ({
+      objectId: target.id,
+      expectedRevision: target.revision,
+    })),
+    translationMetres: { dx, dy },
+  };
 }
 
 /**

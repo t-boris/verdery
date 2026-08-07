@@ -41,6 +41,13 @@ export function objectIdOf(command: MapCommandPayload): string {
     case 'restoreObject':
     case 'splitLinework':
       return command.objectId;
+    case 'moveObjects': {
+      const first = command.targets[0];
+      if (first === undefined) {
+        throw new Error('moveObjects requires at least one target.');
+      }
+      return first.objectId;
+    }
     case 'duplicateObject':
       return command.newObjectId;
     case 'assignPlant':
@@ -139,7 +146,9 @@ export function useCommandCommit(
                   findRecord(command.firstObjectId)?.category,
                   findRecord(command.secondObjectId)?.category,
                 ]
-              : [findRecord(objectIdOf(command))?.category];
+              : command.type === 'moveObjects'
+                ? command.targets.map((target) => findRecord(target.objectId)?.category)
+                : [findRecord(objectIdOf(command))?.category];
       if (
         targets.some(
           (category) =>

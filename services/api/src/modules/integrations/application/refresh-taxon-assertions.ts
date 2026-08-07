@@ -23,15 +23,15 @@
  * the "ordinary extraction-with-review path"
  * `plant-distribution-assertion.ts`'s own header names for exactly this
  * knowledge class: `sourceCitation` names the specific provider record
- * fetched, but the row stays invisible to `RebuildPlantProfileVersion`/
- * `RecalculateCandidateSuitability` (both read only
- * `horticulturally_reviewed` rows) until a human reviewer promotes it — a
- * workflow this pass does NOT build, the same deliberate deferral
+ * fetched. A cited row is immediately eligible for a source-backed catalog
+ * profile, while `RecalculateCandidateSuitability` continues to read only
+ * `horticulturally_reviewed` rows. A later reviewer-facing stage may promote
+ * the assertion without blocking gardeners from seeing attributed knowledge,
+ * the same deliberate deferral
  * `plant-taxonomy-mapping-repository.ts`'s own header already documents for
  * `updateVerificationState` ("no application use case drives it yet... the
  * port carries the operation so the machinery is proven"). This pipeline
- * lands real, correctly-provenanced data; a later reviewer-facing stage is
- * what makes it visible.
+ * lands real, correctly-provenanced data without presenting it as reviewed.
  *
  * Every failure is a typed, named outcome (the `RefreshGardenWeather`/
  * `MapPlantTaxonomy` honesty posture): no such provider registered, an

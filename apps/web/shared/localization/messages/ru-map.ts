@@ -46,6 +46,8 @@ export const russianMapMessages: Readonly<Record<keyof typeof englishMapMessages
     'Перетащите вершину, чтобы переместить её. Нажмите на маленькую точку посередине ребра, чтобы добавить вершину. Alt+клик по вершине — удалить её. Shift+клик по вершине забора или дорожки — разделить в этом месте.',
   'map.canvas.hintTransform':
     'Перетащите угол, чтобы изменить размер. Перетащите ручку над фигурой, чтобы повернуть её.',
+  'map.canvas.hintMove':
+    'Перетащите выбранный объект. Выберите несколько объектов с Shift в списке, чтобы двигать их вместе.',
   'map.gate.promptTitle': 'Выберите забор, к которому относится эта калитка',
   'map.gate.fenceLabel': 'Забор',
   'map.gate.confirm': 'Добавить калитку',
@@ -61,7 +63,7 @@ export const russianMapMessages: Readonly<Record<keyof typeof englishMapMessages
   'map.objectList.selectAriaLabel': 'Выбрать {label}, {category}',
   'map.objectList.selectAriaLabelLocked': '{label}, {category}, слой заблокирован',
   'map.objectList.lockedTooltip': 'Этот слой заблокирован',
-  'map.objectList.multiSelectedCount': 'Выбрано для объединения: {count}',
+  'map.objectList.multiSelectedCount': 'Выбрано в рабочую группу: {count}',
   'map.objectList.join': 'Объединить',
   'map.objectList.clearSelection': 'Очистить выбор',
   'map.properties.title': 'Свойства',
@@ -164,6 +166,7 @@ export const russianMapMessages: Readonly<Record<keyof typeof englishMapMessages
   'map.category.importedBackground': 'Импортированная подложка',
   'map.status.created': '{label} создан.',
   'map.status.moved': '{label} перемещён.',
+  'map.status.movedSelection': 'Объекты перемещены вместе: {count}.',
   'map.status.moveFailed':
     'Не удалось сохранить перемещение. Объект возвращён на последнюю сохранённую позицию.',
   'map.status.commandFailed': 'Не удалось сохранить изменение.',

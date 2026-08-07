@@ -91,6 +91,11 @@
   font-size: var(--font-size-sm);
 }
 
+.evidenceStatus {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-medium);
+}
+
 .assembled,
 .status {
   margin: 0;
