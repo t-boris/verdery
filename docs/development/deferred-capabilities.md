@@ -724,18 +724,18 @@ stays reachable. `usePlantIdentification` folds the read's `plants_inventory.pla
 identification_not_found` `404` into `null` the same way `useGardenOwnershipTransfer` already does
 for an identically-shaped "pending, or nothing to review" resource.
 
-**Still open**: `plant-gateway.ts`'s `attachPhoto`/`setPrimaryPhoto` and `task-gateway.ts`'s
-`attachFile` remain implemented and unit-tested for contract completeness only, with no
-`features/plants`/`features/tasks` hook or component calling them to attach an ADDITIONAL photo to
-an EXISTING plant/task — `features/plants/plant-detail.tsx`'s gap notice (`plants.mediaGapTitle`)
-is now scoped to just this ("adding more photos is not available yet"), not to viewing what is
-already attached — see "Plant photo gallery, observation-suggestion, and acquisition-date guess
-client wiring" below for why. `RecordObservation`'s photo support is still left off
+**Still open**: `task-gateway.ts`'s `attachFile` remains implemented and unit-tested for contract
+completeness only, with no `features/tasks` component calling it. Adding a photo to an existing
+plant and choosing its primary photo are now closed on web: the plant-detail route composes the
+shared resumable media upload with `useAttachPlantPhoto`, while `PlantPhotoGallery` calls
+`useSetPrimaryPlantPhoto` and offers a screen-fitting lightbox. `RecordObservation`'s photo support
+is still left off
 `RecordObservationForm` the same way, though the contract already lets a note and/or a condition
 summary stand on their own without a photo, so recording an observation itself is not blocked. Each
 of these can now reuse `features/media`'s upload machinery directly (the same `useMediaUpload` hook,
 parameterized by `mediaClass`, already returns the `mediaId` these commands need) — the remaining
-work is UI wiring per attachment point, not new upload infrastructure. iOS has no such gap:
+task-file and observation-photo work is UI wiring per attachment point, not new upload
+infrastructure. iOS has no such plant-photo gap:
 `PlantDetailView`'s "Attach Photo" (`P6-IOS-01`, described above) already attaches an additional
 photo to an existing plant on that platform.
 

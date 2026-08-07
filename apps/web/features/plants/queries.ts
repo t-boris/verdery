@@ -336,6 +336,45 @@ export function usePlantTaxonProfile(taxonomyReferenceId: string) {
   });
 }
 
+/** Upload is a separate media concern; this mutation attaches an already validated media record to the plant. */
+export function useAttachPlantPhoto(gardenId: string, plantId: string) {
+  const gateway = usePlantGateway();
+  const queryClient = useQueryClient();
+
+  return useMutation<PlantPhoto, ApiFailureError, { readonly mediaId: string }>({
+    mutationFn: async ({ mediaId }) =>
+      unwrap(
+        await gateway.attachPhoto(
+          gardenId,
+          plantId,
+          { mediaId, isPrimary: false },
+          generateIdempotencyKey(),
+        ),
+      ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: plantPhotosQueryKey(gardenId, plantId) });
+      await queryClient.invalidateQueries({ queryKey: ['plants', gardenId, 'search'] });
+    },
+  });
+}
+
+/** Makes one attached photo the plant cover and refreshes both the gallery and inventory thumbnails. */
+export function useSetPrimaryPlantPhoto(gardenId: string, plantId: string) {
+  const gateway = usePlantGateway();
+  const queryClient = useQueryClient();
+
+  return useMutation<PlantPhoto, ApiFailureError, { readonly plantPhotoId: string }>({
+    mutationFn: async ({ plantPhotoId }) =>
+      unwrap(
+        await gateway.setPrimaryPhoto(gardenId, plantId, plantPhotoId, generateIdempotencyKey()),
+      ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: plantPhotosQueryKey(gardenId, plantId) });
+      await queryClient.invalidateQueries({ queryKey: ['plants', gardenId, 'search'] });
+    },
+  });
+}
+
 /** Backs `TaxonomyReferenceField`'s search-select. An empty `query` lists the catalog, most recent first. */
 export function useTaxonomyReferenceSearch(gardenId: string, query: string) {
   const gateway = usePlantGateway();

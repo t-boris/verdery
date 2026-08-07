@@ -5,6 +5,7 @@ import { ObservationTimeline, PlantJournalStrip } from '@/features/observations/
 import { getRequestTranslator } from '@/shared/localization/server';
 
 import { RecordJournalEntryPanel } from './record-journal-entry-panel';
+import { PlantPhotoUpload } from './plant-photo-upload';
 import styles from './page.module.css';
 
 /**
@@ -33,7 +34,11 @@ export default async function PlantDetailPage({
         {t('plants.backToPlants')}
       </Link>
 
-      <PlantDetail gardenId={gardenId} plantId={plantId} />
+      <PlantDetail
+        gardenId={gardenId}
+        plantId={plantId}
+        photoUpload={<PlantPhotoUpload gardenId={gardenId} plantId={plantId} />}
+      />
 
       {/*
         Above the record form and the timeline on purpose: the sequence is how

@@ -40,16 +40,22 @@ export class KyselyPlantMediaAssetRepository implements PlantMediaAssetRepositor
         ingestion_state: asset.ingestionState,
       })
       .onConflict((conflict) =>
-        conflict.columns(['provider_key', 'source_url']).doUpdateSet({
-          license: asset.license,
-          rights_holder: asset.rightsHolder,
-          creator: asset.creator,
-          attribution_text: asset.attributionText,
-          observed_at: asset.observedAt,
-          organ: asset.organ,
-          inferred_organ: asset.inferredOrgan,
-          ingestion_state: asset.ingestionState,
-        }),
+        conflict
+          .columns(['provider_key', 'source_url'])
+          // PostgreSQL can infer a partial unique index only when the conflict
+          // target repeats its predicate. Without this clause production
+          // raises 42P10 even though the matching index exists.
+          .where('source_url', 'is not', null)
+          .doUpdateSet({
+            license: asset.license,
+            rights_holder: asset.rightsHolder,
+            creator: asset.creator,
+            attribution_text: asset.attributionText,
+            observed_at: asset.observedAt,
+            organ: asset.organ,
+            inferred_organ: asset.inferredOrgan,
+            ingestion_state: asset.ingestionState,
+          }),
       )
       .execute();
   }

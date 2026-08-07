@@ -11,6 +11,7 @@ export { PlantList } from './plant-list';
 export {
   useAddPlant,
   useAddPlantFromPhoto,
+  useAttachPlantPhoto,
   useConfirmPlantIdentification,
   useMovePlant,
   usePlant,
@@ -18,6 +19,7 @@ export {
   usePlantTaxonProfile,
   useRecordObservationFromIdentification,
   useSearchPlants,
+  useSetPrimaryPlantPhoto,
   useSetPlantStatus,
   useTaxonomyReferenceSearch,
   useTransitionPlantLifecycleStage,

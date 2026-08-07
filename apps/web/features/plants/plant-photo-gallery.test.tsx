@@ -1,17 +1,18 @@
 import type { PlantPhoto } from '@verdery/api-contracts';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { LocalizationProvider } from '@/shared/localization/public';
 
 import { PlantPhotoGallery } from './plant-photo-gallery';
 import { usePlantPhotoAccess } from './plant-media-queries';
-import { usePlantPhotos } from './queries';
+import { usePlantPhotos, useSetPrimaryPlantPhoto } from './queries';
 
-vi.mock('./queries', () => ({ usePlantPhotos: vi.fn() }));
+vi.mock('./queries', () => ({ usePlantPhotos: vi.fn(), useSetPrimaryPlantPhoto: vi.fn() }));
 vi.mock('./plant-media-queries', () => ({ usePlantPhotoAccess: vi.fn() }));
 
 const mockedUsePlantPhotos = vi.mocked(usePlantPhotos);
+const mockedUseSetPrimaryPlantPhoto = vi.mocked(useSetPrimaryPlantPhoto);
 const mockedUsePlantPhotoAccess = vi.mocked(usePlantPhotoAccess);
 
 const PHOTO: PlantPhoto = {
@@ -33,6 +34,12 @@ function renderGallery() {
 afterEach(() => {
   vi.clearAllMocks();
 });
+
+mockedUseSetPrimaryPlantPhoto.mockReturnValue({
+  mutate: vi.fn(),
+  isPending: false,
+  isError: false,
+} as never);
 
 describe('PlantPhotoGallery', () => {
   it('renders nothing while the photo list is loading', () => {
@@ -67,5 +74,23 @@ describe('PlantPhotoGallery', () => {
 
     expect(mockedUsePlantPhotoAccess).toHaveBeenCalledWith('garden-1', 'media-1');
     expect(screen.getByRole('img').getAttribute('src')).toBe('https://signed.example/media-1');
+  });
+
+  it('opens the specimen photo in a full-screen dialog', () => {
+    mockedUsePlantPhotos.mockReturnValue({
+      isPending: false,
+      isError: false,
+      data: [PHOTO],
+    } as never);
+    mockedUsePlantPhotoAccess.mockReturnValue({
+      isPending: false,
+      isError: false,
+      data: { url: 'https://signed.example/media-1', expiresAt: '2026-01-01T00:00:00Z' },
+    });
+
+    renderGallery();
+    fireEvent.click(screen.getByRole('button', { name: 'Open photo full screen' }));
+
+    expect(screen.getByRole('dialog', { name: 'Primary photo' })).toBeTruthy();
   });
 });

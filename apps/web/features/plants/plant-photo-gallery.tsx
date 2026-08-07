@@ -1,11 +1,14 @@
 'use client';
 
+import type { PlantPhoto } from '@verdery/api-contracts';
+import { useEffect, useState } from 'react';
+
 import { useLocalization } from '@/shared/localization/public';
-import { FailureAlert } from '@/shared/ui/public';
+import { Button, CloseIcon, FailureAlert } from '@/shared/ui/public';
 
 import { usePlantPhotoAccess } from './plant-media-queries';
 import styles from './plant-photo-gallery.module.css';
-import { usePlantPhotos } from './queries';
+import { usePlantPhotos, useSetPrimaryPlantPhoto } from './queries';
 
 export interface PlantPhotoGalleryProps {
   readonly gardenId: string;
@@ -14,52 +17,94 @@ export interface PlantPhotoGalleryProps {
 
 interface PlantPhotoThumbnailProps {
   readonly gardenId: string;
-  readonly mediaId: string;
+  readonly photo: PlantPhoto;
   readonly alt: string;
+  readonly openLabel: string;
+  readonly closeLabel: string;
+  readonly makePrimaryLabel: string;
+  readonly onSetPrimary: (photoId: string) => void;
+  readonly settingPrimary: boolean;
 }
 
-/** One photo's signed-URL resolution, the same per-item pattern `features/media/media-preview.tsx` establishes for a media record's display. */
-function PlantPhotoThumbnail({ gardenId, mediaId, alt }: PlantPhotoThumbnailProps) {
-  const query = usePlantPhotoAccess(gardenId, mediaId);
+/** One photo with signed-URL resolution, primary selection, and a screen-fitting lightbox. */
+function PlantPhotoThumbnail({
+  gardenId,
+  photo,
+  alt,
+  openLabel,
+  closeLabel,
+  makePrimaryLabel,
+  onSetPrimary,
+  settingPrimary,
+}: PlantPhotoThumbnailProps) {
+  const query = usePlantPhotoAccess(gardenId, photo.mediaId);
+  const [open, setOpen] = useState(false);
 
-  // `data` is absent both while the photo is still being validated and when
-  // the read failed; the placeholder covers each, and the status poll behind
-  // the hook swaps in the image once it is ready.
+  useEffect(() => {
+    if (!open) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [open]);
+
   if (query.data === undefined) {
     return <div className={styles['placeholder']} />;
   }
 
-  // A plain `<img>`, not `next/image` — see `media-preview.tsx`'s own doc
-  // comment: the source is a short-lived signed Cloud Storage URL, re-issued
-  // on every fetch, not a build-time-optimizable static asset.
-  return <img className={styles['thumbnail']} src={query.data.url} alt={alt} />;
+  return (
+    <div className={styles['photo']}>
+      <button
+        type="button"
+        className={styles['thumbnailButton']}
+        onClick={() => setOpen(true)}
+        aria-label={openLabel}
+      >
+        <img className={styles['thumbnail']} src={query.data.url} alt={alt} />
+      </button>
+      {photo.isPrimary ? (
+        <span className={styles['primaryLabel']}>{alt}</span>
+      ) : (
+        <Button variant="secondary" busy={settingPrimary} onClick={() => onSetPrimary(photo.id)}>
+          {makePrimaryLabel}
+        </Button>
+      )}
+      {open && (
+        <div
+          className={styles['lightbox']}
+          role="dialog"
+          aria-modal="true"
+          aria-label={alt}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setOpen(false);
+          }}
+        >
+          <button
+            type="button"
+            className={styles['close']}
+            onClick={() => setOpen(false)}
+            aria-label={closeLabel}
+            title={closeLabel}
+          >
+            <CloseIcon />
+          </button>
+          <img className={styles['fullImage']} src={query.data.url} alt={alt} />
+        </div>
+      )}
+    </div>
+  );
 }
 
-/**
- * A plant's attached photos, as a horizontally scrolling row of thumbnails —
- * the read side of `AddPlantFromPhoto`'s existing photo attachment
- * (ADR-0015). Renders nothing while the list is empty: an empty gallery is
- * not an error state, just nothing to show yet — the same "real, working
- * affordance or nothing" posture `plant-detail.tsx`'s own media-gap alert
- * already establishes for the still-missing "attach more photos" action.
- *
- * Source: packages/api-contracts/openapi.yaml, operation `listPlantPhotos`.
- */
+/** A plant's specimen photos, with full-screen viewing and primary-photo selection. */
 export function PlantPhotoGallery({ gardenId, plantId }: PlantPhotoGalleryProps) {
   const { t } = useLocalization();
   const query = usePlantPhotos(gardenId, plantId);
+  const setPrimary = useSetPrimaryPlantPhoto(gardenId, plantId);
 
-  if (query.isPending) {
-    return null;
-  }
-
-  if (query.isError) {
-    return <FailureAlert failure={query.error.failure} />;
-  }
-
-  if (query.data.length === 0) {
-    return null;
-  }
+  if (query.isPending) return null;
+  if (query.isError) return <FailureAlert failure={query.error.failure} />;
+  if (query.data.length === 0) return null;
 
   return (
     <div className={styles['gallery']}>
@@ -67,10 +112,16 @@ export function PlantPhotoGallery({ gardenId, plantId }: PlantPhotoGalleryProps)
         <PlantPhotoThumbnail
           key={photo.id}
           gardenId={gardenId}
-          mediaId={photo.mediaId}
-          alt={t('plants.photoGalleryTitle')}
+          photo={photo}
+          alt={photo.isPrimary ? t('plants.photoPrimary') : t('plants.photoGalleryTitle')}
+          openLabel={t('plants.photoOpenFullscreen')}
+          closeLabel={t('plants.photoCloseFullscreen')}
+          makePrimaryLabel={t('plants.photoMakePrimary')}
+          onSetPrimary={(plantPhotoId) => setPrimary.mutate({ plantPhotoId })}
+          settingPrimary={setPrimary.isPending}
         />
       ))}
+      {setPrimary.isError && <FailureAlert failure={setPrimary.error.failure} />}
     </div>
   );
 }

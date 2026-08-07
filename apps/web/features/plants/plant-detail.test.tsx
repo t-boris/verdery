@@ -27,6 +27,7 @@ vi.mock('./queries', () => ({
   useMovePlant: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
   useTaxonomyReferenceSearch: () => ({ data: { items: [] }, isError: false }),
   usePlantPhotos: () => ({ data: [], isPending: false, isError: false }),
+  useSetPrimaryPlantPhoto: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
   useRecordObservationFromIdentification: () => ({
     mutate: recordObservationMutateMock,
     isPending: false,

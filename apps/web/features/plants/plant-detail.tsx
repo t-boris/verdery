@@ -2,7 +2,7 @@
 
 import type { PlantIdentificationSuggestion } from '@verdery/api-contracts';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
@@ -40,6 +40,7 @@ import {
 export interface PlantDetailProps {
   readonly gardenId: string;
   readonly plantId: string;
+  readonly photoUpload?: ReactNode;
 }
 
 function PlantTaxonomySummary({
@@ -83,12 +84,9 @@ function rawSuggestionLabel(commonName: string, scientificName: string | null): 
  * A single plant: its current facts, and every command this phase wires
  * against it.
  *
- * This plant's attached photos are shown via `PlantPhotoGallery`
- * (`listPlantPhotos`). Attaching an ADDITIONAL photo after creation
- * (`AttachPlantPhoto`/`SetPrimaryPlantPhoto`) is still omitted from this UI
- * — that needs a real upload flow wired to an existing plant, a separate
- * follow-up not built in this pass, see
- * `docs/development/deferred-capabilities.md`. Photo identification
+ * This plant's attached photos are shown via `PlantPhotoGallery`; the route
+ * supplies a real upload-and-attach control through `photoUpload`, and the
+ * gallery exposes the separate primary-photo command. Photo identification
  * (`AddPlantFromPhoto`) and its confirmation (`ConfirmPlantIdentification`)
  * are no longer part of that gap: `add-plant-from-photo-panel.tsx`
  * (ADR-0015) creates a plant from a photo, and this screen's own pending-
@@ -98,7 +96,7 @@ function rawSuggestionLabel(commonName: string, scientificName: string | null): 
  * Source: implementation-plan.md work package P4-WEB-01;
  * packages/api-contracts/openapi.yaml, operation `getPlant`; ADR-0015.
  */
-export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
+export function PlantDetail({ gardenId, plantId, photoUpload }: PlantDetailProps) {
   const { t } = useLocalization();
   const router = useRouter();
   const query = usePlant(gardenId, plantId);
@@ -193,6 +191,12 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
       </div>
 
       <PlantPhotoGallery gardenId={gardenId} plantId={plant.id} />
+      {photoUpload !== undefined && (
+        <Card title={t('plants.addPhotoTitle')}>
+          <p className={styles['sectionDescription']}>{t('plants.addPhotoDescription')}</p>
+          {photoUpload}
+        </Card>
+      )}
       {plant.taxonomyReferenceId !== null && (
         <PlantReferenceGallery taxonomyReferenceId={plant.taxonomyReferenceId} />
       )}
@@ -285,10 +289,6 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
             )}
           </Alert>
         )}
-
-      <Alert tone="info" title={t('plants.mediaGapTitle')}>
-        <p>{t('plants.mediaGapDescription')}</p>
-      </Alert>
 
       <Card title={t('plants.editTitle')}>
         <PlantDetailsForm gardenId={gardenId} plant={plant} />
