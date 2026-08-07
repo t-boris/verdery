@@ -1,7 +1,10 @@
 import type { Kysely } from 'kysely';
 import type { DatabaseSchema } from '../../../platform/database/database-gateway.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
-import type { TaxonomySeasonalFactRepository } from '../application/taxonomy-seasonal-fact-repository.js';
+import type {
+  TaxonomySeasonalFactRepository,
+  TaxonomySeasonalFactReviewItem,
+} from '../application/taxonomy-seasonal-fact-repository.js';
 import type {
   Hemisphere,
   TaxonomySeasonalAuthoringMethod,
@@ -114,5 +117,47 @@ export class KyselyTaxonomySeasonalFactRepository implements TaxonomySeasonalFac
     }
 
     return toTaxonomySeasonalFact(row);
+  }
+
+  async listAwaitingReview(limit: number): Promise<readonly TaxonomySeasonalFactReviewItem[]> {
+    // Joined to the taxon so the queue carries names rather than UUIDs — a
+    // reviewer cannot judge sowing months for an identifier.
+    const rows = await this.db
+      .selectFrom('plants_inventory.taxonomy_seasonal_fact as fact')
+      .innerJoin(
+        'plants_inventory.taxonomy_reference as reference',
+        'reference.id',
+        'fact.taxonomy_reference_id',
+      )
+      .selectAll('fact')
+      .select(['reference.scientific_name', 'reference.common_name'])
+      .where('fact.review_status', '=', 'awaiting_horticultural_review')
+      .orderBy('fact.created_at', 'asc')
+      .limit(limit)
+      .execute();
+
+    return rows.map((row) => ({
+      fact: toTaxonomySeasonalFact(row),
+      scientificName: row.scientific_name,
+      commonName: row.common_name,
+    }));
+  }
+
+  async approve(id: Uuid, reviewedBy: string, reviewedOn: string): Promise<boolean> {
+    // Guarded on the CURRENT status, so two reviewers racing the same row
+    // produce one approval and one honest "nothing left to approve" — the
+    // same conditional-update shape `ApprovePlantAssertionReview` relies on.
+    const result = await this.db
+      .updateTable('plants_inventory.taxonomy_seasonal_fact')
+      .set({
+        review_status: 'horticulturally_reviewed',
+        reviewed_by: reviewedBy,
+        reviewed_on: reviewedOn,
+      })
+      .where('id', '=', id)
+      .where('review_status', '=', 'awaiting_horticultural_review')
+      .executeTakeFirst();
+
+    return Number(result.numUpdatedRows) > 0;
   }
 }

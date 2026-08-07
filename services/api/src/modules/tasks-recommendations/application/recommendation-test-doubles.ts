@@ -32,6 +32,7 @@ import type {
   TaxonomyReferenceRepository,
   TaxonomySeasonalFact,
   TaxonomySeasonalFactRepository,
+  TaxonomySeasonalFactReviewItem,
 } from '../../plants-inventory/public.js';
 import type { AiExplanationRecord } from '../domain/ai-explanation.js';
 import type { AiExplanationRecordRepository } from './ai-explanation-record-repository.js';
@@ -512,6 +513,34 @@ export class FakeTaxonomySeasonalFactRepository implements TaxonomySeasonalFactR
     return Promise.resolve(
       fact !== undefined && fact.reviewStatus === 'horticulturally_reviewed' ? fact : null,
     );
+  }
+
+  listAwaitingReview(limit: number): Promise<readonly TaxonomySeasonalFactReviewItem[]> {
+    const items = [...this.facts.values()]
+      .filter((fact) => fact.reviewStatus === 'awaiting_horticultural_review')
+      .slice(0, limit)
+      .map((fact) => ({
+        fact,
+        scientificName: `taxon-${fact.taxonomyReferenceId}`,
+        commonName: null,
+      }));
+    return Promise.resolve(items);
+  }
+
+  approve(id: Uuid, reviewedBy: string, reviewedOn: string): Promise<boolean> {
+    for (const [key, fact] of this.facts) {
+      if (fact.id !== id || fact.reviewStatus !== 'awaiting_horticultural_review') {
+        continue;
+      }
+      this.facts.set(key, {
+        ...fact,
+        reviewStatus: 'horticulturally_reviewed',
+        reviewedBy,
+        reviewedOn,
+      });
+      return Promise.resolve(true);
+    }
+    return Promise.resolve(false);
   }
 }
 

@@ -176,7 +176,19 @@ export {
   validateTaxonomySeasonalFactProvenance,
   validateTaxonomySeasonalReview,
 } from './domain/taxonomy-seasonal-fact.js';
-export type { TaxonomySeasonalFactRepository } from './application/taxonomy-seasonal-fact-repository.js';
+export type {
+  TaxonomySeasonalFactRepository,
+  TaxonomySeasonalFactReviewItem,
+} from './application/taxonomy-seasonal-fact-repository.js';
+export {
+  ApproveTaxonomySeasonalFactReview,
+  ListTaxonomySeasonalFactsAwaitingReview,
+  SEASONAL_REVIEW_QUEUE_DEFAULT_LIMIT,
+  SEASONAL_REVIEW_QUEUE_MAX_LIMIT,
+} from './application/review-taxonomy-seasonal-facts.js';
+export type { ApproveTaxonomySeasonalFactResult } from './application/review-taxonomy-seasonal-facts.js';
+export { registerSeasonalFactReviewRoutes } from './transport/seasonal-fact-review-routes.js';
+export type { SeasonalFactReviewRoutesDependencies } from './transport/seasonal-fact-review-routes.js';
 export { KyselyTaxonomySeasonalFactRepository } from './persistence/kysely-taxonomy-seasonal-fact-repository.js';
 export type {
   BedOccupancyHistoryReader,

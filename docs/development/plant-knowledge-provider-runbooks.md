@@ -300,3 +300,42 @@ shape every other scheduled sweep in this codebase already uses.
   placement for any garden-facing hardiness-zone display before that adapter is enabled
   outside development. This is a design/legal confirmation, not an engineering blocker — the
   data itself is free to use today.
+
+## Reviewing seasonal timing
+
+`plants_inventory.taxonomy_seasonal_fact` now ships seeded content
+(`migrations/1789300000000_seasonal-timing-seed.sql`): fifteen common vegetable taxa with
+northern-hemisphere sowing, transplant and harvest windows, extracted from cited public-domain
+USDA publications under ADR-0013's extraction lane.
+
+**Every seeded row is `awaiting_horticultural_review`, and that is the control, not an oversight.**
+`findReviewedForTaxonomyAndHemisphere` treats an unreviewed row as absent, so
+`seasonal.sowing-window-check`, `succession.replanting-reminder` and
+`rotation.crop-rotation-caution` see nothing until a named reviewer signs off. A migration cannot
+forge that sign-off — `seasonal-timing-seed.test.ts` asserts it.
+
+**Who may review.** The same `PLANT_REVIEWER_EMAILS` allowlist that gates the plant-assertion
+queue. "Reviewer" is one role in this system: a person trusted to sign off a plant fact is the
+person trusted to sign off when to sow it. Set the variable and redeploy the API to grant it.
+
+**The queue.**
+
+| Operation                 | Route                                                             |
+| ------------------------- | ----------------------------------------------------------------- |
+| List rows awaiting review | `GET /v1/plant-knowledge/seasonal-facts/awaiting-review?limit=25` |
+| Sign one off              | `POST /v1/plant-knowledge/seasonal-facts/{factId}/approve`        |
+
+Both are authenticated ordinary routes; the allowlist check runs inside the use case. `reviewedBy`
+is always the caller's own verified email — a reviewer can only ever record themselves, which is
+what makes the column an accountable claim.
+
+Approval is the only transition. The table's CHECK admits two review states, so there is nothing
+to reject into; correcting a bad window is authoring, not reviewing. A repeated or raced approval
+answers `alreadyReviewedOrMissing`, which is deliberately indistinguishable from an unknown id.
+
+**What to check before signing off a row.** The months are northern-hemisphere and were extracted,
+not authored — confirm each window against your own region and practice, and correct rather than
+approve anything you would not stand behind. `rotationRestSeasons` drives how long
+`crop-rotation-caution` warns against replanting the same family; `successionIntervalDays` drives
+how often `succession.replanting-reminder` fires. A `null` means the source did not support a
+value, never that none exists.

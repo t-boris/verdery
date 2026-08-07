@@ -72,7 +72,11 @@ import {
   registerObservationRoutes,
   SetHealthSuggestionDisposition,
 } from './modules/observations-history/public.js';
-import { registerCandidateRoutes, registerPlantRoutes } from './modules/plants-inventory/public.js';
+import {
+  registerCandidateRoutes,
+  registerPlantRoutes,
+  registerSeasonalFactReviewRoutes,
+} from './modules/plants-inventory/public.js';
 import {
   DatabaseDependencyProbe,
   registerHealthRoutes,
@@ -299,7 +303,11 @@ export async function buildApplication(
   // transport (`registerPlantRoutes`, tag `Plants`) wired below. Split into
   // `compose-plants-inventory.ts` for the same 600-line reason as its
   // siblings.
-  const { plantRoutesDependencies, candidateRoutesDependencies } = composePlantsInventory(
+  const {
+    plantRoutesDependencies,
+    candidateRoutesDependencies,
+    seasonalFactReviewRoutesDependencies,
+  } = composePlantsInventory(
     database,
     clock,
     gardenAuthorization,
@@ -308,6 +316,7 @@ export async function buildApplication(
     analyzePlantCondition,
     recordObservation,
     taxonProfileEnricher,
+    configuration.plantReview.reviewerEmails,
   );
 
   // tasks-recommendations: task commands (tag `Tasks`), the scheduled
@@ -524,6 +533,9 @@ export async function buildApplication(
       registerCandidateRoutes(instance, candidateRoutesDependencies);
       // P11-PROV-01: the horticultural-review surface (guard lives in the use cases, not here).
       registerPlantAssertionReviewRoutes(instance, plantAssertionReviewRoutesDependencies);
+      // The seasonal-timing review queue and its sign-off — the same
+      // allowlisted reviewer role, applied to the content three rules read.
+      registerSeasonalFactReviewRoutes(instance, seasonalFactReviewRoutesDependencies);
       registerObservationRoutes(instance, observationRoutesDependencies);
       registerTaskRoutes(instance, taskRoutesDependencies);
       registerRecommendationRoutes(instance, recommendationRoutesDependencies);

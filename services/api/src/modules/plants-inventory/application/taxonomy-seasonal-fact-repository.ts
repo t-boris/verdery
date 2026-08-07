@@ -32,4 +32,37 @@ export interface TaxonomySeasonalFactRepository {
     taxonomyReferenceId: Uuid,
     hemisphere: Hemisphere,
   ): Promise<TaxonomySeasonalFact | null>;
+
+  /**
+   * Rows still `awaiting_horticultural_review`, oldest first, capped — the
+   * reviewer queue's own read.
+   *
+   * Deliberately unfiltered by taxon: a reviewer works through a backlog
+   * rather than looking a specific plant up, exactly as
+   * `ListPlantAssertionsAwaitingReview` already assumes for its own queue.
+   */
+  listAwaitingReview(limit: number): Promise<readonly TaxonomySeasonalFactReviewItem[]>;
+
+  /**
+   * Promotes one row to `horticulturally_reviewed`, stamping the reviewer
+   * and the date. Returns `false` when the row is not awaiting review
+   * anymore — already signed off, or no such id.
+   *
+   * The two are indistinguishable on purpose, the same choice
+   * `ApprovePlantAssertionReview` documents: both mean "there is nothing
+   * left for this caller to approve", and telling them apart would let an
+   * unauthorized probe confirm an id exists.
+   */
+  approve(id: Uuid, reviewedBy: string, reviewedOn: string): Promise<boolean>;
+}
+
+/**
+ * One queue entry: the fact plus the taxon name a reviewer needs to judge
+ * it. Without the name the queue would be a list of UUIDs and month
+ * numbers, which is not reviewable content.
+ */
+export interface TaxonomySeasonalFactReviewItem {
+  readonly fact: TaxonomySeasonalFact;
+  readonly scientificName: string;
+  readonly commonName: string | null;
 }

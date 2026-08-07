@@ -11,6 +11,9 @@
  */
 
 import {
+  ApproveTaxonomySeasonalFactReview,
+  KyselyTaxonomySeasonalFactRepository,
+  ListTaxonomySeasonalFactsAwaitingReview,
   AddCandidate,
   AddCandidateFromPhoto,
   AddPlant,
@@ -53,6 +56,7 @@ import {
   type TaxonProfileEnricher,
 } from './modules/plants-inventory/public.js';
 import type {
+  SeasonalFactReviewRoutesDependencies,
   CandidateRoutesDependencies,
   PlantRoutesDependencies,
 } from './modules/plants-inventory/public.js';
@@ -99,9 +103,12 @@ export function composePlantsInventory(
   analyzePlantCondition: AnalyzePlantCondition,
   recordObservation: RecordObservation,
   taxonProfileEnricher: TaxonProfileEnricher,
+  /** The same reviewer allowlist the plant-assertion queue uses — "reviewer" is one role in this system, not two. */
+  reviewerEmails: readonly string[],
 ): {
   plantRoutesDependencies: PlantRoutesDependencies;
   candidateRoutesDependencies: CandidateRoutesDependencies;
+  seasonalFactReviewRoutesDependencies: SeasonalFactReviewRoutesDependencies;
 } {
   const plantRepository = new KyselyPlantRepository(database.queries);
   const taxonomyReferenceRepository = new KyselyTaxonomyReferenceRepository(database.queries);
@@ -296,7 +303,23 @@ export function composePlantsInventory(
     taxonProfileEnricher,
   );
 
+  // The seasonal-timing review queue and its sign-off. Its own read-only
+  // adapter bound to the pooled connection — a reviewer's queue read and a
+  // single guarded update need no transaction of their own.
+  const seasonalFacts = new KyselyTaxonomySeasonalFactRepository(database.queries);
+
   return {
+    seasonalFactReviewRoutesDependencies: {
+      listTaxonomySeasonalFactsAwaitingReview: new ListTaxonomySeasonalFactsAwaitingReview(
+        seasonalFacts,
+        reviewerEmails,
+      ),
+      approveTaxonomySeasonalFactReview: new ApproveTaxonomySeasonalFactReview(
+        seasonalFacts,
+        reviewerEmails,
+        clock,
+      ),
+    },
     plantRoutesDependencies: {
       addPlant,
       addPlantFromPhoto,
