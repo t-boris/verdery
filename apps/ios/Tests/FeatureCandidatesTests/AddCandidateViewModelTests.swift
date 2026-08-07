@@ -74,7 +74,7 @@ struct AddCandidateViewModelTests {
 /// A trivial `PlantGateway` stand-in — only `searchTaxonomyReferences` is
 /// ever called through `SearchCandidateTaxonomyReferences` in these tests.
 final class FakeCandidatePlantGateway: PlantGateway, @unchecked Sendable {
-    func addPlant(gardenId: String, displayName: String, taxonomyReferenceId: String?, varietyLabel: String?, acquisitionDate: String?, acquisitionDateType: PlantAcquisitionDateType?, groupingKind: PlantGroupingKind, quantity: Int?, gardenAreaMapObjectId: String?, placementMapObjectId: String?, idempotencyKey: String) async throws -> Plant {
+    func addPlant(gardenId: String, displayName: String, taxonomyReferenceId: String?, varietyLabel: String?, acquisitionDate: String?, acquisitionDateType: PlantAcquisitionDateType?, groupingKind: PlantGroupingKind, quantity: Int?, gardenAreaMapObjectId: String?, placementMapObjectId: String?, lifecycleStage: PlantLifecycleStage?, idempotencyKey: String) async throws -> Plant {
         fatalError("not used")
     }
 
