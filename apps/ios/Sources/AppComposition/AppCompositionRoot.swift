@@ -98,6 +98,19 @@ public final class AppCompositionRoot {
     /// ``OrientationPolicy``. Read by `AppDelegate`, written by the map.
     public let orientationPolicy = OrientationPolicy()
 
+    /// A plant label that has been scanned but not yet opened.
+    ///
+    /// Recorded here rather than acted on at the parse site because opening it
+    /// may first require signing in, or switching to the garden it belongs to
+    /// — the same reason a pending invitation token waits in
+    /// `collaborationSessionState`.
+    public internal(set) var pendingPlantLink: PlantDeepLink?
+
+    /// Called once the shell has opened it, so a stale link cannot re-fire.
+    public func clearPendingPlantLink() {
+        pendingPlantLink = nil
+    }
+
     /// The two synchronization triggers `RootScene` used to document as
     /// missing: reconnection, and an occasional background opportunity.
     /// `lazy` because both need `syncStatusCenter`.

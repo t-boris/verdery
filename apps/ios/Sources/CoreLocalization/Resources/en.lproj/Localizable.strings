@@ -1005,3 +1005,11 @@
 "syncStatus.savedLocally" = "On device";
 "syncStatus.offline" = "Offline";
 "syncStatus.requiresAttention" = "Needs you";
+
+/* The plant label: a QR code staked beside a plant, so the next observation
+   starts by pointing a camera at it rather than by searching a list. */
+"plantLabel.title" = "Plant label";
+"plantLabel.explanation" = "Print this and put it beside the plant. Point your camera at it later to open this plant straight away.";
+"plantLabel.share" = "Share label";
+"plantLabel.unavailable" = "This label could not be drawn. The link is above and still works.";
+"plantLabel.codeAlt" = "A square code that opens this plant";

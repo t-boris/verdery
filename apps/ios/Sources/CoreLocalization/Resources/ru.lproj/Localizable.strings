@@ -1004,3 +1004,11 @@
 "syncStatus.savedLocally" = "На устройстве";
 "syncStatus.offline" = "Нет сети";
 "syncStatus.requiresAttention" = "Нужно решить";
+
+/* The plant label: a QR code staked beside a plant, so the next observation
+   starts by pointing a camera at it rather than by searching a list. */
+"plantLabel.title" = "Метка растения";
+"plantLabel.explanation" = "Распечатайте и поставьте рядом с растением. Потом наведите камеру — и попадёте прямо на него.";
+"plantLabel.share" = "Поделиться меткой";
+"plantLabel.unavailable" = "Метку не удалось нарисовать. Ссылка выше по-прежнему работает.";
+"plantLabel.codeAlt" = "Квадратный код, открывающий это растение";

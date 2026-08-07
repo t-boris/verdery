@@ -119,7 +119,7 @@ public final class PlantDetailViewModel {
     // out to keep this file under this repository's 600-line ceiling, the
     // same `CollaboratorsViewModel+Actions.swift` reason) reads this to
     // resolve its own localized failure messages.
-    let strings: LocalizedStrings
+    public let strings: LocalizedStrings
     private let fetchPlantIdentification: FetchPlantIdentification?
     private let confirmPlantIdentification: ConfirmPlantIdentification?
     /// Absent entirely for a `PlantDetailViewModel` built with no photo-
@@ -247,6 +247,7 @@ public final class PlantDetailViewModel {
     }
 
     public var title: String { strings(.plantsDetailTitle) }
+    public var labelSheetTitle: String { strings(.plantLabelTitle) }
     public var loadingMessage: String { strings(.plantsDetailLoading) }
     public var retryTitle: String { strings(.plantsDetailRetry) }
     public var editSectionTitle: String { strings(.plantsDetailEditSectionTitle) }

@@ -1,4 +1,5 @@
 import FeatureGardens
+import CoreDomain
 import Foundation
 
 /// `handleIncomingURL(_:)` — split from `AppCompositionRoot.swift` when this
@@ -35,6 +36,15 @@ extension AppCompositionRoot {
     @discardableResult
     public func handleIncomingURL(_ url: URL) -> Bool {
         if collaborationSessionState.handleDeepLink(url) {
+            return true
+        }
+
+        // A plant label, scanned off a stake with the system camera. Recorded
+        // rather than acted on here, for the same reason an invitation token
+        // is: the shell decides when a destination can be shown, and it may
+        // have to sign somebody in or switch garden first.
+        if let plant = PlantDeepLink.parse(url) {
+            pendingPlantLink = plant
             return true
         }
 
