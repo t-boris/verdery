@@ -329,12 +329,16 @@ never shows the user's position. Two things still amount to precise location lea
 
 1. A garden's georeference anchor is a real-world coordinate of the user's property, entered as
    content and synchronised to the server.
-2. Photo bytes are uploaded **unmodified**, so any EXIF GPS tag the camera wrote travels with them.
-   No stripping code exists (`apps/ios/Sources/CoreMediaTransfer/`).
+2. ~~Photo bytes are uploaded unmodified, so any EXIF GPS tag travels with them.~~ Fixed:
+   `CoreMediaTransfer.PhotoPreparation` reads the coordinate out and then removes it, before the
+   file is persisted or uploaded. The removal is structural rather than a deletion — the image is
+   redrawn from pixels into a fresh destination, so nothing survives that was not explicitly
+   copied, which is stronger than deleting the GPS dictionary and hoping no other tag carries a
+   location. The coordinate stays on the device, where it proposes which bed a plant is in.
 
 Declaring "no location" on the strength of "we never called CoreLocation" would be the dishonest
-reading of the same facts. Point 2 is also worth fixing on its own merits — see
-[12. Known gaps](#12-known-gaps).
+reading of the same facts, and point 1 still stands: a georeference anchor is a real coordinate of
+somebody's property, entered as content.
 
 **Diagnostics stay on device.** `CoreObservability` logs only through Apple's `OSLog`. There is no
 crash reporter and no remote log sink.
@@ -459,10 +463,10 @@ Ordered by how much they matter.
    [11](#11-screenshots).
 3. **No privacy policy URL.** Blocks submission and TestFlight _external_ testing. Blocked on
    `P8-PRIV-01`. Internal TestFlight is unaffected.
-4. **Photo EXIF is uploaded unmodified**, GPS tags included. Not a submission blocker — it is
-   declared honestly in [8](#8-app-privacy-declarations) — but stripping location metadata on upload,
-   or asking the user, is the behaviour most users would expect. `CoreMediaTransfer` is where it
-   would go.
+4. ~~**Photo EXIF is uploaded unmodified**, GPS tags included.~~ Closed:
+   `CoreMediaTransfer.PhotoPreparation` strips it, and reduces an oversized capture to a 2048-pixel
+   longest edge on the same pass — which also stops the identification provider refusing a
+   thirty-megabyte original with a bare `400` that a person reads as "no species found".
 5. **Push notifications are declared nowhere because the client implements nothing.** `P7-NOTIF-02`
    built server-side device registration, but `apps/ios/Sources/` contains no
    `UNUserNotificationCenter`, no `registerForRemoteNotifications`, and no `FirebaseMessaging`. The

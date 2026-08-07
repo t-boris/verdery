@@ -19,6 +19,16 @@ public final class PhotoAttachmentController {
     public private(set) var status: PhotoAttachmentStatus = .idle
     public private(set) var transferId: String?
 
+    /// Where the camera says this photograph was taken, read out of its EXIF
+    /// before that metadata was removed for upload.
+    ///
+    /// Kept because a phone standing next to a plant already knows which bed
+    /// it is in — far better than asking someone to pick one from a list of
+    /// every object in the garden. Deliberately coarse evidence, never an
+    /// answer: consumer GPS resolves a bed, not a plant.
+    public private(set) var capturedLatitude: Double?
+    public private(set) var capturedLongitude: Double?
+
     private let coordinator: MediaUploadCoordinator
     private let gardenId: String
     private let profileId: String
@@ -47,12 +57,20 @@ public final class PhotoAttachmentController {
     /// previously tracking; the caller is responsible for calling
     /// `discard()` first if the prior one should be removed rather than
     /// merely forgotten by this controller.
+    /// Prepares the photograph before anything durable happens to it: the
+    /// coordinate is read out and stripped, and an oversized capture is
+    /// reduced. Both have to precede persistence, or the file on disk — and
+    /// then the file uploaded — is the wrong one. See ``PhotoPreparation``.
     public func attach(data: Data, displayFilename: String, contentType: String) async {
         observationTask?.cancel()
 
+        let prepared = PhotoPreparation.prepare(data, contentType: contentType)
+        capturedLatitude = prepared.capturedLatitude
+        capturedLongitude = prepared.capturedLongitude
+
         do {
             let transfer = try await coordinator.enqueue(
-                data: data,
+                data: prepared.data,
                 gardenId: gardenId,
                 profileId: profileId,
                 mediaClass: mediaClass,
