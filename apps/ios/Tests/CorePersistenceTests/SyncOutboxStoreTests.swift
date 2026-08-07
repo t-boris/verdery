@@ -28,7 +28,7 @@ struct SyncOutboxStoreTests {
             expectedRevision: 4,
             payload: #"{"kind":"createObject"}"#,
             dependencyOperationIds: ["dependency-1"],
-            mediaPrerequisiteIds: ["media-1"],
+            mediaPrerequisites: [MediaPrerequisite(mediaId: "media-1")],
             createdAt: createdAt
         )
     }
@@ -54,7 +54,7 @@ struct SyncOutboxStoreTests {
         #expect(fetched == [inserted])
         #expect(fetched.first?.targetRecordIds == ["object-1"])
         #expect(fetched.first?.dependencyOperationIds == ["dependency-1"])
-        #expect(fetched.first?.mediaPrerequisiteIds == ["media-1"])
+        #expect(fetched.first?.mediaPrerequisites == [MediaPrerequisite(mediaId: "media-1")])
         #expect(fetched.first?.expectedRevision == 4)
     }
 

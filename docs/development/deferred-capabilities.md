@@ -846,10 +846,14 @@ tearing down its one background session (losing an OS-tracked in-flight transfer
 `MediaTransfer` its own profile column and a runtime rebind path; narrow in practice (a single
 signed-in profile per device, already restored by the time any screen reachable behind
 `sessionObserver.isSignedIn` could invoke it) but a real, undismissed edge case, not silently ignored.
-(3) An offline-recorded observation cannot reference a still-uploading photo's media id — architecture/
-offline-synchronization.md section "18. Media Coordination"'s `mediaPending`/dependency-blocked concept
-is not implemented; the UI itself blocks submission until the photo resolves `ready` instead, an honest
-narrower behavior, not a silent drop. (4) A `.retained` transfer whose `processingState` was still
+(3) ~~An offline-recorded observation cannot reference a still-uploading photo's media id.~~ Built:
+`CoreDomain.MediaPrerequisite` carries section 18's distinction — each referenced medium says whether
+the server may accept the operation before its upload is verified — and `RecordObservation` marks its
+photographs as pending-capable. The wire field existed all along (`SyncOperation.mediaPrerequisites`,
+`allowPendingUpload`); the client was sending a hardcoded `false`. The column holding this locally
+grew a field rather than changing type, and a legacy row of bare media ids still decodes — as
+prerequisites that must wait, which is what those rows were enqueued under. An outbox row is work
+somebody did that has not reached the server yet, and ADR-0004 forbids losing it. (4) A `.retained` transfer whose `processingState` was still
 `processing` when the app last quit does not resume its bounded poll automatically on relaunch — only
 `PhotoAttachmentController.refreshStatus()`'s manual re-check reaches it. (5) Real background-transfer
 behavior (the app actually suspended or killed mid-upload, the OS relaunching it to deliver a finished

@@ -143,6 +143,21 @@ public struct RecordObservation: Sendable {
                     )
                 )
             ),
+            // Every photograph this observation names, marked as one the
+            // server may accept before the upload finishes.
+            //
+            // This is what makes the record survivable in a garden with no
+            // signal. An observation IS the note, the measurements and the
+            // symptoms somebody stood there and wrote down; the photograph
+            // illustrates it. Holding the whole testimony back until the
+            // picture lands — which is what this client did — discards the
+            // part a model cannot reproduce in order to wait for the part it
+            // can. `architecture/offline-synchronization.md` section 18 draws
+            // exactly this distinction, and the contract has carried the flag
+            // for it all along.
+            mediaPrerequisites: photos.map {
+                MediaPrerequisite(mediaId: $0.mediaId, allowsPendingUpload: true)
+            },
             createdAt: timestamp
         )
 

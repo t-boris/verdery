@@ -37,7 +37,7 @@ struct SyncGatewayTests {
         commandVersion: Int = 1,
         localSequence: Int64 = 4102,
         dependencyOperationIds: [String] = [],
-        mediaPrerequisiteIds: [String] = [],
+        mediaPrerequisites: [MediaPrerequisite] = [],
         payload: String = #"{"recordType":"garden","gardenId":"garden-1","command":{"commandType":"gardens.create","request":{"name":"Test"}}}"#
     ) -> OutboxOperation {
         OutboxOperation(
@@ -50,7 +50,7 @@ struct SyncGatewayTests {
             expectedRevision: nil,
             payload: payload,
             dependencyOperationIds: dependencyOperationIds,
-            mediaPrerequisiteIds: mediaPrerequisiteIds,
+            mediaPrerequisites: mediaPrerequisites,
             localSequence: localSequence,
             createdAt: Date(timeIntervalSince1970: 0)
         )
@@ -156,7 +156,7 @@ struct SyncGatewayTests {
             """#
         let gateway = makeGateway(identifier: identifier, answer: .json(200, responseJSON))
 
-        let withDependency = operation(id: "op-2", dependencyOperationIds: ["op-1"], mediaPrerequisiteIds: ["media-1"])
+        let withDependency = operation(id: "op-2", dependencyOperationIds: ["op-1"], mediaPrerequisites: [MediaPrerequisite(mediaId: "media-1")])
 
         _ = try await gateway.push(
             clientInstallationId: "install-1",

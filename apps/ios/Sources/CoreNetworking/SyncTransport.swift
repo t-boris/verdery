@@ -44,12 +44,10 @@ struct SyncOperationTransport: Encodable {
     ///   `SyncOperationPayload` wire shape (`{recordType, gardenId, command}`)
     ///   — see `FeatureGardens.GardenSyncCommandPayload`'s own doc comment —
     ///   so this only parses it back into a `JSONValue` to embed,
-    ///   never re-derives it. `mediaPrerequisites` all default to
-    ///   `allowPendingUpload: false`: `OutboxOperation.mediaPrerequisiteIds`
-    ///   is a plain `[String]` with no richer per-id flag yet — nothing in
-    ///   this codebase populates it today (no upload flow exists — see
-    ///   `FeatureObservations.ObservationsUseCases.swift`'s own doc comment),
-    ///   so this is a provisional, honest default, not a regression.
+    ///   never re-derives it. `mediaPrerequisites` now carries each entry's
+    ///   own `allowPendingUpload`, which is what lets an observation reach the
+    ///   server while its photograph is still uploading — see
+    ///   `CoreDomain.MediaPrerequisite`.
     init(_ operation: OutboxOperation) throws {
         self.operationId = operation.id
         self.commandVersion = operation.commandVersion
@@ -59,8 +57,10 @@ struct SyncOperationTransport: Encodable {
         // `InMemorySyncOutboxStore`'s own identical defensive fallback.
         self.localSequence = operation.localSequence ?? 0
         self.dependsOnOperationIds = operation.dependencyOperationIds
-        self.mediaPrerequisites = operation.mediaPrerequisiteIds.map {
-            SyncMediaPrerequisiteTransport(mediaId: $0, allowPendingUpload: false)
+        self.mediaPrerequisites = operation.mediaPrerequisites.map {
+            SyncMediaPrerequisiteTransport(
+                mediaId: $0.mediaId, allowPendingUpload: $0.allowsPendingUpload
+            )
         }
         self.payload = try JSONValue(jsonText: operation.payload)
     }

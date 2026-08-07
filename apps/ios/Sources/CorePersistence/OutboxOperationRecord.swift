@@ -43,7 +43,7 @@ extension OutboxOperationRecord {
         self.expectedRevision = operation.expectedRevision
         self.payload = operation.payload
         self.dependencyOperationIds = JSONColumnCoding.encode(operation.dependencyOperationIds)
-        self.mediaPrerequisiteIds = JSONColumnCoding.encode(operation.mediaPrerequisiteIds)
+        self.mediaPrerequisiteIds = JSONColumnCoding.encode(operation.mediaPrerequisites)
         self.retryCount = operation.retryState.attemptCount
         self.lastErrorCategory = operation.retryState.lastErrorCategory?.rawValue
         self.lastAttemptedAt = operation.retryState.lastAttemptedAt
@@ -62,7 +62,7 @@ extension OutboxOperationRecord {
             expectedRevision: expectedRevision,
             payload: payload,
             dependencyOperationIds: JSONColumnCoding.decode(dependencyOperationIds),
-            mediaPrerequisiteIds: JSONColumnCoding.decode(mediaPrerequisiteIds),
+            mediaPrerequisites: JSONColumnCoding.decodeMediaPrerequisites(mediaPrerequisiteIds),
             retryState: RetryState(
                 attemptCount: retryCount,
                 lastAttemptedAt: lastAttemptedAt,

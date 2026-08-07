@@ -30,7 +30,9 @@ public struct OutboxOperation: Equatable, Sendable, Identifiable, Codable {
     /// only the feature that created it and the server that accepts it.
     public let payload: String
     public let dependencyOperationIds: [String]
-    public let mediaPrerequisiteIds: [String]
+    /// Media this operation refers to, and whether each may still be
+    /// uploading when the server accepts it — see ``MediaPrerequisite``.
+    public let mediaPrerequisites: [MediaPrerequisite]
     public let retryState: RetryState
     /// Local processing order.
     ///
@@ -69,7 +71,7 @@ public struct OutboxOperation: Equatable, Sendable, Identifiable, Codable {
         expectedRevision: Int?,
         payload: String,
         dependencyOperationIds: [String] = [],
-        mediaPrerequisiteIds: [String] = [],
+        mediaPrerequisites: [MediaPrerequisite] = [],
         retryState: RetryState = RetryState(),
         localSequence: Int64? = nil,
         resolvesConflictId: String? = nil,
@@ -84,7 +86,7 @@ public struct OutboxOperation: Equatable, Sendable, Identifiable, Codable {
         self.expectedRevision = expectedRevision
         self.payload = payload
         self.dependencyOperationIds = dependencyOperationIds
-        self.mediaPrerequisiteIds = mediaPrerequisiteIds
+        self.mediaPrerequisites = mediaPrerequisites
         self.retryState = retryState
         self.localSequence = localSequence
         self.resolvesConflictId = resolvesConflictId
@@ -104,7 +106,7 @@ public struct OutboxOperation: Equatable, Sendable, Identifiable, Codable {
             expectedRevision: expectedRevision,
             payload: payload,
             dependencyOperationIds: dependencyOperationIds,
-            mediaPrerequisiteIds: mediaPrerequisiteIds,
+            mediaPrerequisites: mediaPrerequisites,
             retryState: retryState,
             localSequence: sequence,
             resolvesConflictId: resolvesConflictId,
@@ -124,7 +126,7 @@ public struct OutboxOperation: Equatable, Sendable, Identifiable, Codable {
             expectedRevision: expectedRevision,
             payload: payload,
             dependencyOperationIds: dependencyOperationIds,
-            mediaPrerequisiteIds: mediaPrerequisiteIds,
+            mediaPrerequisites: mediaPrerequisites,
             retryState: retryState.recordingAttempt(errorCategory: errorCategory, at: date),
             localSequence: localSequence,
             resolvesConflictId: resolvesConflictId,
