@@ -105,20 +105,20 @@ struct ObservationRecordSheetView: View {
                             Button(action: takePhoto) {
                                 Label(model.takePhotoButtonTitle, systemImage: "camera.viewfinder")
                                     .font(Typography.body.weight(.medium))
-                                    .foregroundStyle(Palette.accent)
+                                    .foregroundStyle(Palette.interaction)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, Metrics.space3)
                                     .background(
                                         RoundedRectangle(
                                             cornerRadius: Metrics.radiusMedium, style: .continuous
                                         )
-                                        .fill(Tone.accent.quietFill)
+                                        .fill(Palette.interactionQuiet)
                                     )
                             }
                             .accessibilityIdentifier("observations.record.photo.takePhoto")
 
                             if isCameraPermissionDeniedShown {
-                                InlineMessage(model.cameraPermissionDeniedMessage, tone: .info)
+                                InlineMessage(model.cameraPermissionDeniedMessage, tone: .neutral)
                                 Button(model.openSettingsButtonTitle) { CameraCapture.openSettings() }
                                     .accessibilityIdentifier("observations.record.photo.openSettings")
                             }
@@ -127,20 +127,20 @@ struct ObservationRecordSheetView: View {
                         PhotosPicker(selection: $pickedPhotoItem, matching: .images) {
                             Label(pickTitle, systemImage: "photo.on.rectangle")
                                 .font(Typography.body.weight(.medium))
-                                .foregroundStyle(Palette.accent)
+                                .foregroundStyle(Palette.text)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, Metrics.space3)
                                 .background(
                                     RoundedRectangle(
                                         cornerRadius: Metrics.radiusMedium, style: .continuous
                                     )
-                                    .fill(Tone.accent.quietFill)
+                                    .fill(Palette.surfaceSunken)
                                 )
                         }
                         .accessibilityIdentifier("observations.record.photo.pick")
 
                         if photoAttachment.status != .idle {
-                            InlineMessage(model.photoStatusText, tone: .info)
+                            InlineMessage(model.photoStatusText, tone: .neutral)
                                 .accessibilityIdentifier("observations.record.photo.status")
 
                             // Shown only once a photograph is actually being
@@ -327,7 +327,7 @@ struct ObservationRecordSheetView: View {
                     TextField(model.gardenObjectIdLabel, text: $model.recordGardenObjectId)
                         .textFieldStyle(.roundedBorder)
                         .accessibilityIdentifier("observations.record.gardenObjectIdField")
-                    InlineMessage(model.mapObjectIdHint, tone: .info)
+                    InlineMessage(model.mapObjectIdHint, tone: .neutral)
                 }
             }
         }
@@ -347,7 +347,7 @@ struct ObservationRecordSheetView: View {
                     }
                 }
             }
-            .tint(Palette.accent)
+            .tint(Palette.interaction)
         }
     }
 

@@ -64,7 +64,7 @@ struct TaskActivityView: View {
     private func rowView(_ row: TaskActivityRow) -> some View {
         SurfaceCard {
             HStack(alignment: .top, spacing: Metrics.space3) {
-                IconMedallion(symbol: row.symbol, label: row.text, tone: .accent)
+                IconMedallion(symbol: row.symbol, label: row.text)
 
                 VStack(alignment: .leading, spacing: Metrics.space1) {
                     Text(row.text)

@@ -54,8 +54,14 @@ public struct IncomingOwnershipTransferBanner: View {
                 isReviewPresented = true
             } label: {
                 HStack(spacing: Metrics.space2) {
+                    // A pending transfer is something that needs a decision but
+                    // has broken nothing, which is exactly `warning`. It was
+                    // `info`, a tone Field Console does not have: there is no
+                    // blue, and a persistent full-width banner in the
+                    // interaction orange would shout over every screen it sits
+                    // above.
                     Image(systemName: CollaborationSymbols.ownershipTransfer)
-                        .foregroundStyle(Palette.info)
+                        .foregroundStyle(Palette.warning)
                     Text(strings(.collaborationOwnershipTransferRecipientBanner))
                         .font(Typography.detail)
                         .foregroundStyle(Palette.text)
@@ -63,12 +69,12 @@ public struct IncomingOwnershipTransferBanner: View {
                     Spacer(minLength: Metrics.space2)
                     Text(strings(.collaborationOwnershipTransferRecipientReview))
                         .font(Typography.detail.weight(.semibold))
-                        .foregroundStyle(Palette.info)
+                        .foregroundStyle(Palette.warning)
                 }
                 .padding(.horizontal, Metrics.space4)
                 .padding(.vertical, Metrics.space3)
                 .frame(maxWidth: .infinity)
-                .background(Palette.infoQuiet)
+                .background(Palette.warningQuiet)
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("gardens.incomingTransfer.banner")

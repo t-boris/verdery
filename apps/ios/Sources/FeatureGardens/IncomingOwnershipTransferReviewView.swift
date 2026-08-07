@@ -16,10 +16,10 @@ public struct IncomingOwnershipTransferReviewView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Metrics.space5) {
-                    SurfaceCard(tone: .info) {
+                    SurfaceCard(tone: .neutral) {
                         VStack(alignment: .leading, spacing: Metrics.space3) {
                             HStack(spacing: Metrics.space3) {
-                                IconMedallion(symbol: CollaborationSymbols.ownershipTransfer, label: model.title, tone: .info, isLarge: true)
+                                IconMedallion(symbol: CollaborationSymbols.ownershipTransfer, label: model.title, tone: .neutral, isLarge: true)
                                 Text(model.title)
                                     .font(Typography.title)
                                     .foregroundStyle(Palette.text)
@@ -32,7 +32,7 @@ public struct IncomingOwnershipTransferReviewView: View {
                     .accessibilityIdentifier("collaborators.incomingTransfer.card")
 
                     if let resolvedMessage = model.resolvedMessage {
-                        InlineMessage(resolvedMessage, tone: .info)
+                        InlineMessage(resolvedMessage, tone: .neutral)
                             .accessibilityIdentifier("collaborators.incomingTransfer.resolved")
 
                         Button(model.notNowTitle, role: .cancel) { onFinish() }

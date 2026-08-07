@@ -35,7 +35,7 @@ public struct PlantJournalView: View {
             if model.isLoading {
                 ProgressView()
             } else if model.frames.isEmpty {
-                InlineMessage(model.emptyMessage, tone: .info)
+                InlineMessage(model.emptyMessage, tone: .neutral)
                     .accessibilityIdentifier("observations.journal.empty")
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -76,7 +76,7 @@ public struct PlantJournalView: View {
             } placeholder: {
                 // Same box as the loaded image, so the sequence does not
                 // reflow as signed URLs resolve one by one.
-                Rectangle().fill(Tone.accent.quietFill)
+                Rectangle().fill(Palette.surfaceSunken)
             }
             .frame(width: frameSize, height: frameSize)
             .clipShape(RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous))

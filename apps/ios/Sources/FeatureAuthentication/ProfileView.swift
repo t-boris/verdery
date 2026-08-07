@@ -44,7 +44,6 @@ public struct ProfileView: View {
                     IconMedallion(
                         symbol: "person.crop.circle.fill",
                         label: model.title,
-                        tone: .accent,
                         isLarge: true
                     )
 
@@ -150,7 +149,10 @@ public struct ProfileView: View {
 
     private func tone(for kind: ProfileBadge.Kind) -> Tone {
         switch kind {
-        case .google, .apple, .emailLink: .accent
+        // How this account signs in is a fact about it, not something to act
+        // on, so the provider badges are neutral. The two address badges below
+        // stay toned, because those really are states.
+        case .google, .apple, .emailLink: .neutral
         case .addressConfirmed: .positive
         case .addressUnconfirmed: .warning
         }

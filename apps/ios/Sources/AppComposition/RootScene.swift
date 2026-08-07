@@ -91,7 +91,7 @@ public struct RootView: View {
                 SignInView(model: composition.makeSignInViewModel())
             }
         }
-        .tint(Palette.accent)
+        .tint(Palette.interaction)
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
             Self.triggerSyncOnForeground(composition: composition)

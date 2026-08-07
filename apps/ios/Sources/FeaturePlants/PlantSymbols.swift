@@ -20,11 +20,18 @@ enum PlantSymbols {
         }
     }
 
+    /// Almost every stage is neutral, and that is the point.
+    ///
+    /// This used to run a small gradient — accent while growing, info while
+    /// flowering — which coloured a plant list by nothing a reader can act on.
+    /// Under Field Console a tone reports state, and the only lifecycle state
+    /// that asks something of the gardener today is `readyToHarvest`. Leaving
+    /// the rest neutral is what lets that one be seen at a glance in a list of
+    /// forty plants. The stage itself is still named by its symbol and its
+    /// label, so nothing is lost but the decoration.
     static func lifecycleTone(_ stage: PlantLifecycleStage) -> Tone {
         switch stage {
-        case .planned, .seed: .neutral
-        case .seedling, .transplanted, .growing: .accent
-        case .flowering, .fruiting: .info
+        case .planned, .seed, .seedling, .transplanted, .growing, .flowering, .fruiting: .neutral
         case .readyToHarvest: .positive
         }
     }
@@ -42,7 +49,7 @@ enum PlantSymbols {
     static func statusTone(_ status: PlantStatus) -> Tone {
         switch status {
         case .active: .positive
-        case .dormant: .info
+        case .dormant: .neutral
         case .archived, .removed: .neutral
         case .dead: .negative
         }

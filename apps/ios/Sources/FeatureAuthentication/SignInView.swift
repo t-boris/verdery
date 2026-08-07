@@ -51,7 +51,11 @@ public struct SignInView: View {
                 .font(Typography.display)
                 .imageScale(.large)
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(Palette.accent)
+                // The brand mark is ink, not the interaction signal. Under
+                // Field Console an orange tree would read as a control, and
+                // green — the old palette's answer — now means "well", which
+                // a wordmark does not.
+                .foregroundStyle(Palette.text)
                 .accessibilityHidden(true)
 
             Text(model.title)
@@ -88,7 +92,7 @@ public struct SignInView: View {
 
             if isBusy {
                 ProgressView()
-                    .tint(Palette.accent)
+                    .tint(Palette.interaction)
             }
         }
     }

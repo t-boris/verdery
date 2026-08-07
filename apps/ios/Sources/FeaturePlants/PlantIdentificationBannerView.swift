@@ -33,7 +33,11 @@ public struct PlantIdentificationBannerView: View {
             VStack(alignment: .leading, spacing: Metrics.space2) {
                 SectionEyebrow(symbol: PlantSymbols.taxonomy, title: model.identificationSuggestedLabel)
 
-                SurfaceCard(tone: .accent) {
+                // An unconfirmed suggestion is a statement, not an alarm and
+                // not a control: ADR-0015 requires it never auto-confirm, so
+                // the card states what the model proposed and the Confirm
+                // button below carries the interaction colour.
+                SurfaceCard(tone: .neutral) {
                     VStack(alignment: .leading, spacing: Metrics.space2) {
                         Text(model.identificationPendingBanner)
                             .font(Typography.detail)
@@ -164,7 +168,7 @@ public struct PlantIdentificationBannerView: View {
         HStack(alignment: .top, spacing: Metrics.space2) {
             Image(systemName: symbol)
                 .font(Typography.body)
-                .foregroundStyle(Palette.accent)
+                .foregroundStyle(Palette.textMuted)
                 .frame(width: Metrics.space5)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Metrics.space1) {

@@ -116,7 +116,7 @@ public struct GardensListView: View {
                         Chip(
                             symbol: GardenSymbols.role(item.callerRole),
                             label: item.roleLabel,
-                            tone: .info
+                            tone: .neutral
                         )
                         if let syncStatusLabel = item.syncStatusLabel {
                             StatusGlyph(

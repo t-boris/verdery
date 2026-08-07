@@ -1,128 +1,92 @@
 import SwiftUI
 
-/// The application's colour palette.
+/// The application's colour palette, as SwiftUI `Color`s.
 ///
-/// Every value here is the iOS counterpart of a custom property in
-/// `apps/web/shared/ui/tokens.css`, so the two clients read as one product: a
-/// warm paper canvas, deep fir greens, and soft green-tinted elevation — a
-/// "botanical ledger" rather than a generic system-grey app.
+/// A thin semantic layer over ``FieldConsole``, which holds the values. The
+/// split is deliberate: `FieldConsole` is the token *table*, readable as
+/// numbers so `CoreDesignSystemTests` can prove every pairing clears WCAG;
+/// `Palette` is what a view says out loud. Nothing here computes a colour, so
+/// a palette change is a change in one table and nowhere else.
 ///
-/// Colours are resolved per trait collection rather than baked, so the same
-/// token is correct in light and dark without a screen ever branching on
-/// `colorScheme` itself. Contrast pairs were carried over from the web
-/// palette, where they are checked against WCAG AA by
-/// `apps/web/shared/ui/contrast.test.ts`; nothing here carries meaning by
-/// colour alone, which is why every tone in ``Tone`` also has a symbol.
+/// Colours resolve per trait collection rather than being baked, so no screen
+/// branches on `colorScheme` itself.
+///
+/// # What changed from the previous palette, and why nothing changed silently
+///
+/// This was the "botanical ledger" language — warm paper, fir green, and one
+/// literal serving as both `accent` and `positive`. Field Console separates
+/// those: orange is what you can act on, green is what is well. Re-pointing
+/// `accent` at the orange would have repainted thirty call sites, nine of them
+/// decorative medallion discs, without a single compiler error. So `accent` is
+/// *gone* rather than re-valued, and the interaction colour has a name that
+/// says what it is — ``interaction``. Every former call site had to be read and
+/// re-answered. `info` and `infoQuiet` are gone for the same reason: Field
+/// Console has no blue, and "here is a fact" is ``textMuted`` on a neutral
+/// surface.
+///
+/// Source: apps/web/shared/ui/tokens.css;
+/// architecture/web-application-design.md, section "5. Application Structure".
 public enum Palette {
-    // Surfaces.
-    public static let canvas = adaptive(light: 0xF2F1E8, dark: 0x10160F)
-    public static let surface = adaptive(light: 0xFCFCF7, dark: 0x1A211A)
-    public static let surfaceSunken = adaptive(light: 0xECEBDF, dark: 0x141B14)
-    public static let border = adaptive(light: 0xD6D4C2, dark: 0x37413A)
-    public static let borderStrong = adaptive(light: 0xB5B3A0, dark: 0x4D584F)
+    // MARK: - Surfaces
 
-    /// The boundary of an interactive control, as distinct from the hairline
-    /// that separates two blocks of content. WCAG 2.2 SC 1.4.11 asks for 3:1
-    /// against the adjacent background for anything a reader must identify as
-    /// a control; ``border`` is well below that and is correct only for
-    /// decorative separators.
-    public static let controlBorder = adaptive(light: 0x6F7566, dark: 0x7C8A7E)
+    public static var canvas: Color { FieldConsole.canvas.color }
+    public static var surface: Color { FieldConsole.surface.color }
+    public static var surfaceSunken: Color { FieldConsole.surfaceSunken.color }
+    public static var surfaceRaised: Color { FieldConsole.surfaceRaised.color }
+    public static var surfacePressed: Color { FieldConsole.surfacePressed.color }
 
-    // Ink.
-    public static let text = adaptive(light: 0x1C2A21, dark: 0xE9EFE7)
-    public static let textMuted = adaptive(light: 0x56635A, dark: 0xA9B8AB)
+    /// The decorative hairline between two blocks of content. Deliberately
+    /// below the 3:1 non-text threshold — a control must never reach for it.
+    /// Use ``controlBorder`` for anything a reader has to identify as a control.
+    public static var border: Color { FieldConsole.border.color }
+    public static var borderStrong: Color { FieldConsole.borderStrong.color }
+    public static var controlBorder: Color { FieldConsole.controlBorder.color }
 
-    // Brand green.
-    public static let accent = adaptive(light: 0x2F6B3F, dark: 0x7FD0A0)
-    public static let accentText = adaptive(light: 0xFFFFFF, dark: 0x0E1710)
-    public static let accentQuiet = adaptive(light: 0xE1ECDC, dark: 0x21331F)
-    public static let accentQuietBorder = adaptive(light: 0xC2D6BD, dark: 0x35492F)
+    /// The metre grid over the work surface.
+    public static var grid: Color { FieldConsole.grid.color }
 
-    // Tones.
-    public static let positive = adaptive(light: 0x2F6B3F, dark: 0x7FD0A0)
-    public static let positiveQuiet = adaptive(light: 0xE1ECDC, dark: 0x21331F)
-    public static let negative = adaptive(light: 0x96322C, dark: 0xF2A99F)
-    public static let negativeQuiet = adaptive(light: 0xF7E9E5, dark: 0x3A221F)
-    public static let warning = adaptive(light: 0x7A5210, dark: 0xE3BD77)
-    public static let warningQuiet = adaptive(light: 0xF5ECD7, dark: 0x35290F)
-    public static let info = adaptive(light: 0x2B5566, dark: 0x8FC5DA)
-    public static let infoQuiet = adaptive(light: 0xE0EDF2, dark: 0x1B2C33)
+    // MARK: - Ink
 
-    /// Builds a colour that resolves itself against the current appearance.
+    public static var text: Color { FieldConsole.text.color }
+    public static var textMuted: Color { FieldConsole.textMuted.color }
+
+    // MARK: - Interaction
+
+    /// The one signal colour: this is something you can act on.
     ///
-    /// `#if canImport(UIKit)`: this package also builds headlessly for macOS
-    /// so `swift test` runs without a simulator (see `Package.swift`). The
-    /// macOS branch resolves to the light value, which is never displayed —
-    /// no macOS product ships — but keeps the type checking honest instead of
-    /// excluding the whole design system from that build.
-    private static func adaptive(light: UInt32, dark: UInt32) -> Color {
-        #if canImport(UIKit)
-        Color(
-            uiColor: UIColor { traits in
-                UIColor(rgb: traits.userInterfaceStyle == .dark ? dark : light)
-            }
-        )
-        #else
-        Color(rgb: light)
-        #endif
-    }
-}
+    /// Never a status. A finished task is ``positive`` and stays green; an
+    /// orange chip means "tap me", and if everything is orange nothing is.
+    public static var interaction: Color { FieldConsole.accent.color }
+    public static var interactionPressed: Color { FieldConsole.accentPressed.color }
+    public static var interactionText: Color { FieldConsole.accentText.color }
+    public static var interactionQuiet: Color { FieldConsole.accentQuiet.color }
+    public static var interactionQuietBorder: Color { FieldConsole.accentQuietBorder.color }
+    public static var interactionGlow: Color { FieldConsole.accentGlow.color }
 
-#if canImport(UIKit)
-extension UIColor {
-    fileprivate convenience init(rgb: UInt32) {
-        self.init(
-            red: CGFloat((rgb >> 16) & 0xFF) / 255,
-            green: CGFloat((rgb >> 8) & 0xFF) / 255,
-            blue: CGFloat(rgb & 0xFF) / 255,
-            alpha: 1
-        )
-    }
-}
-#else
-extension Color {
-    fileprivate init(rgb: UInt32) {
-        self.init(
-            red: Double((rgb >> 16) & 0xFF) / 255,
-            green: Double((rgb >> 8) & 0xFF) / 255,
-            blue: Double(rgb & 0xFF) / 255
-        )
-    }
-}
-#endif
+    public static var focus: Color { FieldConsole.focus.color }
 
-/// The semantic tones a badge, chip, or status dot can carry.
-///
-/// A tone is never only a colour: each one names a fill, a foreground, and —
-/// at the call site — a symbol, so that a reader who cannot distinguish the
-/// hues still reads the state from the shape.
-public enum Tone: Sendable, CaseIterable {
-    case neutral
-    case accent
-    case positive
-    case warning
-    case negative
-    case info
+    // MARK: - Tones
 
-    public var foreground: Color {
-        switch self {
-        case .neutral: Palette.textMuted
-        case .accent: Palette.accent
-        case .positive: Palette.positive
-        case .warning: Palette.warning
-        case .negative: Palette.negative
-        case .info: Palette.info
-        }
-    }
+    public static var positive: Color { FieldConsole.positive.color }
+    public static var positiveQuiet: Color { FieldConsole.positiveQuiet.color }
+    public static var positiveQuietBorder: Color { FieldConsole.positiveQuietBorder.color }
+    public static var negative: Color { FieldConsole.negative.color }
+    public static var negativeQuiet: Color { FieldConsole.negativeQuiet.color }
+    public static var negativeQuietBorder: Color { FieldConsole.negativeQuietBorder.color }
+    public static var warning: Color { FieldConsole.warning.color }
+    public static var warningQuiet: Color { FieldConsole.warningQuiet.color }
+    public static var warningQuietBorder: Color { FieldConsole.warningQuietBorder.color }
 
-    public var quietFill: Color {
-        switch self {
-        case .neutral: Palette.surfaceSunken
-        case .accent: Palette.accentQuiet
-        case .positive: Palette.positiveQuiet
-        case .warning: Palette.warningQuiet
-        case .negative: Palette.negativeQuiet
-        case .info: Palette.infoQuiet
-        }
-    }
+    // MARK: - Console chrome
+
+    /// The persistent chassis, charcoal in both appearances. A foreground on
+    /// it is always ``consoleText``, ``consoleMuted``, or ``consoleAccent`` —
+    /// never a content-palette ink, which is chosen against paper.
+    public static var console: Color { FieldConsole.console.color }
+    public static var consoleElevated: Color { FieldConsole.consoleElevated.color }
+    public static var consoleSelected: Color { FieldConsole.consoleSelected.color }
+    public static var consoleBorder: Color { FieldConsole.consoleBorder.color }
+    public static var consoleText: Color { FieldConsole.consoleText.color }
+    public static var consoleMuted: Color { FieldConsole.consoleMuted.color }
+    public static var consoleAccent: Color { FieldConsole.consoleAccent.color }
 }

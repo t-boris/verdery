@@ -116,7 +116,7 @@ struct PlantAddSheetView: View {
             } label: {
                 HStack(spacing: Metrics.space2) {
                     Image(systemName: PlantSymbols.taxonomy)
-                        .foregroundStyle(Palette.accent)
+                        .foregroundStyle(Palette.textMuted)
                         .accessibilityHidden(true)
                     Text(model.taxonomyLabel)
                         .font(Typography.body)
@@ -213,7 +213,7 @@ struct PlantAddSheetView: View {
                     }
                 }
             }
-            .tint(Palette.accent)
+            .tint(Palette.interaction)
         }
     }
 
@@ -225,7 +225,7 @@ struct PlantAddSheetView: View {
                 VStack(alignment: .leading, spacing: Metrics.space2) {
                     mapObjectRow(model.gardenAreaLabel, field: .gardenArea)
                     mapObjectRow(model.placementLabel, field: .placement)
-                    InlineMessage(model.mapObjectIdHint, tone: .info)
+                    InlineMessage(model.mapObjectIdHint, tone: .neutral)
                 }
             }
         }
@@ -281,11 +281,11 @@ struct PlantChoiceChip: View {
             action()
             Haptics.play(.selection)
         } label: {
-            Chip(symbol: symbol, label: label, tone: isSelected ? .accent : .neutral)
+            Chip(symbol: symbol, label: label, tone: .neutral)
                 .overlay(
                     Capsule(style: .continuous)
                         .strokeBorder(
-                            isSelected ? Palette.accent : Color.clear,
+                            isSelected ? Palette.interaction : Color.clear,
                             lineWidth: Metrics.hairline
                         )
                 )

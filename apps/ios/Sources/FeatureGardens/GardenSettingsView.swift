@@ -123,7 +123,7 @@ public struct GardenSettingsView: View {
                     Chip(
                         symbol: GardenSymbols.role(summary.callerRole),
                         label: summary.roleLabel,
-                        tone: .info
+                        tone: .neutral
                     )
                     if let syncStatusLabel = summary.syncStatusLabel {
                         Chip(
@@ -205,7 +205,7 @@ public struct GardenSettingsView: View {
         NavigationLink(value: value) {
             SurfaceCard {
                 HStack(spacing: Metrics.space3) {
-                    IconMedallion(symbol: symbol, label: title, tone: .accent)
+                    IconMedallion(symbol: symbol, label: title)
                     Text(title)
                         .font(Typography.body)
                         .foregroundStyle(Palette.text)

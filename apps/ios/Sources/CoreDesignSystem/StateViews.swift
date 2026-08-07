@@ -36,7 +36,12 @@ public struct EmptyStateView: View {
                 .font(.largeTitle)
                 .imageScale(.large)
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(Palette.accent)
+                // Muted ink, not the interaction colour: this glyph is an
+                // illustration — it is `accessibilityHidden`, it cannot be
+                // tapped, and the action button below it is what the reader is
+                // meant to reach for. Nor is it `positive`: an empty list is
+                // not a success.
+                .foregroundStyle(Palette.textMuted)
                 .accessibilityHidden(true)
 
             Text(title)
@@ -119,7 +124,7 @@ public struct InlineMessage: View {
         case .negative: "exclamationmark.circle.fill"
         case .warning: "exclamationmark.triangle.fill"
         case .positive: "checkmark.circle.fill"
-        case .info, .accent, .neutral: "info.circle.fill"
+        case .neutral: "info.circle.fill"
         }
     }
 
@@ -148,7 +153,11 @@ public struct LoadingStateView: View {
     public var body: some View {
         VStack(spacing: Metrics.space3) {
             ProgressView()
-                .tint(Palette.accent)
+                // The one place a non-control wears the interaction colour:
+                // a spinner is the application working on the reader's behalf,
+                // and `tint` is what SwiftUI asks for. It is also transient,
+                // so it cannot accumulate into a screen full of orange.
+                .tint(Palette.interaction)
             Text(message)
                 .font(Typography.detail)
                 .foregroundStyle(Palette.textMuted)

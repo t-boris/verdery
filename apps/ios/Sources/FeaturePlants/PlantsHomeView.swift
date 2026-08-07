@@ -138,7 +138,7 @@ public struct PlantsHomeView: View {
             if isOpenByIdExpanded {
                 SurfaceCard {
                     VStack(alignment: .leading, spacing: Metrics.space3) {
-                        InlineMessage(model.openHint, tone: .info)
+                        InlineMessage(model.openHint, tone: .neutral)
 
                         HStack(spacing: Metrics.space2) {
                             TextField(model.openIdLabel, text: $model.openPlantId)
@@ -154,7 +154,7 @@ public struct PlantsHomeView: View {
                                     .labelStyle(.iconOnly)
                                     .font(Typography.title)
                             }
-                            .tint(Palette.accent)
+                            .tint(Palette.interaction)
                             .disabled(model.openPlantId.trimmingCharacters(in: .whitespaces).isEmpty)
                             .accessibilityLabel(model.openSubmitTitle)
                             .accessibilityIdentifier("plants.open.submit")

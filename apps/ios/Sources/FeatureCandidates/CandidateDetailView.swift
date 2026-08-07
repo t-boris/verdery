@@ -114,7 +114,7 @@ public struct CandidateDetailView: View {
                     suitabilitySection
 
                     if model.isConverted {
-                        InlineMessage(model.alreadyConvertedMessage, tone: .info)
+                        InlineMessage(model.alreadyConvertedMessage, tone: .neutral)
                             .accessibilityIdentifier("candidates.detail.alreadyConverted")
                     } else {
                         editSection(candidate)

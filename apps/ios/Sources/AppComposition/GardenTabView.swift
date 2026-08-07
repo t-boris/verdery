@@ -183,7 +183,7 @@ struct GardenTabView: View {
                 }
             }
         }
-        .tint(Palette.accent)
+        .tint(Palette.interaction)
         // The shell-appear half of this feature's two refresh triggers — see
         // `AppCompositionRoot.refreshIncomingOwnershipTransfers()`'s own doc
         // comment; `RootView`'s own app-foreground trigger is the other

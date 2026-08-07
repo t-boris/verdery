@@ -11,13 +11,13 @@ public struct PrimaryButtonStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Typography.body.weight(.semibold))
-            .foregroundStyle(Palette.accentText)
+            .foregroundStyle(Palette.interactionText)
             .padding(.horizontal, Metrics.space4)
             .frame(minHeight: minimumHeight)
             .frame(maxWidth: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous)
-                    .fill(Palette.accent)
+                    .fill(Palette.interaction)
             )
             .opacity(isEnabled ? (configuration.isPressed ? 0.82 : 1) : 0.45)
     }
@@ -25,22 +25,31 @@ public struct PrimaryButtonStyle: ButtonStyle {
 
 /// The outlined button: everything else that is a full-width commitment.
 ///
-/// `tone` defaults to `.accent` (every existing call site's unchanged look);
-/// pass `.negative` for a destructive action like a plant's Delete, so its
+/// `tone` defaults to `.neutral`, which is the ordinary quiet button — an ink
+/// label inside a `controlBorder` hairline. It used to default to `.accent`,
+/// and under Field Console that would have made every secondary button on
+/// every screen carry the one interaction signal, which is precisely how a
+/// signal stops signalling. The orange belongs to ``PrimaryButtonStyle``, one
+/// per screen.
+///
+/// Pass `.negative` for a destructive action like a plant's Delete, so its
 /// label reads red without a second button style to maintain.
 public struct SecondaryButtonStyle: ButtonStyle {
     @ScaledSize(Metrics.minimumTouchTarget) private var minimumHeight
     @Environment(\.isEnabled) private var isEnabled
     private let tone: Tone
 
-    public init(tone: Tone = .accent) {
+    public init(tone: Tone = .neutral) {
         self.tone = tone
     }
 
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Typography.body.weight(.medium))
-            .foregroundStyle(tone.foreground)
+            // A neutral button's label is ink, not muted ink: `Tone.neutral`'s
+            // foreground is right for a chip's caption and too quiet to read
+            // as the words of a control.
+            .foregroundStyle(tone == .neutral ? Palette.text : tone.foreground)
             .padding(.horizontal, Metrics.space4)
             .frame(minHeight: minimumHeight)
             .frame(maxWidth: .infinity)
@@ -50,7 +59,10 @@ public struct SecondaryButtonStyle: ButtonStyle {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous)
-                    .strokeBorder(tone == .accent ? Palette.controlBorder : tone.foreground, lineWidth: Metrics.hairline)
+                    .strokeBorder(
+                        tone == .neutral ? Palette.controlBorder : tone.foreground,
+                        lineWidth: Metrics.hairline
+                    )
             )
             .opacity(isEnabled ? (configuration.isPressed ? 0.82 : 1) : 0.45)
     }
@@ -69,7 +81,7 @@ public struct CompactActionButton: View {
 
     @ScaledSize(Metrics.minimumTouchTarget) private var minimumSize
 
-    public init(symbol: String, title: String, tone: Tone = .accent, action: @escaping () -> Void) {
+    public init(symbol: String, title: String, tone: Tone = .neutral, action: @escaping () -> Void) {
         self.symbol = symbol
         self.title = title
         self.tone = tone

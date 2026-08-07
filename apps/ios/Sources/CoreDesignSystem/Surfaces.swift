@@ -123,7 +123,9 @@ public struct MetricTile: View {
     private let caption: String
     private let tone: Tone
 
-    public init(symbol: String, value: String, caption: String, tone: Tone = .accent) {
+    // A figure is a fact, so the default tone is neutral; a tile that means
+    // something — an overdue count, a healthy count — says so explicitly.
+    public init(symbol: String, value: String, caption: String, tone: Tone = .neutral) {
         self.symbol = symbol
         self.value = value
         self.caption = caption

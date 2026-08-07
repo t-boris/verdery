@@ -120,7 +120,7 @@ struct TaskCreateSheetView: View {
                                 .textFieldStyle(.roundedBorder)
                                 .accessibilityIdentifier("tasks.create.targetPlantField")
                         }
-                        InlineMessage(model.mapObjectIdHint, tone: .info)
+                        InlineMessage(model.mapObjectIdHint, tone: .neutral)
                     }
                 }
             }
@@ -180,7 +180,7 @@ struct TaskCreateSheetView: View {
                     }
                 }
             }
-            .tint(Palette.accent)
+            .tint(Palette.interaction)
         }
     }
 
@@ -193,7 +193,7 @@ struct TaskCreateSheetView: View {
         symbol: String,
         label: String,
         isSelected: Bool,
-        tone: Tone = .accent,
+        tone: Tone = .neutral,
         action: @escaping () -> Void
     ) -> some View {
         Button {
@@ -204,7 +204,7 @@ struct TaskCreateSheetView: View {
                 .overlay(
                     Capsule(style: .continuous)
                         .strokeBorder(
-                            isSelected ? tone.foreground : Color.clear,
+                            isSelected ? Palette.interaction : Color.clear,
                             lineWidth: Metrics.hairline
                         )
                 )

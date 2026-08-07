@@ -91,7 +91,11 @@ public struct IconMedallion: View {
 
     @ScaledSize(Metrics.minimumTouchTarget) private var discSize
 
-    public init(symbol: String, label: String, tone: Tone = .accent, isLarge: Bool = false) {
+    // A medallion says what kind of thing a row is, not that the row can be
+    // acted on — so its default tone is neutral. It used to default to
+    // `.accent`, and nine call sites relied on that default, which is how a
+    // list of ordinary records came to be studded with the interaction colour.
+    public init(symbol: String, label: String, tone: Tone = .neutral, isLarge: Bool = false) {
         self.symbol = symbol
         self.label = label
         self.tone = tone

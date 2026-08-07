@@ -129,7 +129,7 @@ public struct ObservationsTimelineView: View {
                                         systemImage: ObservationSymbols.correct
                                     )
                                 }
-                                .tint(Palette.accent)
+                                .tint(Palette.interaction)
                                 .accessibilityIdentifier("observations.row.\(row.id).correct")
                             }
                             .contextMenu {
@@ -191,7 +191,7 @@ public struct ObservationsTimelineView: View {
                 .accessibilityIdentifier("observations.filter.clear")
             }
         }
-        .tint(Palette.accent)
+        .tint(Palette.interaction)
         .padding(.horizontal, Metrics.space4)
         .padding(.vertical, Metrics.space2)
     }
@@ -202,7 +202,7 @@ public struct ObservationsTimelineView: View {
                 IconMedallion(
                     symbol: ObservationSymbols.entry(row),
                     label: row.correctionKindLabel ?? model.title,
-                    tone: row.correctionKindLabel == nil ? .accent : .info
+                    tone: .neutral
                 )
 
                 VStack(alignment: .leading, spacing: Metrics.space2) {
@@ -216,7 +216,7 @@ public struct ObservationsTimelineView: View {
                             Chip(
                                 symbol: ObservationSymbols.corrected,
                                 label: model.correctedBadgeText,
-                                tone: .info
+                                tone: .neutral
                             )
                         }
                         if row.isPendingSync {
@@ -291,7 +291,7 @@ public struct ObservationsTimelineView: View {
                 Chip(
                     symbol: ObservationSymbols.analysis,
                     label: summary.kindLabel,
-                    tone: .accent
+                    tone: .neutral
                 )
                 Chip(
                     symbol: ObservationSymbols.safetyClass,
@@ -301,7 +301,7 @@ public struct ObservationsTimelineView: View {
             }
 
             if summary.modelUnavailable {
-                InlineMessage(model.analysisModelUnavailableMessage, tone: .info)
+                InlineMessage(model.analysisModelUnavailableMessage, tone: .neutral)
             } else {
                 HStack(spacing: Metrics.space2) {
                     Text(summary.suggestedLabel)

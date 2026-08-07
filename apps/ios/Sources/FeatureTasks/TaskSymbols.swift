@@ -21,7 +21,7 @@ enum TaskSymbols {
     static func statusTone(_ status: TaskStatus) -> Tone {
         switch status {
         case .planned: .neutral
-        case .suggested: .info
+        case .suggested: .neutral
         case .completed: .positive
         case .skipped, .dismissed: .neutral
         case .deleted: .negative
@@ -40,7 +40,7 @@ enum TaskSymbols {
     static func urgencyTone(_ urgency: TaskUrgency) -> Tone {
         switch urgency {
         case .low: .neutral
-        case .normal: .info
+        case .normal: .neutral
         case .high: .warning
         case .urgent: .negative
         }

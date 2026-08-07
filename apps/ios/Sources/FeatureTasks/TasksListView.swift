@@ -185,11 +185,11 @@ public struct TasksListView: View {
             Haptics.play(.selection)
             Task { await model.load() }
         } label: {
-            Chip(symbol: symbol, label: label, tone: isSelected ? .accent : .neutral)
+            Chip(symbol: symbol, label: label, tone: .neutral)
                 .overlay(
                     Capsule(style: .continuous)
                         .strokeBorder(
-                            isSelected ? Palette.accent : Color.clear,
+                            isSelected ? Palette.interaction : Color.clear,
                             lineWidth: Metrics.hairline
                         )
                 )
@@ -227,7 +227,7 @@ public struct TasksListView: View {
                             tone: TaskSymbols.urgencyTone(row.urgency)
                         )
                         if let dueDateText = row.dueDateText {
-                            Chip(symbol: TaskSymbols.dueDate, label: dueDateText, tone: .info)
+                            Chip(symbol: TaskSymbols.dueDate, label: dueDateText, tone: .neutral)
                         }
                         // Independent, both nil-safe: `assignedChipLabel` is
                         // already `nil` when it would merely repeat
@@ -236,7 +236,7 @@ public struct TasksListView: View {
                         // own doc comment) — the two chips both showing at
                         // once means they genuinely differ.
                         if let assignedChipLabel = row.assignedChipLabel {
-                            Chip(symbol: TaskSymbols.assign, label: assignedChipLabel, tone: .accent)
+                            Chip(symbol: TaskSymbols.assign, label: assignedChipLabel, tone: .neutral)
                         }
                         if let completedByChipLabel = row.completedByChipLabel {
                             Chip(symbol: TaskSymbols.complete, label: completedByChipLabel, tone: .positive)
@@ -302,7 +302,7 @@ public struct TasksListView: View {
             } label: {
                 Label(model.editActionTitle, systemImage: TaskSymbols.edit)
             }
-            .tint(Palette.accent)
+            .tint(Palette.interaction)
         }
     }
 

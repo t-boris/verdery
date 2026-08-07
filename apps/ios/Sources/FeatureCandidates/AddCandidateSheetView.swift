@@ -229,13 +229,13 @@ struct CandidateChoiceChip: View {
                 .padding(.vertical, Metrics.space2)
                 .background(
                     Capsule(style: .continuous)
-                        .fill(isSelected ? Tone.accent.quietFill : Tone.neutral.quietFill)
+                        .fill(Tone.neutral.quietFill)
                 )
                 .overlay(
                     Capsule(style: .continuous)
-                        .strokeBorder(isSelected ? Palette.accent : Color.clear, lineWidth: Metrics.hairline)
+                        .strokeBorder(isSelected ? Palette.interaction : Color.clear, lineWidth: Metrics.hairline)
                 )
-                .foregroundStyle(isSelected ? Tone.accent.foreground : Palette.text)
+                .foregroundStyle(Palette.text)
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])

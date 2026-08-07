@@ -64,7 +64,7 @@ struct InviteCollaboratorSheetView: View {
                                 .textFieldStyle(.roundedBorder)
                                 .focused($isEmailFieldFocused)
                                 .accessibilityIdentifier("collaborators.invite.emailField")
-                            InlineMessage(model.inviteEmailHint, tone: .info)
+                            InlineMessage(model.inviteEmailHint, tone: .neutral)
                         }
                     }
                 }
@@ -95,11 +95,11 @@ struct InviteCollaboratorSheetView: View {
             Chip(
                 symbol: GardenSymbols.role(role.gardenRole),
                 label: model.roleLabel(for: role.gardenRole),
-                tone: model.inviteRole == role ? .accent : .neutral
+                tone: .neutral
             )
             .overlay(
                 Capsule(style: .continuous)
-                    .strokeBorder(model.inviteRole == role ? Palette.accent : Color.clear, lineWidth: Metrics.hairline)
+                    .strokeBorder(model.inviteRole == role ? Palette.interaction : Color.clear, lineWidth: Metrics.hairline)
             )
         }
         .buttonStyle(.plain)

@@ -279,20 +279,20 @@ public struct PlantDetailView: View {
                             Button(action: takePhoto) {
                                 Label(model.takePhotoButtonTitle, systemImage: "camera.viewfinder")
                                     .font(Typography.body.weight(.medium))
-                                    .foregroundStyle(Palette.accent)
+                                    .foregroundStyle(Palette.interaction)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, Metrics.space3)
                                     .background(
                                         RoundedRectangle(
                                             cornerRadius: Metrics.radiusMedium, style: .continuous
                                         )
-                                        .fill(Tone.accent.quietFill)
+                                        .fill(Palette.interactionQuiet)
                                     )
                             }
                             .accessibilityIdentifier("plants.detail.photo.takePhoto")
 
                             if isCameraPermissionDeniedShown {
-                                InlineMessage(model.cameraPermissionDeniedMessage, tone: .info)
+                                InlineMessage(model.cameraPermissionDeniedMessage, tone: .neutral)
                                 Button(model.openSettingsButtonTitle) { CameraCapture.openSettings() }
                                     .accessibilityIdentifier("plants.detail.photo.openSettings")
                             }
@@ -301,20 +301,20 @@ public struct PlantDetailView: View {
                         PhotosPicker(selection: $pickedPhotoItem, matching: .images) {
                             Label(pickTitle, systemImage: "photo.on.rectangle")
                                 .font(Typography.body.weight(.medium))
-                                .foregroundStyle(Palette.accent)
+                                .foregroundStyle(Palette.text)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, Metrics.space3)
                                 .background(
                                     RoundedRectangle(
                                         cornerRadius: Metrics.radiusMedium, style: .continuous
                                     )
-                                    .fill(Tone.accent.quietFill)
+                                    .fill(Palette.surfaceSunken)
                                 )
                         }
                         .accessibilityIdentifier("plants.detail.photo.pick")
 
                         if photoAttachment.status != .idle {
-                            InlineMessage(model.photoStatusText, tone: .info)
+                            InlineMessage(model.photoStatusText, tone: .neutral)
                                 .accessibilityIdentifier("plants.detail.photo.status")
 
                             HStack(spacing: Metrics.space2) {
@@ -484,7 +484,7 @@ public struct PlantDetailView: View {
                     .accessibilityIdentifier("plants.detail.save")
                 }
             }
-            .tint(Palette.accent)
+            .tint(Palette.interaction)
         }
     }
 
@@ -497,7 +497,7 @@ public struct PlantDetailView: View {
             } label: {
                 HStack(spacing: Metrics.space2) {
                     Image(systemName: PlantSymbols.taxonomy)
-                        .foregroundStyle(Palette.accent)
+                        .foregroundStyle(Palette.textMuted)
                         .accessibilityHidden(true)
                     Text(model.taxonomyLabel)
                         .font(Typography.body)
@@ -559,7 +559,7 @@ public struct PlantDetailView: View {
                 VStack(alignment: .leading, spacing: Metrics.space3) {
                     mapObjectRow(model.gardenAreaLabel, field: .gardenArea)
                     mapObjectRow(model.placementLabel, field: .placement)
-                    InlineMessage(model.mapObjectIdHint, tone: .info)
+                    InlineMessage(model.mapObjectIdHint, tone: .neutral)
 
                     Button {
                         Task {

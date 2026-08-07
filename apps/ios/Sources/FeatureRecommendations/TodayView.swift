@@ -126,7 +126,7 @@ public struct TodayView: View {
         NavigationLink(value: TodaySeasonalPlanRoute(gardenId: model.gardenId)) {
             SurfaceCard {
                 HStack(spacing: Metrics.space3) {
-                    IconMedallion(symbol: "leaf.fill", label: model.seasonalPlanCardTitle, tone: .accent)
+                    IconMedallion(symbol: "leaf.fill", label: model.seasonalPlanCardTitle)
                     VStack(alignment: .leading, spacing: Metrics.space1) {
                         Text(model.seasonalPlanCardTitle)
                             .font(Typography.body)
@@ -206,7 +206,7 @@ public struct TodayView: View {
             }
 
             if let windowText = item.windowText {
-                Chip(symbol: TodaySymbols.window, label: windowText, tone: .info)
+                Chip(symbol: TodaySymbols.window, label: windowText, tone: .neutral)
             }
 
             if let uncertaintyText = item.uncertaintyText {

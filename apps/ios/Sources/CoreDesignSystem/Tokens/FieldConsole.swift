@@ -15,18 +15,18 @@ import SwiftUI
 /// Source: apps/web/shared/ui/tokens.css;
 /// architecture/web-application-design.md, section "5. Application Structure".
 ///
-/// # Why this coexists with `Palette`
+/// # How this relates to `Palette`
 ///
-/// This table is deliberately not yet reachable from any view. It exists one
-/// slice ahead of the components that will use it so that
-/// `Tests/CoreDesignSystemTests/FieldConsoleContrastTests.swift` can prove
-/// every pairing clears WCAG *before* anything is built on top of it — the web
-/// palette needed two corrections to pass that same gate, and learning the
-/// same news after forty screens have been restyled is the expensive order.
+/// This is the table; ``Palette`` is the vocabulary a view speaks. The split
+/// exists so the values stay readable as numbers: every pairing here is
+/// measured against WCAG by
+/// `Tests/CoreDesignSystemTests/FieldConsoleContrastTests.swift`, which is
+/// only possible because ``TokenColor`` does not collapse straight to an
+/// opaque `Color`. The web palette needed two corrections to pass that same
+/// gate, and this one needed ``consoleAccent`` — found by the test, before a
+/// single component had been built on top of it.
 ///
-/// `Palette` therefore stays in place, unchanged, until the migration slice
-/// that removes `Tone.accent` moves every call site across and deletes it.
-/// Until then, `Palette` is what renders and `FieldConsole` is what is proven.
+/// Nothing outside `Palette` should name a token here directly.
 public enum FieldConsole {
     // MARK: - Surfaces
 

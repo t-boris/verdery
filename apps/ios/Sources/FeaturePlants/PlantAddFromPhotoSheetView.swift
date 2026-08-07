@@ -106,18 +106,21 @@ public struct PlantAddFromPhotoSheetView: View {
                         Button(action: takePhoto) {
                             Label(model.takePhotoButtonTitle, systemImage: "camera.viewfinder")
                                 .font(Typography.body.weight(.medium))
-                                .foregroundStyle(Palette.accent)
+                                // Genuine interaction, and the one this sheet
+                                // exists for: photographing the plant is the
+                                // action, choosing a file is the fallback.
+                                .foregroundStyle(Palette.interaction)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, Metrics.space3)
                                 .background(
                                     RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous)
-                                        .fill(Tone.accent.quietFill)
+                                        .fill(Palette.interactionQuiet)
                                 )
                         }
                         .accessibilityIdentifier("plants.addFromPhoto.takePhoto")
 
                         if isCameraPermissionDeniedShown {
-                            InlineMessage(model.cameraPermissionDeniedMessage, tone: .info)
+                            InlineMessage(model.cameraPermissionDeniedMessage, tone: .neutral)
                             Button(model.openSettingsButtonTitle) { CameraCapture.openSettings() }
                                 .accessibilityIdentifier("plants.addFromPhoto.openSettings")
                         }
@@ -126,18 +129,18 @@ public struct PlantAddFromPhotoSheetView: View {
                     PhotosPicker(selection: $pickedPhotoItem, matching: .images) {
                         Label(pickTitle, systemImage: "photo.on.rectangle")
                             .font(Typography.body.weight(.medium))
-                            .foregroundStyle(Palette.accent)
+                            .foregroundStyle(Palette.text)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, Metrics.space3)
                             .background(
                                 RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous)
-                                    .fill(Tone.accent.quietFill)
+                                    .fill(Palette.surfaceSunken)
                             )
                     }
                     .accessibilityIdentifier("plants.addFromPhoto.pick")
 
                     if let status = model.photoAttachment?.status, status != .idle {
-                        InlineMessage(model.photoStatusText, tone: .info)
+                        InlineMessage(model.photoStatusText, tone: .neutral)
                             .accessibilityIdentifier("plants.addFromPhoto.status")
 
                         if status.isRetryable, case .failed = status {
@@ -289,7 +292,7 @@ public struct PlantAddFromPhotoSheetView: View {
         HStack(alignment: .top, spacing: Metrics.space2) {
             Image(systemName: symbol)
                 .font(Typography.body)
-                .foregroundStyle(Palette.accent)
+                .foregroundStyle(Palette.textMuted)
                 .frame(width: Metrics.space5)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Metrics.space1) {

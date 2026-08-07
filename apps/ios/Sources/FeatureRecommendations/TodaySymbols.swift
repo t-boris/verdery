@@ -24,7 +24,7 @@ enum TodaySymbols {
     static func urgencyTone(_ urgency: TaskUrgency) -> Tone {
         switch urgency {
         case .low: .neutral
-        case .normal: .info
+        case .normal: .neutral
         case .high: .warning
         case .urgent: .negative
         }

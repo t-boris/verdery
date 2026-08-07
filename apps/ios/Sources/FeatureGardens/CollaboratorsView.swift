@@ -88,12 +88,12 @@ public struct CollaboratorsView: View {
     private func memberRow(_ member: CollaboratorRow, isOwnerScreen: Bool) -> some View {
         SurfaceCard {
             HStack(spacing: Metrics.space3) {
-                IconMedallion(symbol: GardenSymbols.role(member.role), label: member.roleLabel, tone: .accent)
+                IconMedallion(symbol: GardenSymbols.role(member.role), label: member.roleLabel)
                 VStack(alignment: .leading, spacing: Metrics.space1) {
                     Text(member.nameLabel)
                         .font(Typography.body)
                         .foregroundStyle(Palette.text)
-                    Chip(symbol: GardenSymbols.role(member.role), label: member.roleLabel, tone: .info)
+                    Chip(symbol: GardenSymbols.role(member.role), label: member.roleLabel, tone: .neutral)
                 }
                 Spacer(minLength: 0)
 
@@ -200,7 +200,7 @@ public struct CollaboratorsView: View {
                         .font(Typography.body)
                         .foregroundStyle(Palette.text)
                     HStack(spacing: Metrics.space2) {
-                        Chip(symbol: GardenSymbols.role(invitation.role.gardenRole), label: invitation.roleLabel, tone: .info)
+                        Chip(symbol: GardenSymbols.role(invitation.role.gardenRole), label: invitation.roleLabel, tone: .neutral)
                         Chip(
                             symbol: CollaborationSymbols.invitationState(invitation.state),
                             label: invitation.stateLabel,
