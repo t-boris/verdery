@@ -21,7 +21,8 @@
   gap: var(--border-width);
   background-color: var(--color-border);
   border-block-end: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
@@ -126,8 +127,25 @@
   display: flex;
   overflow: hidden;
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--color-surface-raised) 65%, transparent),
+      transparent 14rem
+    ),
+    var(--color-surface);
+  box-shadow: var(--shadow-xs);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.item:hover {
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
 @media (max-width: 42rem) {
@@ -180,7 +198,15 @@
   flex: none;
   block-size: 118px;
   inline-size: 100%;
-  background-color: var(--color-surface-sunken);
+  background:
+    radial-gradient(circle at 70% 15%, var(--color-accent-glow), transparent 50%),
+    linear-gradient(var(--color-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-grid) 1px, transparent 1px), var(--color-surface-sunken);
+  background-size:
+    auto,
+    24px 24px,
+    24px 24px,
+    auto;
   overflow: hidden;
 }
 
@@ -206,8 +232,9 @@
   inset-block-start: 0;
   inset-inline-start: 0;
   padding: 2px var(--space-2);
-  background-color: var(--color-text);
-  color: var(--color-canvas);
+  background-color: color-mix(in srgb, var(--color-console) 88%, transparent);
+  color: var(--color-console-text);
+  backdrop-filter: blur(8px);
   font-family: var(--font-family-mono);
   font-size: var(--label-size);
   font-weight: var(--font-weight-semibold);

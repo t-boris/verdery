@@ -4,9 +4,16 @@
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-xs);
+  border-inline-start: 3px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-surface-raised) 62%, transparent),
+      transparent 28rem
+    ),
+    var(--color-surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .header {

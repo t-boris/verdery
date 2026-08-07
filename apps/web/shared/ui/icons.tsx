@@ -362,3 +362,53 @@ export function ChevronDownIcon(props: IconProps) {
     </IconBase>
   );
 }
+
+/** Continue to the result of a primary action. */
+export function ArrowRightIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 10h11M11 6l4 4-4 4" />
+    </IconBase>
+  );
+}
+
+/** Search and discovery. */
+export function SearchIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <circle cx="8.5" cy="8.5" r="5" />
+      <path d="m12.2 12.2 4.3 4.3" />
+    </IconBase>
+  );
+}
+
+/** Image or visual record. */
+export function ImageIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect x="3" y="4" width="14" height="12" rx="1.5" />
+      <circle cx="7" cy="8" r="1.4" />
+      <path d="m4.5 14 4-4 2.5 2.5 1.5-1.5 3 3" />
+    </IconBase>
+  );
+}
+
+/** AI-assisted or enhanced action. */
+export function SparklesIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M10 2.5c.4 3.3 2.2 5.1 5.5 5.5-3.3.4-5.1 2.2-5.5 5.5C9.6 10.2 7.8 8.4 4.5 8 7.8 7.6 9.6 5.8 10 2.5Z" />
+      <path d="M15.3 13c.2 1.3.9 2 2.2 2.2-1.3.2-2 .9-2.2 2.3-.2-1.4-.9-2.1-2.3-2.3 1.4-.2 2.1-.9 2.3-2.2Z" />
+    </IconBase>
+  );
+}
+
+/** Professional organization or service studio. */
+export function BuildingIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M4 17V5.5L10 3v14M10 7h6v10M2.5 17h15" />
+      <path d="M6.5 7.2h1M6.5 10h1M6.5 12.8h1M12.5 10h1M12.5 12.8h1" />
+    </IconBase>
+  );
+}

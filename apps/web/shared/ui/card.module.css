@@ -1,16 +1,37 @@
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-4);
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+  border-block-start-color: var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--color-surface-raised) 70%, transparent),
+      transparent 16rem
+    ),
+    var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset-block-start: -1px;
+  inset-inline-start: var(--space-4);
+  inline-size: 2.5rem;
+  block-size: 2px;
+  background: linear-gradient(90deg, var(--color-accent), transparent);
 }
 
 .title {
-  color: var(--color-text-muted);
+  padding-block-end: var(--space-2);
+  border-block-end: var(--border-width) solid var(--color-border);
+  color: var(--color-text);
   font-family: var(--font-family-mono);
   font-size: var(--label-size);
   font-weight: var(--font-weight-semibold);

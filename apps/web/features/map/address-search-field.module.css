@@ -16,6 +16,10 @@
   min-inline-size: 0;
 }
 
+.row > button {
+  align-self: end;
+}
+
 .empty {
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);

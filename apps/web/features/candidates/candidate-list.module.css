@@ -17,10 +17,11 @@
   gap: var(--space-3) var(--space-4);
   margin: 0;
   /* A band, not a boxed fieldset — see `features/tasks/task-list.module.css`. */
-  padding: var(--space-2) 0 var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border: 0;
-  border-block-end: var(--border-width) solid var(--color-border);
-  background-color: transparent;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface-sunken);
 }
 
 .filterGroup > legend {
@@ -53,17 +54,26 @@
   gap: 0;
   overflow: hidden;
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: 0;
   margin: 0;
   list-style: none;
 }
 
 .item {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-inline-start: 3px solid transparent;
   border-block-end: var(--border-width) solid var(--color-border);
-  background-color: var(--color-surface);
-  transition: background-color var(--duration-fast) var(--ease-out);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-surface-raised) 55%, transparent),
+      transparent 28rem
+    ),
+    var(--color-surface);
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
 }
 
 .item:last-child {
@@ -71,18 +81,41 @@
 }
 
 .item:hover {
-  background-color: var(--color-surface-sunken);
+  border-inline-start-color: var(--color-accent);
+  background: linear-gradient(90deg, var(--color-accent-quiet), var(--color-surface-hover) 24rem);
 }
 
 .link {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: var(--space-1);
   width: 100%;
   min-height: var(--control-min-size);
   justify-content: center;
   color: var(--color-text);
   text-decoration: none;
+}
+
+.recordIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  flex: none;
+  margin-inline-end: var(--space-2);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background-color: var(--color-accent-quiet);
+  color: var(--color-accent);
+}
+
+.recordContent {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
 }
 
 .link:hover .name {
@@ -100,6 +133,7 @@
   gap: var(--space-3);
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
+  font-family: var(--font-family-mono);
 }
 
 .empty {

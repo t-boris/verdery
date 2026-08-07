@@ -75,6 +75,15 @@
   flex: none;
 }
 
+.defaultIcon {
+  display: inline-flex;
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.button:hover .defaultIcon {
+  transform: translateX(2px);
+}
+
 .secondary svg {
   --button-icon-color: var(--color-accent);
 }
@@ -109,8 +118,10 @@
 }
 
 .primary {
-  background-color: var(--color-accent);
+  background: linear-gradient(180deg, var(--color-accent-hover), var(--color-accent));
+  border-color: color-mix(in srgb, var(--color-accent) 72%, white);
   color: var(--color-accent-text);
+  box-shadow: 0 5px 18px -10px var(--color-accent);
 }
 
 .primary:hover {
@@ -122,7 +133,7 @@
 }
 
 .secondary {
-  background-color: var(--color-surface);
+  background: linear-gradient(180deg, var(--color-surface-raised), var(--color-surface));
   border-color: var(--color-control-border);
   color: var(--color-text);
 }

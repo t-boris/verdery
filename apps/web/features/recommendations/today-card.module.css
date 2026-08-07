@@ -1,4 +1,5 @@
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -6,9 +7,16 @@
   border: var(--border-width) solid var(--color-border);
   border-left-width: var(--space-1);
   border-left-color: var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(
+      120deg,
+      color-mix(in srgb, var(--color-surface-raised) 68%, transparent),
+      transparent 32rem
+    ),
+    var(--color-surface);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Urgency is carried by the visible label as well; the edge only echoes it. */
@@ -56,7 +64,7 @@
   padding: 0 var(--space-2);
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-pill);
-  background-color: var(--color-surface-sunken);
+  background-color: var(--color-console-elevated);
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);

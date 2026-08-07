@@ -7,7 +7,8 @@ complete set of garden, plant, candidate, observation, task, planning, organizat
 and client-portal workflows.
 
 The authenticated header reads the exact package version from this file's `package.json`. Every
-application change bumps that patch version so a deployed build can be identified in the UI.
+application change bumps its semantic version at the appropriate major, minor, or patch level so a
+deployed build can be identified in the UI.
 
 ## Local Setup
 

@@ -2,6 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 import styles from './button.module.css';
 import { classNames } from './class-names';
+import { ArrowRightIcon } from './icons';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'destructive';
 
@@ -59,6 +60,11 @@ export function Button({
       onClick={busy ? undefined : onClick}
     >
       {children}
+      {variant === 'primary' && typeof children === 'string' && !iconOnly && (
+        <span className={styles['defaultIcon']}>
+          <ArrowRightIcon size={14} />
+        </span>
+      )}
     </button>
   );
 }

@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { formatInstant, useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, StaleIndicator, StatusPill } from '@/shared/ui/public';
+import { Button, FailureAlert, HomeIcon, StaleIndicator, StatusPill } from '@/shared/ui/public';
 
 import { useGardens, useRestoreGardenDeletion } from './queries';
 import styles from './garden-list.module.css';
@@ -76,7 +76,10 @@ function GardenListItem({ garden }: { readonly garden: Garden }) {
   return (
     <li className={styles['item']}>
       <Link className={styles['link']} href={`/application/gardens/${garden.id}`}>
-        {garden.name}
+        <span className={styles['recordIcon']}>
+          <HomeIcon size={18} />
+        </span>
+        <span>{garden.name}</span>
       </Link>
       <span className={styles['meta']}>
         <StatusPill

@@ -7,7 +7,7 @@ import type {
 } from '@verdery/api-contracts';
 import Link from 'next/link';
 import { useState } from 'react';
-import { ChevronDownIcon, RefreshIcon } from '@/shared/ui/public';
+import { ChevronDownIcon, LightbulbIcon, RefreshIcon } from '@/shared/ui/public';
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
@@ -233,23 +233,28 @@ function CandidateListItem({
         className={styles['link']}
         href={`/application/gardens/${gardenId}/candidates/${candidate.id}`}
       >
-        <span className={styles['name']}>{candidate.displayName}</span>
-        <span className={styles['meta']}>
-          <StatusPill
-            tone={candidateStatusTone(candidate.status)}
-            label={t(candidateStatusLabel(candidate.status))}
-          />
-          <span>{t(candidateGroupingKindLabel(candidate.groupingKind))}</span>
-          {candidate.priority !== null && (
-            <span>
-              {t('candidates.priorityDisplay', {
-                priority: t(candidatePriorityLabel(candidate.priority)),
-              })}
-            </span>
-          )}
-          {candidate.quantity !== null && (
-            <span>{t('candidates.quantityDisplay', { quantity: candidate.quantity })}</span>
-          )}
+        <span className={styles['recordIcon']}>
+          <LightbulbIcon size={18} />
+        </span>
+        <span className={styles['recordContent']}>
+          <span className={styles['name']}>{candidate.displayName}</span>
+          <span className={styles['meta']}>
+            <StatusPill
+              tone={candidateStatusTone(candidate.status)}
+              label={t(candidateStatusLabel(candidate.status))}
+            />
+            <span>{t(candidateGroupingKindLabel(candidate.groupingKind))}</span>
+            {candidate.priority !== null && (
+              <span>
+                {t('candidates.priorityDisplay', {
+                  priority: t(candidatePriorityLabel(candidate.priority)),
+                })}
+              </span>
+            )}
+            {candidate.quantity !== null && (
+              <span>{t('candidates.quantityDisplay', { quantity: candidate.quantity })}</span>
+            )}
+          </span>
         </span>
       </Link>
     </li>

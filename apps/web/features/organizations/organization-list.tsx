@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, StaleIndicator, StatusPill } from '@/shared/ui/public';
+import { BuildingIcon, Button, FailureAlert, StaleIndicator, StatusPill } from '@/shared/ui/public';
 
 import { organizationRoleLabel } from './labels';
 import styles from './organization-list.module.css';
@@ -65,7 +65,10 @@ function OrganizationListItem({ organization }: { readonly organization: Service
   return (
     <li className={styles['item']}>
       <Link className={styles['link']} href={`/application/organizations/${organization.id}`}>
-        {organization.name}
+        <span className={styles['recordIcon']}>
+          <BuildingIcon size={18} />
+        </span>
+        <span>{organization.name}</span>
       </Link>
       <span className={styles['meta']}>
         <StatusPill tone="neutral" label={t(organizationRoleLabel(organization.callerRole))} />

@@ -14,7 +14,9 @@ export { FailureAlert } from './failure-alert';
 export { FieldGrid, type FieldGridProps } from './field-grid';
 export { FilePicker, type FilePickerProps } from './file-picker';
 export {
+  ArrowRightIcon,
   BookIcon,
+  BuildingIcon,
   CalendarIcon,
   CheckIcon,
   ChevronDownIcon,
@@ -28,6 +30,7 @@ export {
   HomeIcon,
   LeafIcon,
   LightbulbIcon,
+  ImageIcon,
   LockIcon,
   MapIcon,
   PauseIcon,
@@ -38,6 +41,8 @@ export {
   RedoIcon,
   RulerIcon,
   SignOutIcon,
+  SearchIcon,
+  SparklesIcon,
   SproutIcon,
   SunIcon,
   TagIcon,
@@ -52,6 +57,7 @@ export { Label, type LabelProps } from './label';
 export { ProgressBar, type ProgressBarProps } from './progress-bar';
 export {
   RouteBody,
+  RouteDashboard,
   RouteHeader,
   RoutePage,
   RoutePanel,

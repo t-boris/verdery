@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { classNames } from './class-names';
+import { LeafIcon } from './icons';
 import styles from './route-layout.module.css';
 
 /**
@@ -40,7 +41,12 @@ export function RouteHeader({ title, description, actions }: RouteHeaderProps) {
   return (
     <div className={styles['header']}>
       <div className={styles['heading']}>
-        <h1 className={styles['title']}>{title}</h1>
+        <div className={styles['titleRow']}>
+          <span className={styles['headerIcon']}>
+            <LeafIcon size={18} />
+          </span>
+          <h1 className={styles['title']}>{title}</h1>
+        </div>
         {description !== undefined && <p className={styles['description']}>{description}</p>}
       </div>
       {actions}
@@ -51,6 +57,11 @@ export function RouteHeader({ title, description, actions }: RouteHeaderProps) {
 /** The route's one scrolling region. The shell above it never scrolls. */
 export function RouteBody({ children }: { readonly children: ReactNode }) {
   return <div className={styles['body']}>{children}</div>;
+}
+
+/** A primary work panel beside a compact quick-action panel on wide screens. */
+export function RouteDashboard({ children }: { readonly children: ReactNode }) {
+  return <div className={styles['dashboard']}>{children}</div>;
 }
 
 export interface RoutePanelProps {

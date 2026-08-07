@@ -16,10 +16,10 @@
    * element stays — it is what groups the checkboxes for assistive
    * technology — only its frame goes.
    */
-  padding: var(--space-2) 0 var(--space-3);
-  border: 0;
-  border-block-end: var(--border-width) solid var(--color-border);
-  background-color: transparent;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface-sunken);
 }
 
 .filters > legend {
