@@ -2356,6 +2356,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/care-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List the automatic care rules and what blocks each one
+         * @description Every rule an evaluation of this garden would run, with what it does,
+         *     whether its content has been horticulturally reviewed, and — computed
+         *     against this garden's own facts — what currently prevents it from
+         *     producing anything.
+         *
+         *     This exists because "I have no tasks" has many different causes with
+         *     different answers, and only the server can tell them apart. A garden
+         *     with no coordinates, a garden whose plants are unidentified, and a
+         *     garden the weather sweep has not reached yet all look identical from
+         *     the outside; named, checkable blockers turn that silence into a list of
+         *     mostly-fixable causes.
+         *
+         *     A pure read. It calls no provider, evaluates nothing, and writes
+         *     nothing — reading this page cannot change what the garden is
+         *     recommended.
+         *
+         *     Requires the ordinary `viewGarden` capability.
+         *
+         *     Source: architecture/recommendations-and-ai.md section 5;
+         *     docs/development/recommendation-safety-catalog.md.
+         */
+        get: operations["getGardenCareRules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/gardens/{gardenId}/seasonal-plan": {
         parameters: {
             query?: never;
@@ -8638,6 +8679,73 @@ export interface components {
              */
             unavailableReason: "noProviderConfigured" | "gardenNotGeoreferenced" | "notYetFetched" | null;
         };
+        /**
+         * @description One reason an automatic rule cannot currently produce anything for a
+         *     garden. Every value names a specific, checkable absence rather than a
+         *     generic failure, because the useful question is not "is it working" but
+         *     "what is missing, and can I supply it".
+         *
+         *     - `noWeatherProvider` — the deployment names no active weather provider.
+         *       Nobody using the app can change this.
+         *     - `gardenNotGeoreferenced` — the garden has no coordinates. Coordinates
+         *       are what a weather request is made of and what a hemisphere is derived
+         *       from, so this one absence blocks several rules at once. Resolvable by
+         *       setting the garden's location.
+         *     - `noWeatherObservation` / `noWeatherForecast` — provider and coordinates
+         *       are in place, but the scheduled refresh has not stored that reading
+         *       yet. Resolves on its own.
+         *     - `noRainfallHistory` — no elapsed daily rainfall totals are stored yet,
+         *       so accumulated rainfall is unknown. Unknown is not dry, so the rule
+         *       refuses to guess.
+         *     - `noIdentifiedPlants` — no active plant carries a taxon, and a rule
+         *       about a species cannot say anything about an unidentified plant.
+         *     - `noReviewedSeasonalFacts` — no taxon in this garden has seasonal
+         *       timing that a horticultural reviewer has signed off. Unreviewed
+         *       content is treated as absent by design.
+         *     - `noPlacedPlants` — no active plant is placed in a garden area, so bed
+         *       history has nothing to be about.
+         *     - `awaitingHorticulturalReview` — the rule's own content has not been
+         *       signed off by a named reviewer. It still runs; this is disclosure, not
+         *       a blocker on execution.
+         * @enum {string}
+         */
+        CareRuleBlocker: "noWeatherProvider" | "gardenNotGeoreferenced" | "noWeatherObservation" | "noWeatherForecast" | "noRainfallHistory" | "noIdentifiedPlants" | "noReviewedSeasonalFacts" | "noPlacedPlants" | "awaitingHorticulturalReview";
+        /**
+         * @description One automatic care rule, as it applies to one garden.
+         *
+         *     These are the deterministic, versioned rules that decide what the garden
+         *     needs — the same definitions the engine evaluates, not a description of
+         *     them. `blockers` is computed against this garden's own facts.
+         */
+        CareRule: {
+            ruleKey: string;
+            /** @description Only the highest shipped version of a key is evaluated; older versions remain readable so past recommendations can still explain themselves. */
+            version: number;
+            careCategory: string;
+            /**
+             * @description `restricted` is structurally unrepresentable — no rule may carry it,
+             *     and the database refuses a restricted candidate at insert. It is
+             *     absent from this enum for that reason, not by omission.
+             * @enum {string}
+             */
+            safetyTier: "ordinary_care" | "elevated_risk";
+            /** @enum {string} */
+            urgency: "low" | "normal" | "high" | "urgent";
+            /** @description What the rule asks a person to do when it fires. */
+            actionTitle: string;
+            /** @description What the rule looks at and what it deliberately does not claim. */
+            description: string;
+            /** @enum {string} */
+            reviewStatus: "awaiting_horticultural_review" | "horticulturally_reviewed";
+            usesWeather: boolean;
+            /** @description Empty when nothing prevents this rule from producing recommendations for this garden. Ordered most-resolvable-first, so the first entry is the one worth acting on. */
+            blockers: components["schemas"]["CareRuleBlocker"][];
+        };
+        GardenCareRulesResult: {
+            gardenId: components["schemas"]["Uuid"];
+            /** @description Every rule an evaluation of this garden would run, in evaluation order. */
+            rules: components["schemas"]["CareRule"][];
+        };
     };
     responses: {
         /** @description The request is malformed or fails validation. */
@@ -11692,6 +11800,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GardenWeatherResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getGardenCareRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden's care rules and their current blockers. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GardenCareRulesResult"];
                 };
             };
             401: components["responses"]["Unauthorized"];

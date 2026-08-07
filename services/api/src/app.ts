@@ -79,6 +79,7 @@ import {
   ServiceHealth,
 } from './modules/service-health/public.js';
 import {
+  registerCareRuleRoutes,
   registerRecommendationRoutes,
   registerSeasonalPlanRoutes,
   registerTaskRoutes,
@@ -320,6 +321,7 @@ export async function buildApplication(
   const {
     taskRoutesDependencies,
     recommendationRoutesDependencies,
+    careRuleRoutesDependencies,
     recommendationEvaluationSweepRouteDependencies,
     seasonalPlanRoutesDependencies,
   } = composeTasksRecommendations(
@@ -332,6 +334,7 @@ export async function buildApplication(
     generateAiExplanation,
     configuration.aiExplanation.enabled,
     cloudTasksInvocationVerifier,
+    configuration.weather.activeProviderKey,
   );
 
   // notifications (P7-NOTIF-01, P7-NOTIF-02): the in-app inbox,
@@ -490,6 +493,9 @@ export async function buildApplication(
       // weather gate reasons from, so what a person sees and what the
       // engine decided on cannot disagree.
       registerWeatherRoutes(instance, weatherRoutesDependencies);
+      // What the automation does and what currently stops it — read-only
+      // disclosure of the same catalog the engine evaluates.
+      registerCareRuleRoutes(instance, careRuleRoutesDependencies);
       // P9D-CONTEXT-01: reviewed/declared garden context facts (sun
       // exposure, soil type, drainage, irrigation method, growing context,
       // microclimate).

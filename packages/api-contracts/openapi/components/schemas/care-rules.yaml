@@ -1,0 +1,109 @@
+CareRuleBlocker:
+  type: string
+  enum:
+    - noWeatherProvider
+    - gardenNotGeoreferenced
+    - noWeatherObservation
+    - noWeatherForecast
+    - noRainfallHistory
+    - noIdentifiedPlants
+    - noReviewedSeasonalFacts
+    - noPlacedPlants
+    - awaitingHorticulturalReview
+  description: |
+    One reason an automatic rule cannot currently produce anything for a
+    garden. Every value names a specific, checkable absence rather than a
+    generic failure, because the useful question is not "is it working" but
+    "what is missing, and can I supply it".
+
+    - `noWeatherProvider` — the deployment names no active weather provider.
+      Nobody using the app can change this.
+    - `gardenNotGeoreferenced` — the garden has no coordinates. Coordinates
+      are what a weather request is made of and what a hemisphere is derived
+      from, so this one absence blocks several rules at once. Resolvable by
+      setting the garden's location.
+    - `noWeatherObservation` / `noWeatherForecast` — provider and coordinates
+      are in place, but the scheduled refresh has not stored that reading
+      yet. Resolves on its own.
+    - `noRainfallHistory` — no elapsed daily rainfall totals are stored yet,
+      so accumulated rainfall is unknown. Unknown is not dry, so the rule
+      refuses to guess.
+    - `noIdentifiedPlants` — no active plant carries a taxon, and a rule
+      about a species cannot say anything about an unidentified plant.
+    - `noReviewedSeasonalFacts` — no taxon in this garden has seasonal
+      timing that a horticultural reviewer has signed off. Unreviewed
+      content is treated as absent by design.
+    - `noPlacedPlants` — no active plant is placed in a garden area, so bed
+      history has nothing to be about.
+    - `awaitingHorticulturalReview` — the rule's own content has not been
+      signed off by a named reviewer. It still runs; this is disclosure, not
+      a blocker on execution.
+
+CareRule:
+  type: object
+  additionalProperties: false
+  description: |
+    One automatic care rule, as it applies to one garden.
+
+    These are the deterministic, versioned rules that decide what the garden
+    needs — the same definitions the engine evaluates, not a description of
+    them. `blockers` is computed against this garden's own facts.
+  required:
+    - ruleKey
+    - version
+    - careCategory
+    - safetyTier
+    - urgency
+    - actionTitle
+    - description
+    - reviewStatus
+    - usesWeather
+    - blockers
+  properties:
+    ruleKey:
+      type: string
+    version:
+      type: integer
+      minimum: 1
+      description: Only the highest shipped version of a key is evaluated; older versions remain readable so past recommendations can still explain themselves.
+    careCategory:
+      type: string
+    safetyTier:
+      type: string
+      enum: [ordinary_care, elevated_risk]
+      description: |
+        `restricted` is structurally unrepresentable — no rule may carry it,
+        and the database refuses a restricted candidate at insert. It is
+        absent from this enum for that reason, not by omission.
+    urgency:
+      type: string
+      enum: [low, normal, high, urgent]
+    actionTitle:
+      type: string
+      description: What the rule asks a person to do when it fires.
+    description:
+      type: string
+      description: What the rule looks at and what it deliberately does not claim.
+    reviewStatus:
+      type: string
+      enum: [awaiting_horticultural_review, horticulturally_reviewed]
+    usesWeather:
+      type: boolean
+    blockers:
+      type: array
+      description: Empty when nothing prevents this rule from producing recommendations for this garden. Ordered most-resolvable-first, so the first entry is the one worth acting on.
+      items:
+        $ref: '#/CareRuleBlocker'
+
+GardenCareRulesResult:
+  type: object
+  additionalProperties: false
+  required: [gardenId, rules]
+  properties:
+    gardenId:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+    rules:
+      type: array
+      description: Every rule an evaluation of this garden would run, in evaluation order.
+      items:
+        $ref: '#/CareRule'

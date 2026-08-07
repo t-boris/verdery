@@ -24,10 +24,12 @@ import { englishSeasonalPlanMessages } from './en-seasonal-plan';
 import { englishTaskCollaborationMessages } from './en-task-collaboration';
 import { englishTodayMessages } from './en-today';
 import { englishWeatherMessages } from './en-weather';
+import { englishCareRulesMessages } from './en-care-rules';
 
 export const englishMessages = {
   ...englishTodayMessages,
   ...englishWeatherMessages,
+  ...englishCareRulesMessages,
   ...englishAccessibilityMessages,
   ...englishCollaborationMessages,
   ...englishTaskCollaborationMessages,

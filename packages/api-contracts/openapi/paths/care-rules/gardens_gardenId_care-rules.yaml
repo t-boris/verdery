@@ -1,0 +1,45 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: getGardenCareRules
+  tags: [CareRules]
+  summary: List the automatic care rules and what blocks each one
+  description: |
+    Every rule an evaluation of this garden would run, with what it does,
+    whether its content has been horticulturally reviewed, and — computed
+    against this garden's own facts — what currently prevents it from
+    producing anything.
+
+    This exists because "I have no tasks" has many different causes with
+    different answers, and only the server can tell them apart. A garden
+    with no coordinates, a garden whose plants are unidentified, and a
+    garden the weather sweep has not reached yet all look identical from
+    the outside; named, checkable blockers turn that silence into a list of
+    mostly-fixable causes.
+
+    A pure read. It calls no provider, evaluates nothing, and writes
+    nothing — reading this page cannot change what the garden is
+    recommended.
+
+    Requires the ordinary `viewGarden` capability.
+
+    Source: architecture/recommendations-and-ai.md section 5;
+    docs/development/recommendation-safety-catalog.md.
+  responses:
+    '200':
+      description: The garden's care rules and their current blockers.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/care-rules.yaml#/GardenCareRulesResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

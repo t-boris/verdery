@@ -1,3 +1,4 @@
+import { CareRulesPanel } from '@/features/care-rules/public';
 import { TodayList } from '@/features/recommendations/public';
 import { WeatherPanel } from '@/features/weather/public';
 import { getRequestTranslator } from '@/shared/localization/server';
@@ -38,6 +39,11 @@ export default async function TodayPage({
         {/* No band heading: it would repeat the route title verbatim. */}
         <RoutePanel fill>
           <TodayList gardenId={gardenId} />
+        </RoutePanel>
+        {/* Below the list, deliberately: this answers a question the list
+            raises when it is empty, and is not the thing a person came for. */}
+        <RoutePanel>
+          <CareRulesPanel gardenId={gardenId} />
         </RoutePanel>
       </RouteBody>
     </RoutePage>

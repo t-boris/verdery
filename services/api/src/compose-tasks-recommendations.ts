@@ -41,6 +41,8 @@ import {
   EditTask,
   EmbellishRecommendationExplanations,
   EvaluateGardenRecommendations,
+  GetGardenCareRules,
+  KyselyCareRulePlantReadinessSource,
   GetGardenSeasonalPlan,
   GetTaskActivity,
   GetTodayView,
@@ -58,6 +60,7 @@ import {
 } from './modules/tasks-recommendations/public.js';
 import type {
   RecommendationEvaluationSweepRouteDependencies,
+  CareRuleRoutesDependencies,
   RecommendationRoutesDependencies,
   SeasonalPlanRoutesDependencies,
   TaskRoutesDependencies,
@@ -87,6 +90,8 @@ const RUNTIME_EMBELLISHMENT_LOCALE: AiExplanationLocale = 'en';
 export interface TasksRecommendationsComposition {
   readonly taskRoutesDependencies: TaskRoutesDependencies;
   readonly recommendationRoutesDependencies: RecommendationRoutesDependencies;
+  /** The read-only care-rules disclosure — see `get-garden-care-rules.ts`. */
+  readonly careRuleRoutesDependencies: CareRuleRoutesDependencies;
   readonly recommendationEvaluationSweepRouteDependencies: RecommendationEvaluationSweepRouteDependencies;
   /** P9D-SEASON-API-01 — the seasonal-plan read. */
   readonly seasonalPlanRoutesDependencies: SeasonalPlanRoutesDependencies;
@@ -102,6 +107,8 @@ export function composeTasksRecommendations(
   generateAiExplanation: GenerateAiExplanation,
   aiExplanationEnabled: boolean,
   cloudTasksInvocationVerifier: CloudTasksInvocationVerifier,
+  /** `null` when this environment names no active weather provider — the care-rules read reports that as a blocker nobody using the app can clear. */
+  activeWeatherProviderKey: string | null,
 ): TasksRecommendationsComposition {
   const taskRepository = new KyselyTaskRepository(database.queries);
   const taskActivityRepository = new KyselyTaskActivityRepository(database.queries);
@@ -167,6 +174,22 @@ export function composeTasksRecommendations(
   // `compose-gardens-mapping.ts`, rather than threading gardens-mapping's
   // composition return value across modules for a single read-only port.
   const georeferenceRepository = new KyselyGeoreferenceRepository(database.queries);
+
+  // The care-rules read: the same catalog, described rather than run. Its
+  // own read-only adapters bound to the pooled connection, the
+  // `georeferenceRepository` judgment above applied again.
+  const careRuleRoutesDependencies: CareRuleRoutesDependencies = {
+    getGardenCareRules: new GetGardenCareRules(
+      catalog,
+      gardenAuthorization,
+      georeferenceRepository,
+      getGardenWeather,
+      getGardenPrecipitation,
+      new KyselyCareRulePlantReadinessSource(database.queries),
+      activeWeatherProviderKey,
+      clock,
+    ),
+  };
 
   const evaluateGardenRecommendations = new EvaluateGardenRecommendations(
     unitOfWork,
@@ -259,6 +282,7 @@ export function composeTasksRecommendations(
   return {
     taskRoutesDependencies,
     recommendationRoutesDependencies,
+    careRuleRoutesDependencies,
     recommendationEvaluationSweepRouteDependencies,
     seasonalPlanRoutesDependencies,
   };

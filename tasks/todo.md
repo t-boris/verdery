@@ -9508,7 +9508,7 @@ of seven rules could never fire and a new plant produced nothing for fourteen da
       on and widen the evidence packet so the synthesis actually spans weather,
       accumulated rainfall, temperature, taxon, lifecycle stage and observed
       symptoms rather than the two facts a single rule happened to cite.
-- [ ] **11. Show the automatic rules as a list, per garden.** The seven versioned
+- [x] **11. Show the automatic rules as a list, per garden.** The seven versioned
       rules are invisible to the person they act for. A care-rules surface names
       every active rule, what it needs, its safety tier and review status — and,
       for THIS garden, whether it can currently fire at all. The engine already

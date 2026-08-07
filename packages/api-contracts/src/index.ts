@@ -96,6 +96,11 @@ export type GardenWeatherResult = Schemas['GardenWeatherResult'];
 export type RecentRainfall = Schemas['RecentRainfall'];
 export type DailyRainfall = Schemas['DailyRainfall'];
 
+/** The automatic care rules and, per garden, what currently blocks each one. */
+export type CareRule = Schemas['CareRule'];
+export type CareRuleBlocker = Schemas['CareRuleBlocker'];
+export type GardenCareRulesResult = Schemas['GardenCareRulesResult'];
+
 /** The media schemas (P6-API-01). */
 export type MediaClass = Schemas['MediaClass'];
 export type MediaUploadState = Schemas['MediaUploadState'];

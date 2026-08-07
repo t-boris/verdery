@@ -168,6 +168,15 @@ moving. Invented numbers (`unsupported_fact`), out-of-packet evidence claims
 (`unknown_evidence_reference`), and over-length drafts are rejected on the same pass, and
 every rejection falls back to the always-served deterministic text.
 
+**The catalog is now visible in the product.** `GET /gardens/{gardenId}/care-rules` lists every
+rule an evaluation would run, its review status, and — computed against that garden's own facts —
+what currently prevents it from producing anything. It reports PRECONDITIONS, never a prediction
+that a rule would fire: whether a rule fires depends on thresholds, plant stages and recurrence
+history, and answering that outside the engine would mean reimplementing its decisions somewhere
+they could drift. The outstanding horticultural review is disclosed on every rule there, because a
+surface explaining what the automation does must not quietly omit that its thresholds are
+placeholders.
+
 ## 5. Launch rule ledger
 
 Seven rule KEYS, eight shipped VERSIONS: `watering.dry-spell-check` ships v1 and v2, and only

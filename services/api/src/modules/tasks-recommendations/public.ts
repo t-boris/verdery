@@ -242,6 +242,16 @@ export type {
   RecommendationCandidateRepository,
   StoredCandidateWithRule,
 } from './application/recommendation-candidate-repository.js';
+export { GetGardenCareRules } from './application/get-garden-care-rules.js';
+export type {
+  CareRuleBlocker,
+  CareRulePlantReadinessSource,
+  CareRuleResource,
+  GardenCareRulesResource,
+} from './application/get-garden-care-rules.js';
+export { KyselyCareRulePlantReadinessSource } from './persistence/kysely-care-rule-plant-readiness-source.js';
+export { registerCareRuleRoutes } from './transport/care-rule-routes.js';
+export type { CareRuleRoutesDependencies } from './transport/care-rule-routes.js';
 export { EvaluateGardenRecommendations } from './application/evaluate-garden-recommendations.js';
 export type {
   CreatedRecommendationSummary,
