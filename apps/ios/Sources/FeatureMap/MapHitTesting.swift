@@ -87,37 +87,11 @@ public enum MapHitTesting {
     /// A `MultiPolygon`'s per-polygon ring list is passed through as-is;
     /// there is no further "which polygon of the multi" distinction needed
     /// here beyond what the caller already iterates.
+    /// Delegates to `CoreDomain.PolygonContainment`, which is where this
+    /// grew up to live once the capture flow needed the same answer — a
+    /// feature may not import a sibling feature, so the shared half moved
+    /// down to the geometry rather than being copied.
     private static func pointInPolygon(_ point: Position, rings: [[Position]]) -> Bool {
-        guard let exterior = rings.first, rayCastContains(point, exterior) else { return false }
-
-        for hole in rings.dropFirst() where rayCastContains(point, hole) {
-            return false
-        }
-
-        return true
-    }
-
-    private static func rayCastContains(_ point: Position, _ ring: [Position]) -> Bool {
-        guard ring.count >= 3 else { return false }
-
-        var inside = false
-        var previous = ring.count - 1
-
-        for index in 0..<ring.count {
-            let current = ring[index]
-            let prior = ring[previous]
-
-            let straddles = (current.y > point.y) != (prior.y > point.y)
-            if straddles {
-                let xAtPointY = (prior.x - current.x) * (point.y - current.y) / (prior.y - current.y) + current.x
-                if point.x < xAtPointY {
-                    inside.toggle()
-                }
-            }
-
-            previous = index
-        }
-
-        return inside
+        PolygonContainment.contains(point, rings: rings)
     }
 }
