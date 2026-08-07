@@ -16,4 +16,10 @@ public enum MediaCaptureLocalizationKey: String, Sendable, CaseIterable {
     /// the perspective, which is a different promise from a photograph.
     case mediaPlanScanDocument = "media.plan.scanDocument"
     case mediaPlanScanHint = "media.plan.scanHint"
+
+    /// A plan whose derivative has not arrived yet. Deliberately not the same
+    /// sentence as "no preview is available": one resolves on its own and the
+    /// other never will, and saying the wrong one sends somebody re-uploading a
+    /// file that was fine.
+    case mediaPlanPreviewProcessing = "media.plan.previewProcessing"
 }

@@ -578,7 +578,6 @@
 "media.plan.unsupportedType" = "This file type is not supported. Choose a JPEG, PNG, WebP, HEIC/HEIF image, or a PDF.";
 "media.plan.tooLarge" = "This file is too large. The limit is {max}.";
 "media.plan.readFailed" = "Could not read the selected file.";
-"media.plan.pdfNoPreview" = "This PDF uploaded and passed validation, but PDF pages cannot be previewed yet. It can still be placed on the map as a background placeholder.";
 "media.plan.previewLoading" = "Loading the plan preview.";
 "media.plan.previewUnavailable" = "No preview is available for this plan yet.";
 "media.plan.readyForMap" = "The plan is uploaded and validated. Add it to the map from the map editor's \"Plan backgrounds\" panel.";
@@ -1284,3 +1283,6 @@
 "aerial.inferred" = "Guessed";
 "aerial.needsGeoreference" = "This needs the garden's location first — a photograph of somewhere cannot be found without knowing where.";
 "aerial.accept" = "Add what is ticked";
+
+/* A plan that has uploaded and is still being rendered. */
+"media.plan.previewProcessing" = "The drawing is being prepared. It appears here on its own in a few seconds — nothing is wrong and nothing needs re-uploading.";

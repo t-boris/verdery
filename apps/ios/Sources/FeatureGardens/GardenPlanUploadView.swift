@@ -185,9 +185,11 @@ public struct GardenPlanUploadView: View {
                     Text(model.previewLoadingText)
                         .font(FieldConsoleType.secondary.font)
                         .foregroundStyle(Palette.textMuted)
-                case .pdfDocument:
-                    InlineMessage(model.pdfNoticeText, tone: .neutral)
-                        .accessibilityIdentifier("gardens.planUpload.pdfNotice")
+                case .stillProcessing:
+                    // Resolves on its own, and says so rather than reading as
+                    // a failure somebody has to act on.
+                    InlineMessage(model.previewProcessingText, tone: .neutral)
+                        .accessibilityIdentifier("gardens.planUpload.previewProcessing")
                 case .unavailable:
                     InlineMessage(model.previewUnavailableText, tone: .warning)
                         .accessibilityIdentifier("gardens.planUpload.previewUnavailable")

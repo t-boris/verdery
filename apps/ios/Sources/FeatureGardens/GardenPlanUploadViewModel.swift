@@ -7,17 +7,43 @@ import Foundation
 import ImageIO
 import Observation
 
-/// The processed plan's preview state — honest about every branch: the
-/// screen-preview DERIVATIVE is the display asset (plans are sensitive
-/// originals, media-storage-and-processing.md section 11; the original is
-/// never displayed), a PDF plan has no derivative yet (P6-WORKER-02's
-/// documented deferral) and gets a stated notice instead of a broken image.
-public enum PlanUploadPreviewState: Sendable {
+/// The processed plan's preview state.
+///
+/// The screen-preview DERIVATIVE is the display asset — plans are sensitive
+/// originals and the original is never displayed
+/// (`media-storage-and-processing.md`, section 11).
+///
+/// **A PDF now has one.** ADR-0017 renders page one in the worker through
+/// `poppler`, so a plat produces exactly the derivatives a scanned plan already
+/// did. The client's old `pdfDocument` branch — a notice saying a PDF cannot be
+/// shown — was written against P6-WORKER-02's deferral and outlived it: the
+/// preview it refused to fetch had been sitting on the server, and somebody
+/// uploading the very document the calibration tooling exists for was told to
+/// imagine it.
+///
+/// `stillProcessing` replaces it. A derivative that is not there yet is a
+/// different fact from one that will never come, and only the first is worth
+/// waiting through.
+public enum PlanUploadPreviewState: Sendable, Equatable {
     case none
     case loading
-    case pdfDocument
+    /// Uploaded and accepted; the worker has not produced a derivative yet.
+    /// Resolves on its own.
+    case stillProcessing
     case unavailable
     case ready(CGImage)
+
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.none, .none), (.loading, .loading),
+            (.stillProcessing, .stillProcessing), (.unavailable, .unavailable):
+            true
+        case let (.ready(left), .ready(right)):
+            left === right
+        default:
+            false
+        }
+    }
 }
 
 /// The garden's property-plan upload screen (P6-PLAN iOS parity): select a
@@ -76,7 +102,9 @@ public final class GardenPlanUploadViewModel {
     public var scanHint: String { strings(.mediaPlanScanHint) }
     public var retryTitle: String { strings(.mediaAttachRetryButton) }
     public var removeTitle: String { strings(.mediaAttachRemoveButton) }
-    public var pdfNoticeText: String { strings(.mediaPlanPdfNoPreview) }
+    /// A derivative that has not arrived yet. Kept apart from
+    /// `previewUnavailableText`, which means one will never come.
+    public var previewProcessingText: String { strings(.mediaPlanPreviewProcessing) }
     public var readyForMapText: String { strings(.mediaPlanReadyForMap) }
     public var previewLoadingText: String { strings(.mediaPlanPreviewLoading) }
     public var previewUnavailableText: String { strings(.mediaPlanPreviewUnavailable) }
@@ -88,10 +116,6 @@ public final class GardenPlanUploadViewModel {
             return strings(.mediaPlanStatusReady)
         }
         return PhotoAttachmentStatusLocalization.text(for: attachment.status, strings: strings)
-    }
-
-    public var isPdfAttached: Bool {
-        attachedContentType == PlanDocumentValidation.pdfContentType
     }
 
     public var isReady: Bool {
@@ -133,22 +157,24 @@ public final class GardenPlanUploadViewModel {
     }
 
     /// Called once the upload reaches `.ready`: resolves the processed
-    /// plan's screen-preview derivative into a displayable image. A PDF
-    /// never attempts a fetch — it has no derivative by design and gets its
-    /// honest notice instead.
+    /// plan's screen-preview derivative into a displayable image.
+    ///
+    /// PDFs take this path too, since ADR-0017: page one is rendered in the
+    /// worker and enters the same image pipeline, so a plat produces the same
+    /// derivatives a photograph of one does.
     public func loadPreviewIfReady() async {
         guard case let .ready(mediaId) = attachment.status else { return }
-        if isPdfAttached {
-            preview = .pdfDocument
-            return
-        }
         if case .ready = preview { return }
 
         preview = .loading
         do {
             let media = try await mediaGateway.getMediaStatus(gardenId: gardenId, mediaId: mediaId)
             guard let derivative = media.displayDerivative else {
-                preview = .unavailable
+                // Not "unavailable": rendering a plan takes seconds, and a
+                // derivative that has not arrived yet is a different fact from
+                // one that never will. Saying the wrong one sends somebody
+                // re-uploading a file that was fine.
+                preview = .stillProcessing
                 return
             }
             let access = try await mediaGateway.getMediaAccess(gardenId: gardenId, mediaId: derivative.mediaId)

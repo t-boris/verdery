@@ -329,6 +329,17 @@ screen-preview derivative for a PDF plan exactly as it does for a scan; no clien
 was added, and none is needed. The remaining honest notice is narrow: an imported background
 pointing at a page other than the first still shows a placeholder outline.
 
+**PDF plan display in the iOS client — BUILT.** The same, and it took longer than it should have:
+the iOS upload screen carried a `pdfDocument` preview branch that short-circuited before any fetch
+and rendered a notice reading "PDF pages cannot be previewed yet". That notice was written against
+P6-WORKER-02's deferral and outlived it by an ADR — the derivative it refused to fetch had been
+sitting on the server, and somebody uploading the very document the calibration tooling exists for
+was told to imagine it. PDFs now take the ordinary derivative path.
+
+Its replacement is a **`stillProcessing`** state, which is a different fact from `unavailable`: a
+derivative that has not arrived yet resolves on its own, and one that will never come does not.
+Reporting the second when the first is true sends somebody re-uploading a file that was fine.
+
 **Plan tile consumption (P6-PLAN-01 scope boundary).** P6-WORKER-02's XYZ tile pyramid exists
 server-side for every raster plan, but no client consumes it yet: the web map editor displays a
 plan background through its single screen-preview derivative (`Media.derivatives` +

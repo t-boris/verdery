@@ -457,7 +457,6 @@ public enum LocalizationKey: String, Sendable, CaseIterable {
     case mediaPlanUnsupportedType = "media.plan.unsupportedType"
     case mediaPlanTooLarge = "media.plan.tooLarge"
     case mediaPlanReadFailed = "media.plan.readFailed"
-    case mediaPlanPdfNoPreview = "media.plan.pdfNoPreview"
     case mediaPlanPreviewLoading = "media.plan.previewLoading"
     case mediaPlanPreviewUnavailable = "media.plan.previewUnavailable"
     case mediaPlanReadyForMap = "media.plan.readyForMap"
