@@ -534,6 +534,73 @@ this project does not have — the package's test suite is unit tests only, by d
 (`apps/ios/README.md`, "Testability"). Adding that target is the right long-term answer and is not in
 this work package.
 
+## 11.5 The device pass
+
+Everything below needs a real iPhone, and none of it can be faked in the
+Simulator. It is written as an ordered list with expected results rather than as
+a warning, because "test on a device" is advice nobody can act on and a
+twenty-minute checklist is.
+
+Two builds are involved and they are not interchangeable. A **development**
+build (run from Xcode over a cable) uses the APNs **sandbox**; a **TestFlight**
+build uses **production**. Several rows below only fail in one of the two, which
+is the whole reason the list separates them.
+
+### From Xcode, over a cable
+
+1. **A push token is issued at all.** Sign in, open the account sheet →
+   notification settings, press "Allow push". Expected: the permission dialogue
+   appears once, and afterwards the screen reads "Push is on for this device".
+   If the screen still offers "Allow push" after granting, `UNUserNotification
+Center` and this application disagree, and nothing below will work.
+2. **The token reaches the server.** With the phone connected, watch for a
+   `PUT /notification-devices/{id}` in the API logs. No request means
+   `Messaging.messaging().token()` returned `nil` — the usual cause is a missing
+   APNs key in Firebase, and it is silent by design.
+3. **A push arrives.** Send one from the Firebase console (Cloud Messaging →
+   new campaign → test on device) using that token. Expected: a banner **in the
+   reader's language**, because the payload is data-only and the client renders
+   it. A banner in English on a Russian phone means the relay did not run and
+   iOS fell back to something else.
+4. **Tapping it lands somewhere.** The banner should open the garden's Today
+   screen for a care recommendation, or the account screen for a finished
+   export.
+5. **Quiet hours are honoured.** Set a window covering now, send again: the
+   inbox entry must still appear, and the banner must not.
+
+### From TestFlight
+
+6. **The same push, again.** This is the row a Sandbox-only APNs key fails and
+   nothing else does — see the key section above. If steps 1–4 passed over a
+   cable and step 6 does not, the key's environment is the first thing to check,
+   not the code.
+7. **`aps-environment` is `production`.** `unzip -p Verdery.ipa "Payload/Verdery
+.app/embedded.mobileprovision" | security cms -D | plutil -p -` and read the
+   entitlement. `development` here is the same silent failure as a Sandbox key.
+
+### Independent of push
+
+8. **Sign in with Apple, then delete the account.** The one Apple checks for
+   specifically: after deletion the app must have called `revokeToken`. Verify
+   in the Apple ID settings on the device — Verdery must be gone from "Sign in
+   with Apple" under the Apple ID. If it is still listed, the revocation failed
+   silently and App Review will find it.
+9. **A capture run in airplane mode.** Photograph three plants with the radio
+   off, then turn it on. Expected: all three exist immediately as unidentified
+   plants with their photographs, and identification suggestions arrive
+   afterwards without anything being lost.
+10. **GPS against a real bed.** Stand in a bed and take a photograph; the
+    placement proposal should name that bed. Bed-level accuracy is the claim —
+    plant-level is not, and a proposal that is one bed out is expected rather
+    than broken.
+11. **Sunlight.** Read the capture surface outdoors at midday. This is what the
+    contrast work was for and the only place it can be judged.
+12. **The volume button shutter, wearing gloves.**
+13. **VoiceOver through one full capture and one review card.** The swipe
+    actions have labelled equivalents; confirm the rotor finds them.
+14. **The largest accessibility text size** on the plant detail and the map's
+    object list.
+
 ## 12. Known gaps
 
 Ordered by how much they matter.
