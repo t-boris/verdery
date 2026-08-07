@@ -224,7 +224,10 @@ GBIF is the first source read for imagery. Its licences are mixed WITHIN one res
 live — so `GbifAdapter.fetchMedia` reads the licence per media entry and never assumes one for the
 response. The taxon-profile read (`GET /plant-catalog/taxa/{id}/profile`) returns only presentable
 images, filtering on both ingestion state and licence, and omitting any CC BY asset without a
-displayable credit; a client is never handed a licence decision.
+displayable credit; a client is never handed a licence decision. The read returns a successful
+envelope even before either lifecycle has produced content: `profile` is `null` and `images` is an
+empty array. This lets clients distinguish an available catalog resource with incomplete knowledge
+from a transport failure while facts and imagery continue to populate independently.
 
 ## 8. Visual Plant Journal
 

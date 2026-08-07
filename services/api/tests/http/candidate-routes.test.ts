@@ -417,7 +417,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(staleRetry.statusCode).toBe(412);
   });
 
-  it('404s a taxon profile that has never been assembled', async () => {
+  it('returns an empty profile envelope when no facts or images have been assembled', async () => {
     const { token } = await createGardenAsOwner();
 
     const response = await app.inject({
@@ -426,8 +426,8 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       headers: bearer(token),
     });
 
-    expect(response.statusCode).toBe(404);
-    expect(asError(response).error.code).toBe('plants_inventory.plant_profile_version.not_found');
+    expect(response.statusCode).toBe(200);
+    expect(asProfile(response)).toEqual({ profile: null, images: [] });
   });
 
   it('serves a taxon materialized profile over real HTTP once one has been assembled', async () => {
