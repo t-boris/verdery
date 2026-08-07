@@ -135,6 +135,14 @@ const DOCUMENTED_PLAN_EXCEPTIONS = new Set([
   'gardens_mapping.imported_background_details',
   'notifications.notification_delivery_attempt',
   'exports.export_section_checkpoint',
+  // The recommendation sweep's per-garden watermark. It cascades from
+  // `gardens_mapping.garden` itself, which the plan's final step deletes, so
+  // no explicit step could run any earlier or delete anything more. It is
+  // also pure derived bookkeeping — a timestamp saying when the engine last
+  // looked at a garden, carrying nothing about the garden, its plants or its
+  // owner — so there is nothing here retention, audit or export policy could
+  // want to keep once the garden is gone.
+  'tasks_recommendations.garden_evaluation_state',
   // P11-DATA-02's licensed catalog image metadata — shared taxon reference
   // content, the same "containing nothing about any garden" reasoning
   // purge-plan.ts's own header already gives for `plants_inventory.
