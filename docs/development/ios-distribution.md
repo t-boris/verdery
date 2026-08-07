@@ -50,13 +50,38 @@ the signing path locally proved that several prerequisites are already satisfied
 
 **Still needed, in order:**
 
-1. **Push Notifications capability on the App ID `com.verdery.app`**, in the developer portal, plus
-   an **APNs authentication key uploaded to the Firebase project**. Unblocks push entirely: until
-   both exist no device is issued a token, so the client registers nothing. Everything built on
-   notifications still works — the inbox is the durable record and push only announces it — but the
-   announcement never arrives. This is the one owner action the notification work left open.
+1. **An APNs authentication key uploaded to the Firebase project**
+   ([console](https://console.firebase.google.com/project/verdery-dev/settings/cloudmessaging) →
+   Apple app configuration → `com.verdery.app` → APNs Authentication Key). Needs the `.p8`, its Key
+   ID, and team `3M68DG8S7N`. Keys are created at
+   [developer.apple.com/account/resources/authkeys/list](https://developer.apple.com/account/resources/authkeys/list)
+   with the **Apple Push Notifications service (APNs)** box ticked; the set of services a key covers
+   is fixed at creation and cannot be added to later. One APNs key serves every app in the team, so
+   an existing one works — and Apple allows at most two active per team.
+
+   Until it exists, no device is issued a token and the client registers nothing, **silently** —
+   absence of a token is an ordinary state, not an error. Everything built on notifications still
+   works, because the inbox is the durable record and push only announces it, but the announcement
+   never arrives.
+
+   **This cannot be automated.** Verified rather than assumed: the App Store Connect API serves
+   `/v1/certificates` but answers `404 The specified resource does not exist` for `/v1/authKeys`,
+   `/v1/apnsKeys` and `/v1/keys`. Auth keys exist only in the web portal, and the Firebase upload
+   only in the Firebase console.
+
+   **The Push Notifications capability is already enabled** and needs no action. Checked against the
+   API on August 7, 2026: `com.verdery.app` (bundle-id resource `5KXAC9Z93J`) carries
+   `APPLE_ID_AUTH`, `IN_APP_PURCHASE` and `PUSH_NOTIFICATIONS`.
+
 2. **Screenshots**, one set — see [11](#11-screenshots). iPhone only since ADR-0019, so this is a
    single set rather than two.
+
+   **Not blocking, worth knowing:** `com.verdery.app.controls`, the Control Center extension's own
+   bundle id, is not registered in the portal. `archive-and-upload.sh` signs with
+   `-allowProvisioningUpdates`, so Xcode registers it during the first archive. If an archive ever
+   fails on the extension's signing, this is why, and one `+` at
+   [identifiers](https://developer.apple.com/account/resources/identifiers/list) fixes it.
+
 3. **A demo account for App Review**, per [9](#9-app-review-notes).
 
 **Still required, in order:**
