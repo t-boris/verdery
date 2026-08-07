@@ -1228,3 +1228,7 @@
 "run.allDone" = "Everything is saved and answered.";
 "run.reviewNow" = "Answer them now";
 "run.keepWalking" = "Keep walking";
+
+/* Scanning a paper drawing. */
+"media.plan.scanDocument" = "Scan the drawing";
+"media.plan.scanHint" = "Finds the page edges and flattens the perspective, so a photograph taken at an angle still measures correctly.";

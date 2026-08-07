@@ -13,6 +13,7 @@ import UniformTypeIdentifiers
 public struct GardenPlanUploadView: View {
     @State private var model: GardenPlanUploadViewModel
     @State private var pickedPhotoItem: PhotosPickerItem?
+    @State private var isScannerPresented = false
     @State private var isFileImporterPresented = false
 
     /// The plan preview's ceiling, scaled with the reader's text size so the
@@ -52,6 +53,24 @@ public struct GardenPlanUploadView: View {
             guard mediaId != nil else { return }
             Task { await model.loadPreviewIfReady() }
         }
+        #if canImport(VisionKit) && os(iOS)
+            .fullScreenCover(isPresented: $isScannerPresented) {
+                DocumentScanner(
+                    onScan: { data in
+                        isScannerPresented = false
+                        Task {
+                            await model.pickDocument(
+                                data: data,
+                                displayFilename: "plan.jpg",
+                                contentType: "image/jpeg"
+                            )
+                        }
+                    },
+                    onCancel: { isScannerPresented = false }
+                )
+                .ignoresSafeArea()
+            }
+        #endif
         .fileImporter(
             isPresented: $isFileImporterPresented,
             allowedContentTypes: Self.importableTypes
@@ -78,6 +97,27 @@ public struct GardenPlanUploadView: View {
                     )
             }
             .accessibilityIdentifier("gardens.planUpload.pickPhoto")
+
+            #if canImport(VisionKit) && os(iOS)
+                // First of the three, because paper is how a plat actually
+                // arrives. The scanner finds the page edges and flattens the
+                // perspective — everything downstream (calibration, tracing,
+                // text extraction) was designed for a flat rectangle, and a
+                // photograph of a desk taken at an angle is not one.
+                if DocumentScanner.isSupported {
+                    Button {
+                        isScannerPresented = true
+                    } label: {
+                        Label(model.scanDocumentTitle, systemImage: "doc.viewfinder")
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .accessibilityIdentifier("gardens.planUpload.scan")
+
+                    Text(model.scanHint)
+                        .font(FieldConsoleType.detail.font)
+                        .foregroundStyle(Palette.textMuted)
+                }
+            #endif
 
             Button {
                 isFileImporterPresented = true

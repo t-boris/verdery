@@ -10,4 +10,10 @@ public enum MediaCaptureLocalizationKey: String, Sendable, CaseIterable {
     case mediaCaptureTakePhotoButton = "media.capture.takePhotoButton"
     case mediaCapturePermissionDeniedMessage = "media.capture.permissionDenied"
     case mediaCaptureOpenSettingsButton = "media.capture.openSettingsButton"
+
+    /// Scanning a paper drawing with the phone. Its own entry rather than a
+    /// reuse of "take a photo": the scanner finds the page edges and corrects
+    /// the perspective, which is a different promise from a photograph.
+    case mediaPlanScanDocument = "media.plan.scanDocument"
+    case mediaPlanScanHint = "media.plan.scanHint"
 }

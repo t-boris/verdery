@@ -72,6 +72,8 @@ public final class GardenPlanUploadViewModel {
     public var description: String { strings(.mediaPlanDescription) }
     public var selectImageTitle: String { strings(.mediaPlanSelectImage) }
     public var selectDocumentTitle: String { strings(.mediaPlanSelectDocument) }
+    public var scanDocumentTitle: String { strings(.mediaPlanScanDocument) }
+    public var scanHint: String { strings(.mediaPlanScanHint) }
     public var retryTitle: String { strings(.mediaAttachRetryButton) }
     public var removeTitle: String { strings(.mediaAttachRemoveButton) }
     public var pdfNoticeText: String { strings(.mediaPlanPdfNoPreview) }
