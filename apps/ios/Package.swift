@@ -84,7 +84,7 @@ let package = Package(
         // idioms. Depends on nothing, not even CoreDomain: a token knows
         // nothing about gardens, which is what lets every feature use it.
         // See Sources/CoreDesignSystem/Palette.swift. (P8-UX-01.)
-        .target(name: "CoreDesignSystem"),
+        .target(name: "CoreDesignSystem", resources: [.process("Resources")]),
 
         // Localized strings are a Core capability rather than a feature asset
         // because validation issue codes produced by CoreDomain must resolve to
