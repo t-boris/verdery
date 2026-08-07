@@ -27,17 +27,27 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const GARDEN_A = '018f0000-0000-7000-8000-00000000000a';
 const GARDEN_B = '018f0000-0000-7000-8000-00000000000b';
 
-/** Serves one fixed eligible set through real keyset paging, so the sweep's own pagination is exercised. */
+/**
+ * Serves one fixed set through real keyset paging, so the sweep's own
+ * pagination is exercised. Both reads answer identically here: which
+ * gardens are DUE is decided by the real adapter's SQL against real
+ * timestamps, which is an integration concern, while this suite is about
+ * the sweep's own paging, counting and failure handling.
+ */
 function pagedSource(ids: readonly Uuid[]): EvaluationGardenSource & { pageRequests: number } {
   const sorted = [...ids].sort();
+  const page = (afterGardenId: Uuid | null, limit: number): Promise<readonly Uuid[]> => {
+    source.pageRequests += 1;
+    const start = afterGardenId === null ? 0 : sorted.findIndex((id) => id > afterGardenId);
+    const from = start === -1 ? sorted.length : start;
+    return Promise.resolve(sorted.slice(from, from + limit));
+  };
   const source = {
     pageRequests: 0,
-    listEligibleGardenIds(afterGardenId: Uuid | null, limit: number): Promise<readonly Uuid[]> {
-      source.pageRequests += 1;
-      const start = afterGardenId === null ? 0 : sorted.findIndex((id) => id > afterGardenId);
-      const from = start === -1 ? sorted.length : start;
-      return Promise.resolve(sorted.slice(from, from + limit));
-    },
+    listEligibleGardenIds: (afterGardenId: Uuid | null, limit: number) =>
+      page(afterGardenId, limit),
+    listGardenIdsDueForEvaluation: (afterGardenId: Uuid | null, limit: number) =>
+      page(afterGardenId, limit),
   };
   return source;
 }

@@ -94,6 +94,7 @@ import type { IdempotencyStore } from '../../../platform/idempotency/idempotency
 import type { OutboxAppender } from '../../../platform/outbox/outbox-appender.js';
 import type { SyncChangeRecorder } from '../../../platform/sync/sync-change-recorder.js';
 import type { AiExplanationRecordRepository } from './ai-explanation-record-repository.js';
+import type { GardenEvaluationStateRepository } from './garden-evaluation-state-repository.js';
 import type { RecommendationCandidateRepository } from './recommendation-candidate-repository.js';
 import type { RuleVersionRepository } from './rule-version-repository.js';
 import type { TaskAttachmentRepository } from './task-attachment-repository.js';
@@ -112,6 +113,8 @@ export interface TasksRecommendationsTransactionContext {
   readonly syncChanges: SyncChangeRecorder;
   readonly ruleVersions: RuleVersionRepository;
   readonly recommendationCandidates: RecommendationCandidateRepository;
+  /** The sweep's per-garden watermark, written in the same transaction as the evaluation it describes. */
+  readonly gardenEvaluationState: GardenEvaluationStateRepository;
   readonly outbox: OutboxAppender;
   readonly aiExplanations: AiExplanationRecordRepository;
   readonly taxonomyReferences: TaxonomyReferenceRepository;

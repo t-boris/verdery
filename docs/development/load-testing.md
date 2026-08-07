@@ -220,9 +220,16 @@ mark** until section 4 of service-levels.md is approved — the run's job is to 
 gardens-per-second figure that a target could then be set from.
 
 **The number the report must contain.** Sweep duration divided by `gardensEvaluated`, extrapolated
-to the eligible-garden count at which it exceeds the 6-hour interval
-(`RECOMMENDATION_EVALUATION_SWEEP_INTERVAL_MS = 21600000`). That crossing point is when this design
+to the DUE-garden count at which it exceeds the 5-minute interval
+(`RECOMMENDATION_EVALUATION_SWEEP_INTERVAL_MS = 300000`). That crossing point is when this design
 must move to a Cloud Run Job — a migration the implementation's own comments already anticipate.
+
+Note that `gardensEvaluated` is now the DUE count, not the eligible count: the sweep selects
+gardens whose facts changed since their last evaluation, or whose watermark is older than the
+six-hour staleness floor. A load run must therefore drive real change (adding plants, recording
+observations, refreshing weather) to produce a meaningful figure — a run over a quiet estate
+measures the due-check itself, which is one indexed statement, and says nothing about evaluation
+throughput.
 
 ### LOAD-05 `provider-slowdown` — provider slowdown
 

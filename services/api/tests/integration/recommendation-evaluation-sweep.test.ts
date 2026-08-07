@@ -237,17 +237,24 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       targetKind: 'plant',
     });
 
-    // Duplicate-safe scheduled runs: the retried trigger re-evaluates over
-    // unchanged facts, suppresses on the live candidate, and writes nothing
-    // — no second candidate, no second event.
+    // Duplicate-safe scheduled runs, now at the cheapest possible level:
+    // the first run recorded this garden's evaluation watermark, nothing
+    // the engine reads has changed since, and the staleness floor has not
+    // elapsed — so the retried trigger does not select the garden at all.
+    //
+    // The guarantee is unchanged and strictly stronger than before. It used
+    // to hold because a re-evaluation over unchanged facts suppressed on
+    // the live candidate and wrote nothing; it now holds without the
+    // re-evaluation happening. Both outcomes are asserted below: no second
+    // candidate and no second event.
     const second = await sweep.execute();
     expect(second).toEqual({
-      gardensEvaluated: 1,
+      gardensEvaluated: 0,
       candidatesCreated: 0,
       candidatesSuperseded: 0,
       candidatesExpired: 0,
       lostRaces: 0,
-      ruleSkips: { factMissing: 3, weatherMissing: 2 },
+      ruleSkips: {},
       embellishment: null,
     });
     expect(await candidateRows()).toHaveLength(1);
@@ -286,7 +293,36 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     // Fetched seven hours before START — past the six-hour forecast window
     // — about a freezing moment still ahead of the evaluation instant.
     const forecastFetchedAt = new Date(START.getTime() - 7 * HOUR_MS);
+    // Seven elapsed rainless days. The watering rule decides on
+    // ACCUMULATION, so the stale CURRENT reading supplies the temperature
+    // and the label while this history supplies the dry spell; without it
+    // the rule would honestly skip for want of measured rainfall, and this
+    // test would be asserting the stale label on a candidate that never
+    // existed.
+    const rainlessWeek = Array.from({ length: 7 }, (_unused, index) => ({
+      ...weatherBase,
+      id: randomUUID(),
+      kind: 'observation' as const,
+      effectiveAt: new Date(START.getTime() - (index + 1) * 24 * HOUR_MS),
+      fetchedAt: new Date(START.getTime() - (index + 1) * 24 * HOUR_MS),
+      createdAt: new Date(START.getTime() - (index + 1) * 24 * HOUR_MS),
+      measurements: {
+        temperatureCelsius: null,
+        precipitationMm: 0,
+        windSpeedMps: null,
+        humidityPercent: null,
+      },
+      precipitationIntervalSeconds: 24 * 60 * 60,
+      sourceUnits: {
+        temperature: null,
+        precipitation: 'millimetre',
+        windSpeed: null,
+        humidity: null,
+      },
+    }));
+
     await records.insertMany([
+      ...rainlessWeek,
       {
         ...weatherBase,
         id: staleObservationId,
@@ -355,12 +391,16 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       .selectFrom('tasks_recommendations.recommendation_evidence')
       .select(['source_weather_record_id', 'fact_value'])
       .where('candidate_id', '=', candidateId)
-      .where('fact_key', '=', 'weather.dry_spell_observation')
+      // v2's evidence key: the accumulation the decision was made on, not
+      // the single reading v1 quoted.
+      .where('fact_key', '=', 'weather.accumulated_rainfall')
       .executeTakeFirstOrThrow();
     expect(weatherEvidence.source_weather_record_id).toBe(staleObservationId);
     expect(weatherEvidence.fact_value).toMatchObject({
       freshness: 'stale',
       temperatureCelsius: 27,
+      totalMm: 0,
+      daysCovered: 7,
     });
 
     // ...and in the confidence factor: the reduced stale-weather
@@ -371,7 +411,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       .where('candidate_id', '=', candidateId)
       .where('factor_kind', '=', 'confidence')
       .executeTakeFirstOrThrow();
-    expect(confidenceFactor.factor_value).toEqual({
+    expect(confidenceFactor.factor_value).toMatchObject({
       contribution: 8,
       basis: { weatherFreshness: 'stale' },
     });

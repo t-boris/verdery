@@ -32,4 +32,30 @@ export interface EvaluationGardenSource {
    * (`null` starts from the beginning), ascending.
    */
   listEligibleGardenIds(afterGardenId: Uuid | null, limit: number): Promise<readonly Uuid[]>;
+
+  /**
+   * The same eligible set, narrowed to gardens that are DUE — the read that
+   * lets the sweep run every few minutes instead of every few hours.
+   *
+   * A garden is due when either:
+   *
+   * - something the engine reads changed since its last evaluation — a
+   *   plant, an observation, a task, or a stored weather record; or
+   * - its last evaluation is older than `stalenessFloor`, so a purely
+   *   time-based rule (the 14-day observation reminder, a forecast window
+   *   opening) can still fire with nothing else having happened.
+   *
+   * A garden never evaluated is always due.
+   *
+   * WHY THE FLOOR IS NOT OPTIONAL: without it, a garden nobody touches and
+   * whose weather stops refreshing would go silent forever, and the rules
+   * most likely to matter to a neglected garden are exactly the time-based
+   * ones. The floor is what keeps "nothing changed" from meaning "nothing
+   * to say".
+   */
+  listGardenIdsDueForEvaluation(
+    afterGardenId: Uuid | null,
+    limit: number,
+    stalenessFloor: Date,
+  ): Promise<readonly Uuid[]>;
 }

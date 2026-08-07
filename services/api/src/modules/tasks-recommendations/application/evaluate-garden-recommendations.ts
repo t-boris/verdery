@@ -397,6 +397,14 @@ export class EvaluateGardenRecommendations {
         });
       }
 
+      // Last, inside the same transaction: the garden was looked at, and
+      // the sweep may now skip it until something changes. Recorded even
+      // when nothing fired — an evaluation that suppressed everything is
+      // still an evaluation, and is in fact the common case whose absence
+      // of output is exactly why a candidate timestamp cannot stand in for
+      // this watermark.
+      await context.gardenEvaluationState.recordEvaluated(gardenId, evaluatedAt);
+
       return { gardenId, evaluatedAt, decisions: plan.decisions, createdCandidates };
     });
   }

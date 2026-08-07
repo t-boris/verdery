@@ -14,6 +14,21 @@
  * recommendation, garden, or plant table, and the worker contributes only
  * its interval loop and verified OIDC identity.
  *
+ * DUE GARDENS, NOT EVERY GARDEN (and why the interval could then shrink):
+ * this sweep used to drain every eligible garden on every run, which made
+ * the interval a direct trade between responsiveness and cost — it sat at
+ * six hours, so adding a plant produced nothing until the next tick. It now
+ * asks for gardens that are DUE (`listGardenIdsDueForEvaluation`): something
+ * the engine reads changed since the garden's last evaluation, or its
+ * watermark is older than `EVALUATION_STALENESS_FLOOR_MS`. A quiet garden
+ * costs one indexed row in a single statement, so the sweep can run every
+ * few minutes and a new plant earns its recommendations while the person is
+ * still looking at the screen.
+ *
+ * The watermark is written inside the evaluation transaction — see
+ * `GardenEvaluationStateRepository` for why that ordering, and not the
+ * reverse, is the safe one.
+ *
  * BOUNDING — full drain in bounded pages, not a per-run cap, deliberately:
  * the retention sweep caps 25 candidates per run because each one fans out
  * to a deletion workflow; one garden's evaluation is a bounded handful of
@@ -99,6 +114,20 @@ export const EVALUATION_SWEEP_PAGE_SIZE = 25;
  */
 export const EXPIRY_SWEEP_GARDEN_LIMIT = 25;
 
+/**
+ * How long a garden may go unevaluated before it is due regardless of
+ * whether anything changed.
+ *
+ * Six hours is the interval this sweep used to run at, so the floor
+ * preserves exactly the old worst-case cadence for a garden nobody touches
+ * while letting a garden that DID change be picked up within one short
+ * tick. It exists because several rules are time-based — the 14-day
+ * observation reminder, a forecast window opening — and a change-only trigger
+ * would let a neglected garden fall silent precisely when its reminders
+ * matter most.
+ */
+export const EVALUATION_STALENESS_FLOOR_MS = 6 * 60 * 60 * 1000;
+
 /** The narrow slice of `EvaluateGardenRecommendations` this sweep drives — structural, so tests fake it without the full constructor. */
 export interface GardenRecommendationEvaluator {
   execute(input: EvaluateGardenRecommendationsInput): Promise<EvaluateGardenRecommendationsResult>;
@@ -149,9 +178,10 @@ export class RunRecommendationEvaluationSweep {
 
     let afterGardenId: Uuid | null = null;
     for (;;) {
-      const page = await this.gardens.listEligibleGardenIds(
+      const page = await this.gardens.listGardenIdsDueForEvaluation(
         afterGardenId,
         EVALUATION_SWEEP_PAGE_SIZE,
+        new Date(this.clock.now().getTime() - EVALUATION_STALENESS_FLOOR_MS),
       );
       if (page.length === 0) {
         break;

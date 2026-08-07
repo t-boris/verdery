@@ -150,6 +150,7 @@ export interface RecommendationAiExplanationRow {
 }
 
 export interface TasksRecommendationsDatabaseSchema {
+  'tasks_recommendations.garden_evaluation_state': GardenEvaluationStateRow;
   'tasks_recommendations.task': TaskRow;
   'tasks_recommendations.task_attachment': TaskAttachmentRow;
   'tasks_recommendations.task_revision': TaskRevisionRow;
@@ -159,4 +160,10 @@ export interface TasksRecommendationsDatabaseSchema {
   'tasks_recommendations.recommendation_priority_factor': RecommendationPriorityFactorRow;
   'tasks_recommendations.recommendation_feedback': RecommendationFeedbackRow;
   'tasks_recommendations.recommendation_ai_explanation': RecommendationAiExplanationRow;
+}
+
+/** The recommendation sweep's per-garden watermark — see `migrations/1789200000000_garden-evaluation-watermark.sql`. */
+export interface GardenEvaluationStateRow {
+  garden_id: string;
+  last_evaluated_at: Date;
 }

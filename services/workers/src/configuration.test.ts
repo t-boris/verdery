@@ -65,7 +65,10 @@ describe('loadConfiguration', () => {
       },
       recommendationEvaluationSweep: {
         sweepUrl: VALID_ENVIRONMENT.RECOMMENDATION_EVALUATION_SWEEP_URL,
-        intervalMs: 21_600_000,
+        // Five minutes: the sweep selects DUE gardens rather than draining
+        // every eligible one, so a tick over a quiet estate costs a single
+        // statement returning no rows.
+        intervalMs: 300_000,
       },
       notificationEventsUrl: VALID_ENVIRONMENT.NOTIFICATION_EVENTS_URL,
       notificationDeliverySweep: {

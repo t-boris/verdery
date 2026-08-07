@@ -141,10 +141,14 @@ the established worker-interval → authenticated-internal-endpoint machinery (t
 retention-sweep shape, generalized in `services/workers/src/sweeps/` now that three sweeps share
 it). The worker's hourly tick triggers `/internal/weather-refresh/sweep` (active georeferenced
 gardens through `RefreshGardenWeather`, least-recently-fetched first, batch-capped, typed quota
-exhaustion stops the batch, and the zero-provider reality is a logged no-op); its six-hourly tick
+exhaustion stops the batch, and the zero-provider reality is a logged no-op); its five-minute tick
 triggers `/internal/recommendation-evaluation/sweep` (`RunRecommendationEvaluationSweep`:
-full-drain `EvaluateGardenRecommendations` over eligible gardens — active, with at least one
-active-status plant — plus the candidate-expiry phase closing P7-RULE-01's deferred gap).
+`EvaluateGardenRecommendations` over DUE gardens — eligible, meaning active with at least one
+active-status plant, AND either changed since their last evaluation or past the six-hour
+staleness floor — plus the candidate-expiry phase closing P7-RULE-01's deferred gap). The
+cadence used to be six-hourly with a full drain, which meant adding a plant produced nothing
+until the next tick; the per-garden watermark
+(`tasks_recommendations.garden_evaluation_state`) is what made a short tick affordable.
 Duplicate safety is proven at every layer: the overlap-guarded scheduler, the cache-window and
 idempotent-per-window sweep re-runs, and the per-garden advisory lock shared by evaluation and
 expiry. `EvaluateGardenRecommendations` additionally appends one `recommendation.candidate_created`

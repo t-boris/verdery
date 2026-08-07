@@ -59,6 +59,7 @@ import {
   FakeTaxonomySeasonalFactRepository,
 } from './recommendation-test-doubles.js';
 import { FakeMediaRepository } from './tasks-recommendations-media-test-double.js';
+import type { GardenEvaluationStateRepository } from './garden-evaluation-state-repository.js';
 import type { TaskAttachmentRepository } from './task-attachment-repository.js';
 import type { TaskActivityEntry, TaskActivityRepository } from './task-activity-repository.js';
 import type { TaskRepository } from './task-repository.js';
@@ -151,6 +152,16 @@ export class FakeTaskRepository implements TaskRepository {
       )
       .sort((a, b) => (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0));
     return Promise.resolve(matches);
+  }
+}
+
+/** In-memory watermark store — the sweep's own bookkeeping, asserted by tests that care when a garden was last looked at. */
+export class FakeGardenEvaluationStateRepository implements GardenEvaluationStateRepository {
+  readonly lastEvaluatedByGarden = new Map<Uuid, Date>();
+
+  recordEvaluated(gardenId: Uuid, evaluatedAt: Date): Promise<void> {
+    this.lastEvaluatedByGarden.set(gardenId, evaluatedAt);
+    return Promise.resolve();
   }
 }
 
@@ -518,6 +529,7 @@ export interface TasksRecommendationsFakes {
   readonly syncChanges: FakeSyncChangeRecorder;
   readonly ruleVersions: FakeRuleVersionRepository;
   readonly recommendationCandidates: FakeRecommendationCandidateRepository;
+  readonly gardenEvaluationState: FakeGardenEvaluationStateRepository;
   readonly outbox: FakeOutboxAppender;
   readonly aiExplanations: FakeAiExplanationRecordRepository;
   readonly taxonomyReferences: FakeTaxonomyReferenceRepository;
@@ -547,6 +559,7 @@ export function createTasksRecommendationsFakes(options?: {
     syncChanges: new FakeSyncChangeRecorder(),
     ruleVersions,
     recommendationCandidates,
+    gardenEvaluationState: new FakeGardenEvaluationStateRepository(),
     outbox: new FakeOutboxAppender(),
     aiExplanations: new FakeAiExplanationRecordRepository(recommendationCandidates),
     taxonomyReferences: new FakeTaxonomyReferenceRepository(options?.taxonomyReferences),

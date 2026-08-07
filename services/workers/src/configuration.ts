@@ -103,17 +103,25 @@ export const environmentSchema = z.object({
   //   that window; hourly means a garden goes at most ~2x the window
   //   between refreshes without polling aggressively. With zero providers
   //   configured (today's reality) every tick is a typed, logged no-op.
-  // - Recommendation evaluation, every six hours: the launch rules are
-  //   day-granular (14-day observation reminder, multi-day validity
-  //   windows) except the forecast-driven frost watch, whose input goes
-  //   stale on the forecast freshness window (default six hours) — so six
-  //   hours keeps the one weather-urgent rule current while re-scanning
-  //   every eligible garden four times a day, and evaluation is idempotent
-  //   per window, so a finer cadence would only re-suppress.
+  // - Recommendation evaluation, every five minutes. This used to be six
+  //   hours, reasoned from the rules being day-granular — which they are,
+  //   but that reasoning answered the wrong question. The rules' own
+  //   cadence bounds how often an evaluation can produce something NEW
+  //   from unchanged facts; it says nothing about how quickly the system
+  //   should react to facts that just changed. Adding a plant produced
+  //   nothing until the next tick, so the core loop of the product —
+  //   add a plant, see what it needs — could take most of a working day.
+  //
+  //   The sweep now asks for gardens that are DUE rather than draining
+  //   every eligible garden (see `run-recommendation-evaluation-sweep.ts`),
+  //   so a tick over a quiet estate is one indexed statement returning no
+  //   rows. That is what makes a five-minute cadence affordable, and the
+  //   sweep's own six-hour staleness floor preserves the previous
+  //   worst-case cadence for a garden nothing happens to.
   WEATHER_REFRESH_SWEEP_URL: z.string().url(),
   WEATHER_REFRESH_SWEEP_INTERVAL_MS: durationMilliseconds.default(3_600_000),
   RECOMMENDATION_EVALUATION_SWEEP_URL: z.string().url(),
-  RECOMMENDATION_EVALUATION_SWEEP_INTERVAL_MS: durationMilliseconds.default(21_600_000),
+  RECOMMENDATION_EVALUATION_SWEEP_INTERVAL_MS: durationMilliseconds.default(300_000),
 
   // P7-NOTIF-01: the API's internal notification-policy endpoint the relay
   // forwards each claimed `recommendation.candidate_created` outbox event

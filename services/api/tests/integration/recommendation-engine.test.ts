@@ -267,10 +267,14 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       .executeTakeFirstOrThrow();
     expect(Number(candidateCount.count)).toBe(1);
 
+    // EVERY shipped version is registered, not only the evaluated ones: a
+    // stored candidate pins the version that produced it, so the row it
+    // references must exist even after a newer version supersedes it.
     const ruleVersions = await db
       .selectFrom('tasks_recommendations.rule_version')
       .select(['rule_key', 'version'])
       .orderBy('rule_key')
+      .orderBy('version')
       .execute();
     expect(ruleVersions).toEqual([
       { rule_key: 'lifecycle.harvest-readiness-check', version: 1 },
@@ -279,6 +283,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       { rule_key: 'seasonal.sowing-window-check', version: 1 },
       { rule_key: 'succession.replanting-reminder', version: 1 },
       { rule_key: 'watering.dry-spell-check', version: 1 },
+      { rule_key: 'watering.dry-spell-check', version: 2 },
       { rule_key: 'weather.frost-watch', version: 1 },
     ]);
   });

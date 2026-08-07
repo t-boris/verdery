@@ -9464,7 +9464,7 @@ The engine, its seven versioned rules, evidence, priority, sweeps, Today and the
 feedback commands were all complete. Two data inputs were not connected, so five
 of seven rules could never fire and a new plant produced nothing for fourteen days.
 
-- [ ] **1. Activate the weather provider.** Open-Meteo is registered with real
+- [x] **1. Activate the weather provider.** Open-Meteo is registered with real
       license/quota/timeout metadata but `WEATHER_ACTIVE_PROVIDER_KEY` was set in no
       environment, so every garden degraded to `noProviderConfigured` and both
       weather-dependent rules recorded `weatherMissing` forever. (`P0-PROV-01`
@@ -9475,23 +9475,23 @@ of seven rules could never fire and a new plant produced nothing for fourteen da
 - [ ] **3. Make the horticultural review of that content performable.** ADR-0013
       and the safety catalog require a named human reviewer; the mechanism to record
       one did not exist for seasonal facts. (`P7-SAFE-01`, `P9D-SEASON-01`.)
-- [ ] **4. Re-evaluate a garden when its facts change.** Evaluation ran only on the
+- [x] **4. Re-evaluate a garden when its facts change.** Evaluation ran only on the
       six-hourly sweep, so adding a plant produced nothing until the next tick.
-- [ ] **5. Accept a lifecycle stage when a plant is added.** Every new plant landed
+- [x] **5. Accept a lifecycle stage when a plant is added.** Every new plant landed
       in `planned`, a stage no weather or harvest rule accepts. (`P4-BE-01`,
       `P4-WEB-01`.)
 - [ ] **6. Ask for the garden's location during onboarding.** Without a georeference
       there is no weather and no hemisphere, and five of seven rules go silent.
-- [ ] **7. Feed completed care back into the engine.** `GardenFacts.openTasks`
+- [x] **7. Feed completed care back into the engine.** `GardenFacts.openTasks`
       carried only `planned`/`suggested` tasks, so completing a watering task removed
       the only thing suppressing its own recommendation, and the recurrence interval
       was still measured from the candidate's creation rather than from the moment
       the work was actually done. Recent completions become a fact the engine reads.
-- [ ] **8. Show the garden's weather.** `GetGardenWeather` existed only as a
+- [x] **8. Show the garden's weather.** `GetGardenWeather` existed only as a
       cross-module injection into the rule engine; no HTTP surface exposed a reading
       to a client. The garden gains a weather read with its freshness label and the
       provider attribution Open-Meteo's CC BY 4.0 terms require a client to render.
-- [ ] **9. Decide watering from ACCUMULATED rainfall, not one reading.**
+- [x] **9. Decide watering from ACCUMULATED rainfall, not one reading.**
       `watering.dry-spell-check` v1 read a single latest observation's
       `precipitationMm` — a point value whose accumulation interval is
       provider-defined. Open-Meteo already stores a series of daily
