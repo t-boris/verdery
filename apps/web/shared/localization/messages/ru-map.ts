@@ -210,6 +210,14 @@ export const russianMapMessages: Readonly<Record<keyof typeof englishMapMessages
   'map.plat.read': 'Распознать план',
   'map.plat.reading': 'Читаем план…',
   'map.plat.reviewTitle': 'Что сказано в плане',
+  'map.plat.alignmentTitle': 'Совместить весь плат',
+  'map.plat.alignmentHelp':
+    'Перетащите всю схему поверх аэрофото, затем уточните здесь. Участок и все объекты двигаются, поворачиваются и масштабируются вместе.',
+  'map.plat.alignmentEast': 'Восток / запад (м)',
+  'map.plat.alignmentNorth': 'Север / юг (м)',
+  'map.plat.alignmentRotation': 'Поворот (°)',
+  'map.plat.alignmentScale': 'Масштаб (%)',
+  'map.plat.alignmentReset': 'Сбросить совмещение',
   'map.plat.address': 'Адрес',
   'map.plat.north': 'Стрелка севера',
   'map.plat.northValue': '{degrees}° по часовой стрелке от верха листа',
@@ -343,7 +351,7 @@ export const russianMapMessages: Readonly<Record<keyof typeof englishMapMessages
   'map.orientation.counterClockwise': 'Повернуть на 15° против часовой стрелки',
   'map.orientation.clockwise': 'Повернуть на 15° по часовой стрелке',
   'map.orientation.angle': 'Точный угол поворота в градусах',
-  'map.orientation.northUp': 'Срочно повернуть карту севером вверх',
+  'map.orientation.northUp': 'Повернуть карту севером вверх',
   'map.backdrop.tooCloseForStreets':
     'На таком приближении у карты улиц нет деталей — отдалитесь, чтобы её прочитать, или переключитесь на снимок, чтобы обводить по земле.',
   'map.backdrop.magnified': 'Снимок увеличен в {factor}×',
@@ -357,7 +365,7 @@ export const russianMapMessages: Readonly<Record<keyof typeof englishMapMessages
   'map.aerial.evidence.visible': 'видно на снимке',
   'map.aerial.evidence.inferred': 'определено косвенно',
   'map.aerial.disclaimer':
-    'Приблизительные предложения ИИ для планирования, а не официальные границы. Проверьте каждый объект.',
+    'Сохранённый участок взят из совмещённого плата; видимые объекты внутри него приблизительно определены ИИ.',
   'map.aerial.addSelected': 'Добавить выбранное ({count})',
   'map.aerial.acceptFailed': 'Не все найденные объекты удалось добавить.',
   'map.aerial.accepted': 'Добавлено найденных объектов: {count}.',

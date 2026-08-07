@@ -203,6 +203,14 @@ export const englishMapMessages = {
   'map.plat.read': 'Recognise the plan',
   'map.plat.reading': 'Reading the plan…',
   'map.plat.reviewTitle': 'What the plan says',
+  'map.plat.alignmentTitle': 'Align the complete plat',
+  'map.plat.alignmentHelp':
+    'Drag the complete overlay on the aerial image, then fine-tune it here. The lot and every object move, rotate and scale together.',
+  'map.plat.alignmentEast': 'East / west (m)',
+  'map.plat.alignmentNorth': 'North / south (m)',
+  'map.plat.alignmentRotation': 'Rotation (°)',
+  'map.plat.alignmentScale': 'Scale (%)',
+  'map.plat.alignmentReset': 'Reset alignment',
   'map.plat.address': 'Address',
   'map.plat.north': 'North arrow',
   'map.plat.northValue': '{degrees}° clockwise from the top of the sheet',
@@ -350,7 +358,7 @@ export const englishMapMessages = {
   'map.aerial.evidence.visible': 'visible',
   'map.aerial.evidence.inferred': 'inferred',
   'map.aerial.disclaimer':
-    'Approximate AI proposals for planning, not surveyed boundaries. Review every object before adding it.',
+    'The saved lot comes from the aligned survey; visible objects are approximate AI proposals inside it.',
   'map.aerial.addSelected': 'Add selected ({count})',
   'map.aerial.acceptFailed': 'The detected objects could not all be added.',
   'map.aerial.accepted': 'Added {count} detected objects.',

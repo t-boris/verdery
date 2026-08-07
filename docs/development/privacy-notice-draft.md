@@ -181,10 +181,9 @@ distances in metres relative to your own garden, not as positions on the Earth. 
 say how big your garden is and how it is laid out, not where it is.
 
 **A garden can carry a real-world anchor point, but nothing can set one yet.** Verdery is designed
-so that a garden can be tied to a real-world coordinate, which would place your map on the Earth —
-in practice, the location of your property. No version of the app can currently create that anchor.
-If and when it can, that is precise location information about your home, and this notice will say
-so plainly and describe how to remove it.
+so that a garden can be tied to a real-world coordinate, which places your map on the Earth — in
+practice, the location of your property. The app can create that anchor from an address search or
+the browser's current-location permission. That is precise location information about your home.
 
 **Photos are the one way a precise location can reach us today.** As described in section 3.1,
 photos are uploaded unchanged, and phone photos usually carry the coordinates where they were
@@ -192,10 +191,10 @@ taken. If you photograph your own garden, that coordinate is your garden's locat
 it for anything, and it is not read, indexed, or displayed — but it is in the file we store, and
 you should know that.
 
-**Map backgrounds.** If a garden ever has a real-world anchor, the website shows a map background
-loaded from OpenFreeMap, an outside map service. That service would then see your network address
-and the area of the map you are looking at. Because no garden can have an anchor today, this does
-not happen today.
+**Map backgrounds.** For a garden with a real-world anchor, the website can show a street-map
+background loaded from OpenStreetMap. That service sees your network address and the area of the
+map you are looking at when you select the Streets backdrop. Aerial imagery is loaded from the
+United States Geological Survey when you select the Aerial backdrop.
 
 ## 5. Why we use your information
 
@@ -219,13 +218,14 @@ advertising. We do not give it to data brokers.
 Some outside companies handle your information because they run parts of the service. They act on
 our instructions for that purpose only.
 
-| Who                                          | What they handle                                                                                 |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Google (Firebase Authentication)             | Your sign-in credentials and email address; sends the one-time sign-in link email                |
-| Google (Google Cloud Platform)               | Our servers, database, file storage, work queue, and logs — all in the United States             |
-| Apple, Google (as sign-in providers)         | Only if you choose "Sign in with Apple" or "Sign in with Google"                                 |
-| Google (reCAPTCHA Enterprise) — website only | Checks that requests come from a real browser rather than an automated one                       |
-| OpenFreeMap                                  | Map background tiles — **only** if a garden has a real-world anchor, which is not possible today |
+| Who                                          | What they handle                                                                     |
+| -------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Google (Firebase Authentication)             | Your sign-in credentials and email address; sends the one-time sign-in link email    |
+| Google (Google Cloud Platform)               | Our servers, database, file storage, work queue, and logs — all in the United States |
+| Apple, Google (as sign-in providers)         | Only if you choose "Sign in with Apple" or "Sign in with Google"                     |
+| Google (reCAPTCHA Enterprise) — website only | Checks that requests come from a real browser rather than an automated one           |
+| OpenStreetMap                                | Street-map background tiles when a georeferenced garden uses the Streets backdrop    |
+| United States Geological Survey              | Aerial-map imagery when a georeferenced garden uses the Aerial backdrop              |
 
 **Companies we do not use, and want to be specific about:** no weather service, no plant-information
 service, no plant-identification service, no analytics company, no advertising network, no
@@ -589,11 +589,11 @@ no enforcing constant. See section 8 below.
 | Google reCAPTCHA Enterprise (web only)    | App Check attestation signals; **exact contents vendor-defined and unverified**              | `apps/web/core/auth/app-check.ts:20,39-42`                                          |
 | Google Cloud Logging / Trace / Monitoring | Logs and spans as described in §3.8                                                          | `logger.ts`; `telemetry-bootstrap.ts`                                               |
 | Firebase Cloud Messaging                  | **Data-only** push payloads: ids and template keys, no rendered text                         | `services/api/src/modules/notifications/persistence/fcm-push-message-sender.ts`     |
-| OpenFreeMap (`tiles.openfreemap.org`)     | Browser IP + the map area viewed — **only when a garden has a georeference**                 | `apps/web/features/map/basemap-provider.ts:69`; `map-basemap.tsx:44`                |
+| OpenStreetMap (`tile.openstreetmap.org`)  | Browser IP + the map area viewed when the Streets backdrop is selected                       | `apps/web/features/map/basemap-provider.ts`; `map-basemap.tsx`                      |
+| USGS (`imagery.nationalmap.gov`)          | Browser IP + the map area viewed when the Aerial backdrop is selected                        | `apps/web/features/map/basemap-provider.ts`; `map-basemap.tsx`                      |
 
-The OpenFreeMap path is not currently reachable, because no georeference can exist (§3.3). It is
-disclosed anyway: the gate is a data condition, not a configuration flag, so a single future feature
-turns it on.
+There is no county-specific parcel lookup, parcel aggregator, or image-derived substitute for a
+survey lot. Aerial object detection starts only after one aligned lot has been saved from a plat.
 
 ### 4.2 What does not leave — verified absent
 
@@ -907,7 +907,7 @@ files it names.**
 | 8   | Assumption that Cloud Tasks payloads carry only identifiers                                                                               | They also carry `validation.displayFilename` — the user's own file name                                                                                                                                      |
 | 9   | Assumption that idempotency records hold only keys                                                                                        | `platform.idempotency_record.response_body jsonb` stores **complete API response bodies**, i.e. whatever personal data the endpoint returned. Nothing prunes them on expiry; account purge does delete them  |
 | 10  | Assumption that a purged account leaves nothing                                                                                           | The profile row survives as a `purged:<profileId>` tombstone (~20 NOT NULL foreign keys from shared-garden content make deletion impossible), and user-defined taxonomy rows survive in the shared catalogue |
-| 11  | Assumption that the web client contacts no third party                                                                                    | It loads MapLibre tiles from **`tiles.openfreemap.org`** whenever a garden has a georeference — currently unreachable, but a data-condition gate, not a flag                                                 |
+| 11  | Assumption that the web client contacts no third party                                                                                    | The Streets backdrop loads tiles from **`tile.openstreetmap.org`** when selected for a georeferenced garden                                                                                                  |
 | 12  | Assumption that push notifications reach devices                                                                                          | The server adapter is real and wired, but **no client registers a device**, so `notification_device` is empty and nothing is sent                                                                            |
 
 ## 15. Decisions only the owner or counsel can make

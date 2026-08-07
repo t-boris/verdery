@@ -180,12 +180,14 @@ returns clear unlabelled linework with an empty label instead of dropping it. Pr
 remain strict transcription; visual classification is confined to these reviewable shapes and
 always carries model confidence.
 
-Aerial tracing fetches a 1024 px, north-up USGS export covering 160 m around the saved address and
-asks for normalized outlines/lines/points belonging to the center property. The structured result
-distinguishes visible from inferred evidence and includes lot, roof footprints, driveway/walk
-centerlines, parking surfaces, fences, water/utility areas and mature trees. The API converts those
-points into the existing garden-local coordinate space and returns them without writing. A person
-selects what becomes ordinary map objects.
+Aerial tracing requires one already-aligned, saved survey lot. There is no county-specific adapter,
+parcel aggregator, provider cascade or image-inferred lot. The API fetches a 1024 px, north-up USGS
+export covering 160 m around the saved lot center and asks Vertex only for normalized
+outlines/lines/points inside that supplied boundary. The
+structured result distinguishes visible from inferred evidence and includes roof footprints,
+driveway/walk centerlines, parking surfaces, fences, water/utility areas and mature trees. The API
+converts those points into the existing garden-local coordinate space and returns them without
+writing. A person selects what becomes ordinary map objects.
 
 ### 9.1 Which photograph is sent, and the size the provider will accept
 

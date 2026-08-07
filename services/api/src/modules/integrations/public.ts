@@ -526,7 +526,6 @@ export {
   type AerialTracingAdapterOutcome,
   type AerialTracingProviderAdapter,
   type AerialTracingRequest,
-  type ExtractedAerialLot,
   type ExtractedAerialShape,
   type ExtractedAerialSite,
 } from './application/aerial-tracing-provider.js';

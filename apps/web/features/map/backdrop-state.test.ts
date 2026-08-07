@@ -30,15 +30,14 @@ describe('backdropStateFor', () => {
   });
 
   /*
-   * The reported defect. A garden is drawn at about 24 px/m; the street style
-   * stops resolving at roughly 4.5 px/m at this latitude, so choosing it used
-   * to paint an empty cream field with no explanation.
+   * The reported defect. The previous vector style disappeared at this zoom;
+   * raster street tiles stay visible through MapLibre's camera ceiling.
    */
-  it('knows the street style cannot draw at the scale a garden is drawn at', () => {
+  it('keeps streets visible at the scale a garden is drawn at', () => {
     const state = backdropStateFor('streets', GEOREFERENCE, 24);
 
     expect(state.visible).toBe(true);
-    expect(state.beyondProviderDetail).toBe(true);
+    expect(state.beyondProviderDetail).toBe(false);
     expect(state.showsPhotograph).toBe(false);
   });
 

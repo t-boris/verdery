@@ -77,10 +77,8 @@ export function MapBackdropSwitch({
               </Button>
             </>
           )}
-          {/* The street style stops resolving about six zoom levels past its
-              own tiles, which is well short of the scale a garden is drawn at
-              — so at this camera it paints nothing. Saying that beats an
-              unexplained empty field, and points at the backdrop that works. */}
+          {/* A provider beyond its camera ceiling would drift from geometry.
+              Saying why it cannot go closer beats an unexplained zoom limit. */}
           {backdrop.beyondProviderDetail && (
             <p className={styles['note']}>{t('map.backdrop.tooCloseForStreets')}</p>
           )}

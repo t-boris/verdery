@@ -8,7 +8,7 @@ import type { WireGeoreference } from '@/core/api/public';
 
 import {
   basemapViewForLocalCamera,
-  openFreeMapProvider,
+  osmStreetMapProvider,
   type BasemapProvider,
 } from './basemap-provider';
 import styles from './map-basemap.module.css';
@@ -69,7 +69,7 @@ function styleFor(provider: BasemapProvider): string | StyleSpecification {
 export function MapBasemap({
   georeference,
   camera,
-  provider = openFreeMapProvider,
+  provider = osmStreetMapProvider,
 }: MapBasemapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MaplibreMap | null>(null);

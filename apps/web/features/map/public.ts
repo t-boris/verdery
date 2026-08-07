@@ -15,7 +15,7 @@ export {
   type MapDocumentData,
 } from './queries';
 export {
-  openFreeMapProvider,
+  osmStreetMapProvider,
   usgsNaipImageryProvider,
   zoomForMetresPerPixel,
 } from './basemap-provider';

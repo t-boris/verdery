@@ -128,7 +128,8 @@ describe('buildPlatExtractionParameters', () => {
     expect(instruction).toContain('separate visual pass');
     expect(instruction).toContain('does NOT need a printed label');
     expect(instruction).toContain('main house footprint');
-    expect(VERTEX_PLAT_EXTRACTION_PROMPT_TEMPLATE_VERSION).toBe(3);
+    expect(instruction).toContain('HATCHING');
+    expect(VERTEX_PLAT_EXTRACTION_PROMPT_TEMPLATE_VERSION).toBe(4);
   });
 });
 
@@ -258,5 +259,25 @@ describe('VertexAiPlatExtractionAdapter', () => {
     expect(JSON.stringify(generateContent.mock.calls[1]?.[0])).toContain(
       'Do not close fewer lines into a new',
     );
+  });
+
+  it('makes a second whole-sheet pass when the first pass loses every drawn object', async () => {
+    const generateContent = vi
+      .fn()
+      .mockResolvedValueOnce(responseWith(JSON.stringify({ ...CASCADE_WAY, pageObjects: [] })))
+      .mockResolvedValueOnce(responseWith(JSON.stringify(CASCADE_WAY)));
+    const adapter = new VertexAiPlatExtractionAdapter(
+      { models: { generateContent } },
+      CONFIGURATION,
+    );
+
+    const outcome = await adapter.extractPlat({ page: PAGE }, new AbortController().signal);
+
+    expect(generateContent).toHaveBeenCalledTimes(2);
+    expect(outcome.kind).toBe('extracted');
+    if (outcome.kind === 'extracted') {
+      expect(outcome.plat.pageObjects).toHaveLength(1);
+    }
+    expect(JSON.stringify(generateContent.mock.calls[1]?.[0])).toContain('hatch directions');
   });
 });

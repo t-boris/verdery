@@ -1588,10 +1588,11 @@ paths:
         - Map
       summary: Detect a property and its visible objects from aerial imagery
       description: |
-        Reads a fixed-size USGS NAIP image centered on the garden's saved address
-        and returns reviewable lot, structure, driveway, walk, parking, fence,
-        water and tree proposals in garden-local metres. Nothing is written until
-        a person accepts individual proposals through ordinary map commands.
+        Requires exactly one saved lot, normally produced by aligning an uploaded
+        plat, centers a fixed-size USGS NAIP image on that lot, and returns reviewable
+        structure, driveway, walk, parking, fence, water and tree proposals inside it.
+        The aerial reader never creates or replaces the lot boundary. Nothing is
+        written until a person accepts an individual proposal.
       responses:
         '200':
           description: Reviewable aerial tracing proposals.
@@ -15241,7 +15242,6 @@ components:
       properties:
         category:
           enum:
-            - lot
             - structure
             - path
             - fence

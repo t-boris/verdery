@@ -332,8 +332,8 @@ Source: [docs/implementation-plan.md](../docs/implementation-plan.md) section 12
       (`importedBackground` excepted — see Deferred with reason); vertex-level reshape,
       whole-shape resize/rotate, duplicate, dedicated plant assignment, and fence/path split/join
       all wired to real commands, not placeholder UI
-- [x] P3-WEB-02 MapLibre provider adapter (OpenFreeMap — free, no API key, swappable by design),
-      attribution, cache limits, local/geographic transform. **OpenFreeMap confirmed as the final
+- [x] P3-WEB-02 MapLibre provider adapter (OpenStreetMap Standard raster tiles, swappable by design),
+      attribution, cache limits, local/geographic transform. **OpenStreetMap confirmed as the final
       provider choice by the repository owner (2026-07-23)**, not just a reversible default
 - [x] P3-IOS-01 SwiftUI Canvas/Core Graphics scene: immutable render snapshots, selection, gestures,
       commands, properties, measurement overlays — the same category and command coverage as web
@@ -464,7 +464,7 @@ Scope: every Phase 4 work package, P4-DATA-01 through P4-QA-01. The garden becom
 rather than only a drawing: users manage plants and plant groups, record condition updates, see
 chronological history, and create and complete manual work on both product surfaces.
 
-Basemap provider question resolved by the repository owner: OpenFreeMap (see Phase 3's Deferred with
+Basemap provider question resolved by the repository owner: OpenStreetMap (see Phase 3's Deferred with
 reason, now closed).
 
 Source: [docs/implementation-plan.md](../docs/implementation-plan.md) section 13.

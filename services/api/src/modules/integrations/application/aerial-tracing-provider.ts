@@ -23,14 +23,7 @@ export interface ExtractedAerialShape {
   readonly evidence: AerialTraceEvidence;
 }
 
-export interface ExtractedAerialLot {
-  readonly imagePoints: readonly Position[];
-  readonly confidence: number;
-  readonly evidence: AerialTraceEvidence;
-}
-
 export interface ExtractedAerialSite {
-  readonly lot: ExtractedAerialLot | null;
   readonly objects: readonly ExtractedAerialShape[];
 }
 
@@ -44,6 +37,8 @@ export interface AerialTracingRequest {
   /** `[longitude, latitude]`, at the centre of the requested image. */
   readonly geographicCenter: Position;
   readonly displayAddress: string | null;
+  /** Saved survey-lot ring in normalized image coordinates, without a repeated closure point. */
+  readonly lotBoundaryImagePoints: readonly Position[];
 }
 
 export interface AerialTracingProviderAdapter {

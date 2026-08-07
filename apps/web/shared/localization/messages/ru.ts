@@ -107,6 +107,10 @@ export const russianMessages: MessageCatalogue = {
     'Автоматическая трассировка аэрофото не включена в этом окружении.',
   'error.aerialTracingNeedsLocation': 'Сохраните адрес сада перед распознаванием участка.',
   'error.aerialTracingFailed': 'Не удалось определить участок и объекты по этому аэрофото.',
+  'error.aerialTracingNeedsLot':
+    'Сначала совместите и сохраните ровно один участок из плата, затем ищите объекты по аэрофото.',
+  'error.aerialTracingLotTooLarge':
+    'Сохранённый участок слишком большой для автоматической трассировки по аэрофото.',
   'error.notificationNotFound': 'Такого уведомления здесь нет.',
   'error.notificationPreferencesStaleRevision':
     'Настройки уведомлений изменились в другом месте. Обновите страницу и попробуйте снова.',

@@ -30,18 +30,13 @@ const USGS_EXPORT_URL =
   'https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage';
 
 const SYSTEM_INSTRUCTION = [
-  'You trace the target residential property from a north-up aerial image.',
-  'The saved address point is exactly at the centre of the image. Analyse the',
-  'property containing that centre point, not a neighbouring house.',
+  'You trace visible objects inside one verified residential lot from a',
+  'north-up aerial image. The user message supplies the saved survey-lot',
+  'ring in normalized image coordinates. Never infer or replace that ring.',
   '',
   'Return normalized image coordinates [x,y] in 0..1, origin top-left.',
-  '- lotPoints: the best estimated property outline, corner by corner, without',
-  '  repeating the first point. Use fences, hedges, road frontage, driveways,',
-  '  neighbouring parcel rhythm and maintained-lawn boundaries as evidence.',
-  '  An aerial image is not a cadastral survey: use evidence=inferred unless',
-  '  every edge is directly visible. Return an empty array if no defensible',
-  '  estimate is possible.',
-  '- objects: only features belonging to that target property.',
+  '- objects: only features whose representative geometry is inside the',
+  '  supplied survey lot. Clip or omit anything crossing into a neighbour.',
   '- structure polygons: visible roof footprints for the house, garage, shed,',
   '  deck or patio; at least 3 points.',
   '- path lines: driveway and walk centre lines; at least 2 points.',
@@ -65,9 +60,6 @@ const pointsSchema = z.array(pointSchema);
 const evidenceSchema = z.enum(['visible', 'inferred']);
 const responseSchema = z.object({
   imageryUsable: z.boolean(),
-  lotPoints: pointsSchema,
-  lotConfidence: z.number().min(0).max(1),
-  lotEvidence: evidenceSchema,
   objects: z.array(
     z.object({
       category: z.enum([
@@ -135,9 +127,9 @@ export class VertexAiAerialTracingAdapter implements AerialTracingProviderAdapte
             },
             {
               text:
-                request.displayAddress === null
-                  ? 'Trace the property at the image centre.'
-                  : `Trace the property at the image centre: ${request.displayAddress}`,
+                `Address: ${request.displayAddress ?? 'not supplied'}\n` +
+                `Saved survey-lot boundary ring: ${JSON.stringify(request.lotBoundaryImagePoints)}\n` +
+                'Trace only visible objects inside this ring.',
             },
           ],
         },
@@ -184,12 +176,9 @@ function vertexResponseSchema() {
   const points = { type: Type.ARRAY, items: { type: Type.ARRAY, items: { type: Type.NUMBER } } };
   return {
     type: Type.OBJECT,
-    required: ['imageryUsable', 'lotPoints', 'lotConfidence', 'lotEvidence', 'objects'],
+    required: ['imageryUsable', 'objects'],
     properties: {
       imageryUsable: { type: Type.BOOLEAN },
-      lotPoints: points,
-      lotConfidence: { type: Type.NUMBER },
-      lotEvidence: { type: Type.STRING, enum: ['visible', 'inferred'] },
       objects: {
         type: Type.ARRAY,
         items: {
@@ -263,14 +252,6 @@ export function parseAerialTracingResponse(
   return {
     kind: 'extracted',
     site: {
-      lot:
-        result.data.lotPoints.length < 3
-          ? null
-          : {
-              imagePoints: result.data.lotPoints,
-              confidence: result.data.lotConfidence,
-              evidence: result.data.lotEvidence,
-            },
       objects: result.data.objects,
     },
   };

@@ -45,7 +45,7 @@ that makes the request, which is how the claim was established — by tracing ev
 | **App Check's reCAPTCHA provider**       | `script-src 'self'`                          | `https://www.google.com/recaptcha/enterprise.js`, which loads from `https://www.gstatic.com`                   | `core/auth/app-check.ts` — `ReCaptchaEnterpriseProvider`                                   |
 | **Media upload (every byte)**            | `connect-src 'self'`                         | `https://storage.googleapis.com` — the resumable PUT goes browser→GCS directly, never through the API          | `features/media/gcs-resumable-transport.ts`, `features/media/resumable-upload-driver.ts`   |
 | **Media display**                        | `img-src` without the storage host           | `https://storage.googleapis.com` — the signed URL `GetMediaAccess` returns                                     | `features/media/media-preview.tsx` ("the source is a short-lived signed URL")              |
-| **The map, entirely**                    | `connect-src 'self'`                         | `https://tiles.openfreemap.org` — style JSON, vector tiles, glyphs, sprites                                    | `features/map/basemap-provider.ts`                                                         |
+| **The street map**                       | `img-src` without the tile host              | `https://tile.openstreetmap.org` — raster street tiles                                                         | `features/map/basemap-provider.ts`                                                         |
 | **The map, a second way**                | no `worker-src` → `default-src 'self'`       | `blob:` — MapLibre GL 6 builds its worker with `new Worker(URL.createObjectURL(blob))`                         | `node_modules/maplibre-gl/dist/maplibre-gl.mjs`, confirmed by grep for `createObjectURL`   |
 
 And the finding that matters most is not in the table, because it is not a breakage:
@@ -119,11 +119,11 @@ default-src 'self';
 script-src 'self' 'nonce-<per-request>' https://www.google.com https://www.gstatic.com
             https://apis.google.com;
 style-src 'self' 'unsafe-inline';
-img-src 'self' data: blob: https://storage.googleapis.com https://tiles.openfreemap.org;
+img-src 'self' data: blob: https://storage.googleapis.com https://tile.openstreetmap.org;
 font-src 'self';
 connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com
             https://content-firebaseappcheck.googleapis.com https://firebaseappcheck.googleapis.com
-            https://storage.googleapis.com https://tiles.openfreemap.org https://www.google.com;
+            https://storage.googleapis.com https://tile.openstreetmap.org https://www.google.com;
 worker-src 'self' blob:;
 frame-src https://<auth-domain> https://www.google.com;
 object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';

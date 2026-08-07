@@ -52,6 +52,8 @@ const MESSAGE_KEYS: Readonly<Record<string, MessageKey>> = {
   'map.aerial_tracing_unavailable': 'error.aerialTracingUnavailable',
   'map.aerial_tracing_needs_location': 'error.aerialTracingNeedsLocation',
   'map.aerial_tracing_failed': 'error.aerialTracingFailed',
+  'map.aerial_tracing_needs_lot': 'error.aerialTracingNeedsLot',
+  'map.aerial_tracing_lot_too_large': 'error.aerialTracingLotTooLarge',
   [CollaborationErrorCode.MembershipNotFound]: 'error.membershipNotFound',
   [CollaborationErrorCode.LastOwnerRequired]: 'error.lastOwnerRequired',
   [CollaborationErrorCode.OwnerRoleNotAllowed]: 'error.ownerRoleNotAllowed',

@@ -51,34 +51,20 @@ export interface BasemapProvider {
   /**
    * The largest map zoom at which this provider still draws anything.
    *
-   * Not a preference — a measurement. A vector style stops resolving roughly
-   * six levels past its own source zoom, because a tile's geometry is stored
-   * in integer tile units and overzooming runs them out of range: the street
-   * style below renders 110 features at zoom 16, six at 19, and nothing at 20,
-   * identically on MapLibre 5.6 and 6.0 (measured 2026-08-05). Raster imagery
-   * has no such limit — its pixels simply enlarge — and stops at MapLibre's
-   * own ceiling instead.
+   * Not a preference: the last zoom at which MapLibre can keep this source
+   * aligned with garden geometry. Raster sources remain visible by enlarging
+   * their last published tile through MapLibre's camera ceiling.
    *
    * The editor reads this rather than discovering it: a backdrop that cannot
    * draw at the current camera is announced, never shown as an empty field.
    */
   readonly maxRenderableZoom: number;
   /**
-   * Ground resolution of the imagery, in metres per pixel, or `null` for a
-   * vector style, which has no pixels of its own. What the editor divides by
-   * to tell a person how far a photograph is being enlarged.
+   * Ground resolution of aerial imagery, in metres per pixel, or `null` for a
+   * contextual map where enlargement is not reported as photographic detail.
    */
   readonly nativeMetresPerPixel: number | null;
-  /**
-   * Required attribution, as HTML. Sourced from https://openfreemap.org's
-   * quick-start guide (fetched July 2026): "[OpenFreeMap](https://openfreemap.org)
-   * [© OpenMapTiles](https://www.openmaptiles.org/) Data from
-   * [OpenStreetMap](https://www.openstreetmap.org/copyright)". OpenFreeMap's
-   * own page notes displaying the "OpenFreeMap" credit is optional ("nice if
-   * you do") but OpenMapTiles and OpenStreetMap attribution is required; this
-   * adapter includes all three rather than relying on that distinction being
-   * remembered correctly later.
-   */
+  /** Required provider attribution, rendered by MapLibre on every visible map. */
   readonly attributionHtml: string;
   localToGeographic(local: Position, georeference: Georeference): Position;
   geographicToLocal(geo: Position, georeference: Georeference): Position;
@@ -98,11 +84,6 @@ function rotate(x: number, y: number, degrees: number): readonly [number, number
   return [x * cos - y * sin, x * sin + y * cos];
 }
 
-/**
- * OpenFreeMap (https://openfreemap.org): a free, open, no-API-key vector tile
- * provider serving OpenMapTiles-schema tiles built from OpenStreetMap data.
- * Chosen as the default provider per this work package's brief.
- */
 /**
  * Local metres → [longitude, latitude]. An equirectangular approximation
  * around the geographic anchor — adequate for an advisory backdrop over a
@@ -139,19 +120,22 @@ export function geographicToLocalMetres(geo: Position, georeference: Georeferenc
   ];
 }
 
-export const openFreeMapProvider: BasemapProvider = {
-  name: 'OpenFreeMap',
-  source: { kind: 'vectorStyle', styleUrl: 'https://tiles.openfreemap.org/styles/liberty' },
-  // Measured, not assumed: 110 rendered features at zoom 16, only six at 19,
-  // and none at 20. Six anonymous fragments are technically non-empty but
-  // visually useless, so Streets stops at the last level that still carries
-  // roads and labels. It is neighbourhood context, not a tracing surface.
-  maxRenderableZoom: 16,
+export const osmStreetMapProvider: BasemapProvider = {
+  name: 'OpenStreetMap Standard',
+  source: {
+    kind: 'rasterTiles',
+    tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+    tileSize: 256,
+    // OSM Standard publishes through z19. MapLibre keeps those raster tiles
+    // visible and scales them at z20–22 instead of resolving to an empty
+    // vector style, which was the defect this provider replaces.
+    maxZoom: 19,
+  },
+  maxRenderableZoom: 22,
   nativeMetresPerPixel: null,
   attributionHtml:
-    '<a href="https://openfreemap.org" target="_blank" rel="noopener noreferrer">OpenFreeMap</a> ' +
-    '© <a href="https://www.openmaptiles.org/" target="_blank" rel="noopener noreferrer">OpenMapTiles</a> ' +
-    'Data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>',
+    '© <a href="https://www.openstreetmap.org/copyright" target="_blank" ' +
+    'rel="noopener noreferrer">OpenStreetMap contributors</a>',
   localToGeographic: localMetresToGeographic,
   geographicToLocal: geographicToLocalMetres,
 };

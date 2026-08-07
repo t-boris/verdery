@@ -5,7 +5,7 @@ import {
   imageryMagnificationAt,
   maxCameraScaleFor,
   metresPerPixelForZoom,
-  openFreeMapProvider,
+  osmStreetMapProvider,
   usgsNaipImageryProvider,
   zoomForMetresPerPixel,
   type Georeference,
@@ -18,17 +18,17 @@ const GEOREFERENCE: Georeference = {
   scaleCorrection: 1,
 };
 
-describe('openFreeMapProvider transform', () => {
+describe('osmStreetMapProvider transform', () => {
   it('maps the local anchor exactly to the geographic anchor', () => {
-    const geo = openFreeMapProvider.localToGeographic([0, 0], GEOREFERENCE);
+    const geo = osmStreetMapProvider.localToGeographic([0, 0], GEOREFERENCE);
     expect(geo[0]).toBeCloseTo(GEOREFERENCE.geographicAnchor[0]);
     expect(geo[1]).toBeCloseTo(GEOREFERENCE.geographicAnchor[1]);
   });
 
   it('round-trips an arbitrary local point with no rotation', () => {
     const local: readonly [number, number] = [12.5, -8.2];
-    const geo = openFreeMapProvider.localToGeographic(local, GEOREFERENCE);
-    const roundTripped = openFreeMapProvider.geographicToLocal(geo, GEOREFERENCE);
+    const geo = osmStreetMapProvider.localToGeographic(local, GEOREFERENCE);
+    const roundTripped = osmStreetMapProvider.geographicToLocal(geo, GEOREFERENCE);
     expect(roundTripped[0]).toBeCloseTo(local[0], 6);
     expect(roundTripped[1]).toBeCloseTo(local[1], 6);
   });
@@ -36,20 +36,19 @@ describe('openFreeMapProvider transform', () => {
   it('round-trips with rotation and scale correction applied', () => {
     const rotated: Georeference = { ...GEOREFERENCE, rotationDegrees: 37, scaleCorrection: 1.02 };
     const local: readonly [number, number] = [40, 15];
-    const geo = openFreeMapProvider.localToGeographic(local, rotated);
-    const roundTripped = openFreeMapProvider.geographicToLocal(geo, rotated);
+    const geo = osmStreetMapProvider.localToGeographic(local, rotated);
+    const roundTripped = osmStreetMapProvider.geographicToLocal(geo, rotated);
     expect(roundTripped[0]).toBeCloseTo(local[0], 6);
     expect(roundTripped[1]).toBeCloseTo(local[1], 6);
   });
 
   it('moves north for increasing local Y (right-handed, Y-north local space)', () => {
-    const north = openFreeMapProvider.localToGeographic([0, 10], GEOREFERENCE);
+    const north = osmStreetMapProvider.localToGeographic([0, 10], GEOREFERENCE);
     expect(north[1]).toBeGreaterThan(GEOREFERENCE.geographicAnchor[1]);
   });
 
-  it('includes required OpenStreetMap and OpenMapTiles attribution', () => {
-    expect(openFreeMapProvider.attributionHtml).toContain('OpenStreetMap');
-    expect(openFreeMapProvider.attributionHtml).toContain('OpenMapTiles');
+  it('includes required OpenStreetMap attribution', () => {
+    expect(osmStreetMapProvider.attributionHtml).toContain('OpenStreetMap');
   });
 });
 
@@ -68,13 +67,13 @@ describe('zoomForMetresPerPixel', () => {
 describe('basemapViewForLocalCamera', () => {
   it('applies rotation and scale correction to the same view as the drawing', () => {
     const view = basemapViewForLocalCamera(
-      openFreeMapProvider,
+      osmStreetMapProvider,
       { ...GEOREFERENCE, rotationDegrees: 60, scaleCorrection: 1.02 },
       { centerX: 12, centerY: -8, scale: 20, rotationDegrees: 15 },
     );
 
     expect(view.center).toEqual(
-      openFreeMapProvider.localToGeographic([12, -8], {
+      osmStreetMapProvider.localToGeographic([12, -8], {
         ...GEOREFERENCE,
         rotationDegrees: 60,
         scaleCorrection: 1.02,
@@ -92,10 +91,10 @@ describe('usgsNaipImageryProvider', () => {
     const local: [number, number] = [17, -23];
 
     expect(usgsNaipImageryProvider.localToGeographic(local, GEOREFERENCE)).toEqual(
-      openFreeMapProvider.localToGeographic(local, GEOREFERENCE),
+      osmStreetMapProvider.localToGeographic(local, GEOREFERENCE),
     );
     expect(usgsNaipImageryProvider.geographicToLocal([-122.418, 37.776], GEOREFERENCE)).toEqual(
-      openFreeMapProvider.geographicToLocal([-122.418, 37.776], GEOREFERENCE),
+      osmStreetMapProvider.geographicToLocal([-122.418, 37.776], GEOREFERENCE),
     );
   });
 
@@ -152,16 +151,13 @@ describe('usgsNaipImageryProvider', () => {
 
 describe('what each provider can actually draw', () => {
   /*
-   * Measured in a visible browser on 2026-08-05, against both MapLibre 5.6
-   * and the 6.0 this app ships: the street style renders 110 features at zoom
-   * 16, six at 19, and nothing at 20 — six levels past its zoom-14 source is
-   * where a vector tile's integer geometry stops resolving. The editor opens
-   * at about zoom 21, which is why the street backdrop was always blank.
+   * The previous vector style disappeared at the editor's garden-scale zoom.
+   * Raster z19 tiles remain visible when MapLibre enlarges them through z22.
    */
-  it('stops the street style below the zoom a garden is drawn at', () => {
-    expect(openFreeMapProvider.maxRenderableZoom).toBe(16);
-    expect(zoomForMetresPerPixel(1 / 24, 41.59)).toBeGreaterThan(
-      openFreeMapProvider.maxRenderableZoom,
+  it('keeps the street raster visible at the zoom a garden is drawn at', () => {
+    expect(osmStreetMapProvider.maxRenderableZoom).toBe(22);
+    expect(zoomForMetresPerPixel(1 / 24, 41.59)).toBeLessThan(
+      osmStreetMapProvider.maxRenderableZoom,
     );
   });
 
@@ -177,17 +173,17 @@ describe('what each provider can actually draw', () => {
   // Past this scale MapLibre clamps its own zoom while the Konva camera keeps
   // going, and the two drift apart — the reason the camera is clamped at all.
   it('caps the camera at the scale the backdrop can still follow', () => {
-    const streetsCap = maxCameraScaleFor(openFreeMapProvider, 41.59);
+    const streetsCap = maxCameraScaleFor(osmStreetMapProvider, 41.59);
     const imageryCap = maxCameraScaleFor(usgsNaipImageryProvider, 41.59);
 
-    expect(streetsCap).toBeCloseTo(1.1, 1);
+    expect(streetsCap).toBeCloseTo(71.6, 1);
     expect(imageryCap).toBeCloseTo(71.6, 1);
-    expect(imageryCap).toBeGreaterThan(streetsCap);
+    expect(imageryCap).toBeCloseTo(streetsCap, 9);
   });
 
   it('reports how far a photograph is being enlarged, and only for photographs', () => {
     // 24 px/m over 0.30 m ground pixels: each one covers about seven.
     expect(imageryMagnificationAt(usgsNaipImageryProvider, 24)).toBeCloseTo(7.2, 1);
-    expect(imageryMagnificationAt(openFreeMapProvider, 24)).toBeNull();
+    expect(imageryMagnificationAt(osmStreetMapProvider, 24)).toBeNull();
   });
 });

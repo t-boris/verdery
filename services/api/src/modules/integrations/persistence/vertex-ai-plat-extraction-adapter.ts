@@ -44,7 +44,7 @@ import type {
 import type { VertexGenerativeClient } from './vertex-ai-plant-species-identification-adapter.js';
 
 /** Bumped whenever the instruction below changes; stamped on every stored proposal. */
-export const VERTEX_PLAT_EXTRACTION_PROMPT_TEMPLATE_VERSION = 3;
+export const VERTEX_PLAT_EXTRACTION_PROMPT_TEMPLATE_VERSION = 4;
 
 const SYSTEM_INSTRUCTION = [
   'You read a United States plat of survey. Transcribe its printed survey',
@@ -102,6 +102,11 @@ const SYSTEM_INSTRUCTION = [
   'strips, and trees. Return every clearly drawn feature even when its label',
   'is faint, abbreviated, or absent. Do not mistake dimension lines, setback',
   'lines, leaders, lot bearings, or text boxes for site features.',
+  '- Treat HATCHING as semantic evidence, not scan noise. Different line',
+  '  directions, spacing and fill patterns usually separate the main building,',
+  '  wood deck, brick, concrete, asphalt and easement areas. Trace each distinct',
+  '  hatched region separately and use its nearby label to classify it. Never',
+  '  merge adjoining regions merely because their outlines touch.',
   '',
   'You must NOT:',
   '- compute, close, or correct the polygon these calls describe;',
@@ -205,7 +210,7 @@ export class VertexAiPlatExtractionAdapter implements PlatExtractionProviderAdap
       buildPlatExtractionParameters(request, this.configuration, signal),
     );
     const first = parsePlatExtractionResponse(response);
-    if (!needsBoundaryCorrection(first)) {
+    if (!needsCorrection(first)) {
       return first;
     }
 
@@ -222,6 +227,13 @@ export class VertexAiPlatExtractionAdapter implements PlatExtractionProviderAdap
       ? { kind: 'schemaInvalid', rawText: null }
       : corrected;
   }
+}
+
+function needsCorrection(outcome: PlatExtractionAdapterOutcome): boolean {
+  return (
+    needsBoundaryCorrection(outcome) ||
+    (outcome.kind === 'extracted' && outcome.plat.pageObjects.length === 0)
+  );
 }
 
 function needsBoundaryCorrection(outcome: PlatExtractionAdapterOutcome): boolean {
@@ -242,7 +254,9 @@ function boundaryCorrectionInstruction(outcome: PlatExtractionAdapterOutcome): s
     'triangle. Keep a side with an omitted bearing when only its direction is',
     'unreadable. Recheck the printed survey area as an independent safeguard.',
     'Also repeat the separate pass for house, deck, driveway, walks, fences,',
-    'easements, parking surfaces and trees; do not return only the lot.',
+    'easements, parking surfaces and trees; do not return only the lot. Read',
+    'different hatch directions and patterns as boundaries between materials',
+    'and feature types, and keep adjacent hatched regions separate.',
   ].join('\n');
 }
 

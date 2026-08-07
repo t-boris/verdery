@@ -21,7 +21,7 @@
  *    alone kills Firebase sign-in (`identitytoolkit.googleapis.com`), token
  *    refresh (`securetoken.googleapis.com`), App Check attestation
  *    (`firebaseappcheck.googleapis.com`), every media upload and download
- *    (`storage.googleapis.com`), and the whole map (`tiles.openfreemap.org`).
+ *    (`storage.googleapis.com`), and the whole map (`tile.openstreetmap.org`).
  *    `default-src 'self'` additionally kills MapLibre's blob-URL web worker,
  *    the reCAPTCHA Enterprise script App Check loads, and the Firebase Auth
  *    iframe `signInWithPopup` installs. And `script-src 'unsafe-inline'`
@@ -103,8 +103,8 @@ export const CSP_ORIGINS = {
    * `GetMediaAccess` returns (`features/media/media-preview.tsx`).
    */
   cloudStorage: 'https://storage.googleapis.com',
-  /** Vector basemap: style JSON, tiles, glyphs, sprites. `features/map/basemap-provider.ts`. */
-  basemapTiles: 'https://tiles.openfreemap.org',
+  /** Street-map raster tiles. `features/map/basemap-provider.ts`. */
+  basemapTiles: 'https://tile.openstreetmap.org',
   /**
    * USGS National Map aerial imagery — the layer a lot is traced from
    * (P12-GEO-01). Public-domain federal imagery, no key, rendered on demand

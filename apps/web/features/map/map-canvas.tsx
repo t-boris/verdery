@@ -30,6 +30,7 @@ import { CanvasGrid } from './shapes/canvas-grid';
 import { DraftPreviewShape } from './shapes/draft-preview-shape';
 import { ObjectLabelChip } from './shapes/object-label-chip';
 import { ObjectShape } from './shapes/object-shape';
+import { PlatAlignmentLayer } from './plat-alignment-layer';
 import { TransformHandles } from './shapes/transform-handles';
 import { VertexHandles } from './shapes/vertex-handles';
 import styles from './map-canvas.module.css';
@@ -483,6 +484,7 @@ export function MapCanvas({
                   />
                 );
               })}
+              <PlatAlignmentLayer camera={camera} size={size} />
               {/* After every shape, so a chip is never painted under a neighbouring object. */}
               {visibleRecords.map((record) => (
                 <ObjectLabelChip

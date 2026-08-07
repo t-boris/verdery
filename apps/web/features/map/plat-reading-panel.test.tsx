@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { LocalizationProvider } from '@/shared/localization/public';
 
 import { PlatReadingPanel } from './plat-reading-panel';
+import { MapEditorStoreProvider } from './editor-store';
 import type { MapEditorActions } from './use-map-editor-actions';
 
 /** A reading of the Cascade Way plat: a lot that closes, a house, and a drive. */
@@ -75,11 +76,13 @@ function renderPanel(reviewed: PlatReading, acceptPlatProposals = vi.fn().mockRe
   const onDismiss = vi.fn();
   render(
     <LocalizationProvider locale="en">
-      <PlatReadingPanel
-        reading={reviewed}
-        actions={{ acceptPlatProposals } as unknown as MapEditorActions}
-        onDismiss={onDismiss}
-      />
+      <MapEditorStoreProvider>
+        <PlatReadingPanel
+          reading={reviewed}
+          actions={{ acceptPlatProposals } as unknown as MapEditorActions}
+          onDismiss={onDismiss}
+        />
+      </MapEditorStoreProvider>
     </LocalizationProvider>,
   );
   return { acceptPlatProposals, onDismiss };

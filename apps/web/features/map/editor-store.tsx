@@ -6,12 +6,14 @@ import type {
   ObjectSnapshot,
   Position,
 } from '@verdery/geometry-contracts';
+import type { PlatReading } from '@verdery/api-contracts';
 import { createContext, useContext, useMemo, useReducer, type ReactNode } from 'react';
 
 import type { MessageArguments, MessageKey } from '@/shared/localization/public';
 
 import type { CalibrationDraft } from './calibration-session';
 import type { LayerId } from './map-layers';
+import type { PlatAlignmentDraft, PlatAlignmentTransform } from './plat-alignment';
 import type { MapCamera, ToolMode } from './types';
 import { defaultCamera } from './viewport';
 
@@ -75,6 +77,8 @@ export interface EditorState {
   readonly lockedLayers: readonly LayerId[];
   /** The in-progress calibration session (P6-PLAN-02), or `null`. Cleared by any selection or tool change — the session is bound to one selected background. */
   readonly calibrationDraft: CalibrationDraft | null;
+  /** One plat review aligned as a rigid group before any object is persisted. */
+  readonly platAlignmentDraft: PlatAlignmentDraft | null;
   /**
    * Plan-underlay opacity while tracing (0.15..1) — a client-local
    * preference like layer visibility, applied to every background's
@@ -111,6 +115,9 @@ type Action =
   | { readonly type: 'toggleLayerVisibility'; readonly layer: LayerId }
   | { readonly type: 'toggleLayerLock'; readonly layer: LayerId }
   | { readonly type: 'setCalibrationDraft'; readonly draft: CalibrationDraft | null }
+  | { readonly type: 'startPlatAlignment'; readonly reading: PlatReading }
+  | { readonly type: 'setPlatAlignmentTransform'; readonly transform: PlatAlignmentTransform }
+  | { readonly type: 'clearPlatAlignment' }
   | { readonly type: 'setBackgroundOpacity'; readonly opacity: number }
   | { readonly type: 'setBackdrop'; readonly backdrop: BackdropKind };
 
@@ -129,6 +136,7 @@ export const initialEditorState: EditorState = {
   hiddenLayers: [],
   lockedLayers: [],
   calibrationDraft: null,
+  platAlignmentDraft: null,
   backgroundOpacity: 0.85,
   backdrop: 'imagery',
 };
@@ -212,6 +220,23 @@ export function editorReducer(state: EditorState, action: Action): EditorState {
       };
     case 'setCalibrationDraft':
       return { ...state, calibrationDraft: action.draft };
+    case 'startPlatAlignment':
+      return {
+        ...state,
+        platAlignmentDraft: {
+          reading: action.reading,
+          transform: { translation: [0, 0], rotationDegrees: 0, scale: 1 },
+        },
+      };
+    case 'setPlatAlignmentTransform':
+      return state.platAlignmentDraft === null
+        ? state
+        : {
+            ...state,
+            platAlignmentDraft: { ...state.platAlignmentDraft, transform: action.transform },
+          };
+    case 'clearPlatAlignment':
+      return { ...state, platAlignmentDraft: null };
     case 'setBackgroundOpacity':
       // Clamped so the imagery can be dimmed for tracing but never made
       // fully invisible through this control — hiding is the visibility
@@ -240,6 +265,9 @@ export interface MapEditorStore {
   readonly toggleLayerVisibility: (layer: LayerId) => void;
   readonly toggleLayerLock: (layer: LayerId) => void;
   readonly setCalibrationDraft: (draft: CalibrationDraft | null) => void;
+  readonly startPlatAlignment: (reading: PlatReading) => void;
+  readonly setPlatAlignmentTransform: (transform: PlatAlignmentTransform) => void;
+  readonly clearPlatAlignment: () => void;
   readonly setBackgroundOpacity: (opacity: number) => void;
   readonly setBackdrop: (backdrop: BackdropKind) => void;
 }
@@ -268,6 +296,10 @@ export function MapEditorStoreProvider({ children }: { readonly children: ReactN
       toggleLayerVisibility: (layer) => dispatch({ type: 'toggleLayerVisibility', layer }),
       toggleLayerLock: (layer) => dispatch({ type: 'toggleLayerLock', layer }),
       setCalibrationDraft: (draft) => dispatch({ type: 'setCalibrationDraft', draft }),
+      startPlatAlignment: (reading) => dispatch({ type: 'startPlatAlignment', reading }),
+      setPlatAlignmentTransform: (transform) =>
+        dispatch({ type: 'setPlatAlignmentTransform', transform }),
+      clearPlatAlignment: () => dispatch({ type: 'clearPlatAlignment' }),
       setBackgroundOpacity: (opacity) => dispatch({ type: 'setBackgroundOpacity', opacity }),
       setBackdrop: (backdrop) => dispatch({ type: 'setBackdrop', backdrop }),
     }),

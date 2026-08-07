@@ -115,6 +115,9 @@ export const englishMessages = {
   'error.aerialTracingNeedsLocation': 'Save this garden’s address before detecting the property.',
   'error.aerialTracingFailed':
     'The property and its objects could not be detected from this aerial image.',
+  'error.aerialTracingNeedsLot':
+    'Align and save exactly one lot from the plat before detecting aerial objects.',
+  'error.aerialTracingLotTooLarge': 'The saved lot is too large for automatic aerial tracing.',
   'error.notificationNotFound': 'That notification is not here.',
   'error.notificationPreferencesStaleRevision':
     'Your notification settings changed elsewhere. Reload and try again.',

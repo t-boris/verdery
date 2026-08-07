@@ -63,16 +63,14 @@ between them and none:
   States coverage at 0.30 m per pixel — the service's own reported `pixelSizeX`, not an estimate —
   so a house, a driveway and a fence line are legible; an individual bed is not, and the interface
   says so rather than implying otherwise.
-- **Street vectors** (OpenFreeMap), for orientation rather than tracing.
+- **Street tiles** (OpenStreetMap Standard), for orientation rather than tracing.
 
 Each provider declares the zoom range it can actually draw, and the editor obeys it rather than
 discovering the limits by painting nothing:
 
-- **A vector style stops resolving about six zoom levels past its own tiles.** OpenFreeMap serves
-  to zoom 14, renders 110 features at 16, only six anonymous fragments at 19, and nothing at 20 —
-  measured against MapLibre 5.6 and 6.0 alike. Streets therefore clamps immediately to zoom 16,
-  the last useful road-and-label view. A garden fills the canvas at roughly zoom 21, so the street
-  backdrop is neighbourhood context and can never be a tracing surface.
+- **Street tiles remain visible when enlarged.** OpenStreetMap Standard raster tiles are requested
+  only through their supported zoom 19 and MapLibre overzooms the last tile through zoom 22. The
+  result remains an orientation layer, not a tracing surface, but it never becomes a blank grid.
 - **Imagery is requested only at the resolution it holds.** Past zoom 19 the service returns the
   same ground enlarged in hard blocks at four times the requests, so the tile source stops there
   and the renderer does the enlarging smoothly.
@@ -87,11 +85,19 @@ discovering the limits by painting nothing:
 The metre grid stands down over a photograph, where it is noise on the ground, and stays over a
 street map, which carries no sense of scale of its own.
 
-`traceGardenFromAerial` is the assisted alternative to manual tracing. It reads a fixed 160 m,
-north-up USGS image centered on the saved geographic anchor and returns reviewable proposals for
-the lot, structures, driveway/walk lines, parking surfaces, fences, water/utility areas and visible
-trees. It writes nothing. The user can accept each proposal separately, and accepted geometry uses
-the ordinary `createObject` command with `imageExtraction` provenance and confidence.
+`traceGardenFromAerial` is the assisted object-capture step after plat alignment. It requires exactly
+one saved lot, reads a fixed 160 m, north-up USGS image centered on that polygon, and asks Vertex only
+for structures, driveway/walk lines, parking surfaces, fences, water/utility areas and visible trees
+inside it. It never creates or replaces a lot. No county adapter, parcel aggregator or
+imagery-inferred boundary exists. The user can accept each proposal separately.
+
+An uploaded plat remains the stronger source for surveyed shape and dimensions. Its bearings,
+distances, chord and north arrow produce local geometry by arithmetic; the selected address supplies
+the approximate geographic placement and the alignment overlay supplies the final translation.
+During review, the boundary and every extracted structure, path, fence and easement form one
+transient alignment group. Dragging that overlay or changing its rotation/scale applies one uniform
+transform to the complete set before any object is created. Internal relative positions therefore
+remain intact; acceptance persists the already-aligned geometries through ordinary map commands.
 The review keeps checkbox state entirely in client-local primitives captured during the input
 event; it never retains or later dereferences a framework event object. Selecting or clearing any
 proposal therefore updates the accepted count without closing or crashing the review.

@@ -427,6 +427,7 @@ export function composeGardensMapping(
     ),
     traceGardenFromAerial: new TraceGardenFromAerial(
       aerialTracingAdapter,
+      mapObjectRepository,
       georeferenceRepository,
       gardenAuthorization,
       platReadingCallTimeoutMs,

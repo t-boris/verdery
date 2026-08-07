@@ -6,6 +6,7 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import { GardenAuthorization } from './garden-authorization.js';
 import type { GeoreferenceReader } from './georeference-repository.js';
 import type { MembershipRepository } from './membership-repository.js';
+import type { MapObjectRepository } from './map-object-repository.js';
 import { TraceGardenFromAerial } from './trace-garden-from-aerial.js';
 
 const GARDEN_ID = '019fdce1-1111-7000-8000-000000000001';
@@ -44,16 +45,6 @@ const adapter: AerialTracingProviderAdapter = {
     Promise.resolve({
       kind: 'extracted',
       site: {
-        lot: {
-          imagePoints: [
-            [0.4, 0.4],
-            [0.6, 0.4],
-            [0.6, 0.6],
-            [0.4, 0.6],
-          ],
-          confidence: 0.7,
-          evidence: 'inferred',
-        },
         objects: [
           {
             category: 'structure',
@@ -72,7 +63,7 @@ const adapter: AerialTracingProviderAdapter = {
             label: 'Driveway',
             imagePoints: [
               [0.5, 0.5],
-              [0.3, 0.8],
+              [0.45, 0.58],
             ],
             confidence: 0.8,
             evidence: 'visible',
@@ -89,10 +80,33 @@ const adapter: AerialTracingProviderAdapter = {
     }),
 };
 
+const mapObjects = {
+  listForGarden: () =>
+    Promise.resolve([
+      {
+        category: 'lot',
+        lifecycleState: 'active',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [-15, -15],
+              [15, -15],
+              [15, 15],
+              [-15, 15],
+              [-15, -15],
+            ],
+          ],
+        },
+      },
+    ]),
+} as unknown as MapObjectRepository;
+
 describe('TraceGardenFromAerial', () => {
-  it('returns the lot, house, driveway and tree as separate reviewable proposals', async () => {
+  it('returns house, driveway and tree proposals without duplicating the saved lot', async () => {
     const result = await new TraceGardenFromAerial(
       adapter,
+      mapObjects,
       georeferences,
       authorization(),
       60_000,
@@ -100,22 +114,21 @@ describe('TraceGardenFromAerial', () => {
     ).execute(GARDEN_ID, PROFILE_ID);
 
     expect(result.proposals.map((proposal) => proposal.category)).toEqual([
-      'lot',
       'structure',
       'path',
       'tree',
     ]);
     expect(result.proposals.map((proposal) => proposal.geometry.type)).toEqual([
       'Polygon',
-      'Polygon',
       'LineString',
       'Point',
     ]);
   });
 
-  it('places the image centre exactly at the saved local anchor', async () => {
+  it('places AI objects from the aligned lot center, not the geocoder street point', async () => {
     const result = await new TraceGardenFromAerial(
       adapter,
+      mapObjects,
       georeferences,
       authorization(),
       60_000,
@@ -124,7 +137,25 @@ describe('TraceGardenFromAerial', () => {
     const drive = result.proposals.find((proposal) => proposal.label === 'Driveway');
     expect(drive?.geometry.type).toBe('LineString');
     if (drive?.geometry.type === 'LineString') {
-      expect(drive.geometry.coordinates[0]).toEqual([10, 20]);
+      expect(drive.geometry.coordinates[0]?.[0]).toBeCloseTo(0, 1);
+      expect(drive.geometry.coordinates[0]?.[1]).toBeCloseTo(0, 1);
     }
+  });
+
+  it('refuses to invent a lot when no aligned survey lot exists', async () => {
+    const missing = {
+      listForGarden: () => Promise.resolve([]),
+    } as unknown as MapObjectRepository;
+
+    await expect(
+      new TraceGardenFromAerial(
+        adapter,
+        missing,
+        georeferences,
+        authorization(),
+        60_000,
+        pino({ level: 'silent' }),
+      ).execute(GARDEN_ID, PROFILE_ID),
+    ).rejects.toMatchObject({ code: 'map.aerial_tracing_needs_lot' });
   });
 });

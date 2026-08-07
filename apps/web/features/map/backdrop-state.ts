@@ -25,7 +25,7 @@ import type { WireGeoreference } from '@/core/api/public';
 import {
   imageryMagnificationAt,
   maxCameraScaleFor,
-  openFreeMapProvider,
+  osmStreetMapProvider,
   usgsNaipImageryProvider,
   type BasemapProvider,
 } from './basemap-provider';
@@ -49,9 +49,9 @@ export interface BackdropState {
   readonly showsPhotograph: boolean;
   /** The largest camera scale the backdrop still follows, or `null` when nothing is drawn. */
   readonly maxCameraScale: number | null;
-  /** How many times the imagery is enlarged at this camera, or `null` for a vector style. */
+  /** How many times aerial imagery is enlarged, or `null` for a contextual street map. */
   readonly magnification: number | null;
-  /** The chosen provider cannot draw at this camera at all — the street style, at garden scale. */
+  /** The chosen provider cannot remain aligned at this camera scale. */
   readonly beyondProviderDetail: boolean;
 }
 
@@ -59,7 +59,7 @@ function providerFor(kind: BackdropKind): BasemapProvider | null {
   if (kind === 'imagery') {
     return usgsNaipImageryProvider;
   }
-  return kind === 'streets' ? openFreeMapProvider : null;
+  return kind === 'streets' ? osmStreetMapProvider : null;
 }
 
 export function backdropStateFor(

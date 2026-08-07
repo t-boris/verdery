@@ -17,9 +17,10 @@ import { ValidationError } from '../../../platform/errors/application-error.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { GardenAuthorization } from './garden-authorization.js';
 import type { Georeference, GeoreferenceReader } from './georeference-repository.js';
+import type { MapObjectRepository } from './map-object-repository.js';
 
 export interface AerialTracingProposal {
-  readonly category: AerialTraceCategory | 'lot';
+  readonly category: AerialTraceCategory;
   readonly label: string;
   readonly geometry: Geometry;
   readonly confidence: number;
@@ -33,11 +34,12 @@ export interface AerialTracingResult {
 }
 
 const DISCLAIMER =
-  'AI traces from aerial imagery are approximate planning proposals, not surveyed boundaries.';
+  'The saved lot comes from the aligned survey; aerial objects are approximate AI planning proposals inside it.';
 
 export class TraceGardenFromAerial {
   constructor(
     private readonly adapter: AerialTracingProviderAdapter | null,
+    private readonly mapObjects: MapObjectRepository,
     private readonly georeferences: GeoreferenceReader,
     private readonly authorization: GardenAuthorization,
     private readonly callTimeoutMs: number,
@@ -60,10 +62,39 @@ export class TraceGardenFromAerial {
       );
     }
 
+    const lots = (await this.mapObjects.listForGarden(gardenId, null)).filter(
+      (object) =>
+        object.lifecycleState === 'active' &&
+        object.category === 'lot' &&
+        object.geometry.type === 'Polygon',
+    );
+    if (lots.length !== 1) {
+      throw new ValidationError(
+        'map.aerial_tracing_needs_lot',
+        'Align and save exactly one lot from the plat before detecting aerial objects.',
+      );
+    }
+    const lot = lots[0]!;
+    const localBoundary =
+      lot.geometry.type === 'Polygon' ? (lot.geometry.coordinates[0] ?? []) : [];
+    const uniqueBoundary = withoutRepeatedClosure(localBoundary);
+    const localCenter = boundingBoxCenter(uniqueBoundary);
+    const imageCenter = localToGeographic(localCenter, georeference);
+    const lotImagePoints = uniqueBoundary.map((point) =>
+      geographicPointToImage(localToGeographic(point, georeference), imageCenter),
+    );
+    if (lotImagePoints.some(([x, y]) => x < 0 || x > 1 || y < 0 || y > 1)) {
+      throw new ValidationError(
+        'map.aerial_tracing_lot_too_large',
+        'The saved lot does not fit within the supported aerial tracing image.',
+      );
+    }
+
     const outcome = await this.adapter.traceSite(
       {
-        geographicCenter: georeference.geographicAnchor,
+        geographicCenter: imageCenter,
         displayAddress: georeference.displayAddress,
+        lotBoundaryImagePoints: lotImagePoints,
       },
       AbortSignal.timeout(this.callTimeoutMs),
     );
@@ -79,20 +110,11 @@ export class TraceGardenFromAerial {
     }
 
     const proposals: AerialTracingProposal[] = [];
-    if (outcome.site.lot !== null) {
-      const geometry = geometryFor('lot', outcome.site.lot.imagePoints, georeference);
-      if (geometry !== null) {
-        proposals.push({
-          category: 'lot',
-          label: 'Property lot',
-          geometry,
-          confidence: outcome.site.lot.confidence,
-          evidence: outcome.site.lot.evidence,
-        });
-      }
-    }
     for (const object of outcome.site.objects) {
-      const geometry = geometryFor(object.category, object.imagePoints, georeference);
+      if (!object.imagePoints.every((point) => pointInsideLot(point, lotImagePoints))) {
+        continue;
+      }
+      const geometry = geometryFor(object.category, object.imagePoints, imageCenter, georeference);
       if (geometry !== null) {
         proposals.push({ ...object, geometry });
       }
@@ -112,15 +134,16 @@ export class TraceGardenFromAerial {
 }
 
 function geometryFor(
-  category: AerialTraceCategory | 'lot',
+  category: AerialTraceCategory,
   imagePoints: readonly Position[],
+  imageCenter: Position,
   georeference: Georeference,
 ): Geometry | null {
   const points = imagePoints
     .filter(
       ([x, y]) => Number.isFinite(x) && Number.isFinite(y) && x >= 0 && x <= 1 && y >= 0 && y <= 1,
     )
-    .map((point) => imagePointToLocal(point, georeference));
+    .map((point) => imagePointToLocal(point, imageCenter, georeference));
 
   if (category === 'tree') {
     return points[0] === undefined ? null : { type: 'Point', coordinates: points[0] };
@@ -134,13 +157,84 @@ function geometryFor(
   return { type: 'Polygon', coordinates: [[...points, points[0]!]] };
 }
 
-function imagePointToLocal(point: Position, georeference: Georeference): Position {
+function imagePointToLocal(
+  point: Position,
+  imageCenter: Position,
+  georeference: Georeference,
+): Position {
   const east = (point[0] - 0.5) * AERIAL_TRACE_SPAN_METRES;
   const north = (0.5 - point[1]) * AERIAL_TRACE_SPAN_METRES;
+  const longitude = imageCenter[0] + east / metresPerDegreeLongitude(imageCenter[1]);
+  const latitude = imageCenter[1] + north / METRES_PER_DEGREE_LATITUDE;
+  return geographicToLocal([longitude, latitude], georeference);
+}
+
+const METRES_PER_DEGREE_LATITUDE = 111_320;
+const RADIANS_PER_DEGREE = Math.PI / 180;
+
+function metresPerDegreeLongitude(latitude: number): number {
+  return METRES_PER_DEGREE_LATITUDE * Math.cos(latitude * RADIANS_PER_DEGREE);
+}
+
+function geographicPointToImage(point: Position, center: Position): Position {
+  const east = (point[0] - center[0]) * metresPerDegreeLongitude(center[1]);
+  const north = (point[1] - center[1]) * METRES_PER_DEGREE_LATITUDE;
+  return [0.5 + east / AERIAL_TRACE_SPAN_METRES, 0.5 - north / AERIAL_TRACE_SPAN_METRES];
+}
+
+function geographicToLocal(point: Position, georeference: Georeference): Position {
+  const east =
+    (point[0] - georeference.geographicAnchor[0]) *
+    metresPerDegreeLongitude(georeference.geographicAnchor[1]);
+  const north = (point[1] - georeference.geographicAnchor[1]) * METRES_PER_DEGREE_LATITUDE;
   const radians = (-georeference.rotationDegrees * Math.PI) / 180;
-  const localX =
-    (east * Math.cos(radians) - north * Math.sin(radians)) / georeference.scaleCorrection;
-  const localY =
-    (east * Math.sin(radians) + north * Math.cos(radians)) / georeference.scaleCorrection;
-  return [georeference.localAnchor[0] + localX, georeference.localAnchor[1] + localY];
+  return [
+    georeference.localAnchor[0] +
+      (east * Math.cos(radians) - north * Math.sin(radians)) / georeference.scaleCorrection,
+    georeference.localAnchor[1] +
+      (east * Math.sin(radians) + north * Math.cos(radians)) / georeference.scaleCorrection,
+  ];
+}
+
+function localToGeographic(point: Position, georeference: Georeference): Position {
+  const x = (point[0] - georeference.localAnchor[0]) * georeference.scaleCorrection;
+  const y = (point[1] - georeference.localAnchor[1]) * georeference.scaleCorrection;
+  const radians = (georeference.rotationDegrees * Math.PI) / 180;
+  const east = x * Math.cos(radians) - y * Math.sin(radians);
+  const north = x * Math.sin(radians) + y * Math.cos(radians);
+  return [
+    georeference.geographicAnchor[0] +
+      east / metresPerDegreeLongitude(georeference.geographicAnchor[1]),
+    georeference.geographicAnchor[1] + north / METRES_PER_DEGREE_LATITUDE,
+  ];
+}
+
+function withoutRepeatedClosure(points: readonly Position[]): readonly Position[] {
+  const first = points[0];
+  const last = points.at(-1);
+  return first !== undefined && last !== undefined && first[0] === last[0] && first[1] === last[1]
+    ? points.slice(0, -1)
+    : points;
+}
+
+function boundingBoxCenter(points: readonly Position[]): Position {
+  const xs = points.map(([x]) => x);
+  const ys = points.map(([, y]) => y);
+  return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
+}
+
+function pointInsideLot(point: Position, polygon: readonly Position[]): boolean {
+  let inside = false;
+  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index++) {
+    const currentPoint = polygon[index];
+    const previousPoint = polygon[previous];
+    if (currentPoint === undefined || previousPoint === undefined) continue;
+    const [x, y] = currentPoint;
+    const [previousX, previousY] = previousPoint;
+    const crosses =
+      y > point[1] !== previousY > point[1] &&
+      point[0] < ((previousX - x) * (point[1] - y)) / (previousY - y) + x;
+    if (crosses) inside = !inside;
+  }
+  return inside;
 }

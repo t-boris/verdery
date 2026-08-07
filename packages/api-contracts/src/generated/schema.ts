@@ -991,10 +991,11 @@ export interface paths {
         put?: never;
         /**
          * Detect a property and its visible objects from aerial imagery
-         * @description Reads a fixed-size USGS NAIP image centered on the garden's saved address
-         *     and returns reviewable lot, structure, driveway, walk, parking, fence,
-         *     water and tree proposals in garden-local metres. Nothing is written until
-         *     a person accepts individual proposals through ordinary map commands.
+         * @description Requires exactly one saved lot, normally produced by aligning an uploaded
+         *     plat, centers a fixed-size USGS NAIP image on that lot, and returns reviewable
+         *     structure, driveway, walk, parking, fence, water and tree proposals inside it.
+         *     The aerial reader never creates or replaces the lot boundary. Nothing is
+         *     written until a person accepts an individual proposal.
          */
         post: operations["traceGardenFromAerial"];
         delete?: never;
@@ -8334,7 +8335,7 @@ export interface components {
         };
         AerialTracingProposal: {
             /** @enum {unknown} */
-            category: "lot" | "structure" | "path" | "fence" | "zone" | "waterFeature" | "utilityExclusion" | "tree";
+            category: "structure" | "path" | "fence" | "zone" | "waterFeature" | "utilityExclusion" | "tree";
             label: string;
             geometry: components["schemas"]["Geometry"];
             confidence: number;

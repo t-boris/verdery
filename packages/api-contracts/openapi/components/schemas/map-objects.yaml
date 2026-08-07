@@ -736,7 +736,7 @@ AerialTracingProposal:
   required: [category, label, geometry, confidence, evidence]
   properties:
     category:
-      enum: [lot, structure, path, fence, zone, waterFeature, utilityExclusion, tree]
+      enum: [structure, path, fence, zone, waterFeature, utilityExclusion, tree]
     label:
       type: string
     geometry:
