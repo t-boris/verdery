@@ -54,6 +54,8 @@ tags:
     description: Garden care tasks — manual creation, scheduling, completion, and file attachments.
   - name: Recommendations
     description: The Today view's prioritized, explainable recommendation set and its controls — completion, postponement, dismissal, relevance feedback, and conversion into a task. Candidates are generated exclusively by the server-side rule engine; these operations read and act on them, never create them.
+  - name: Weather
+    description: The garden's stored weather — the latest observation and forecast the scheduled refresh sweep fetched, each carrying the read-time freshness label the rule engine branches on and the provider attribution its licence requires a client to render. Read-only and provider-free, so this tag never triggers a provider call, spends no quota, and cannot fail with a third party.
   - name: SeasonalPlan
     description: A garden-wide, forward-looking read of every reviewed seasonal timing fact for the garden's own plants (every configured window, not only whichever one happens to be open right now) plus the continuous bed-rotation status per placed plant with a known family — distinct from the rule-fired Today/Recommendations set above, which only ever surfaces a candidate within its own narrow eligibility window.
   - name: Media
@@ -285,6 +287,7 @@ paths:
   '/gardens/{gardenId}/tasks/{taskId}/attachments':
     { $ref: './paths/tasks/gardens_gardenId_tasks_taskId_attachments.yaml' }
   '/gardens/{gardenId}/today': { $ref: './paths/recommendations/gardens_gardenId_today.yaml' }
+  '/gardens/{gardenId}/weather': { $ref: './paths/weather/gardens_gardenId_weather.yaml' }
   '/gardens/{gardenId}/seasonal-plan':
     { $ref: './paths/seasonal-plan/gardens_gardenId_seasonal-plan.yaml' }
   '/gardens/{gardenId}/recommendations/{recommendationId}/complete':

@@ -15,10 +15,12 @@ import { russianPublicationsMessages } from './ru-publications';
 import { russianSeasonalPlanMessages } from './ru-seasonal-plan';
 import { russianTaskCollaborationMessages } from './ru-task-collaboration';
 import { russianTodayMessages } from './ru-today';
+import { russianWeatherMessages } from './ru-weather';
 
 /** Russian message catalogue. Typed against the English catalogue, so it cannot be incomplete. */
 export const russianMessages: MessageCatalogue = {
   ...russianTodayMessages,
+  ...russianWeatherMessages,
   ...russianAccessibilityMessages,
   ...russianCollaborationMessages,
   ...russianTaskCollaborationMessages,

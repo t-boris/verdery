@@ -409,9 +409,12 @@ use cases into the composition root, so `WEATHER_OBSERVATION_FRESH_FOR_MS` /
 `configuration-schema.ts`'s own comment) and `WEATHER_ACTIVE_PROVIDER_KEY` is optional environment
 configuration, absent everywhere. **`P0-PROV-01`'s weather half is now decided** (2026-07-26,
 `docs/implementation-plan.md` §29.1.1): Open-Meteo, models pinned to NOAA, registered in
-`compose-integrations.ts` with real license/quota/timeout metadata. Registered is not active —
-`WEATHER_ACTIVE_PROVIDER_KEY` still selects nothing, so the sweep's behavior below is unchanged
-until that key and a paid-tier API key are configured. Scheduling is closed: the worker's hourly
+`compose-integrations.ts` with real license/quota/timeout metadata. Registered became ACTIVE: `WEATHER_ACTIVE_PROVIDER_KEY` is now set from each
+environment's own `VERDERY_WEATHER_ACTIVE_PROVIDER_KEY` (`open-meteo` in dev and prod), so a
+georeferenced garden receives real readings and the two weather-dependent rules can fire. The free
+tier needs no API key; commercial production traffic requires the paid plan and
+`WEATHER_OPEN_METEO_API_KEY`. A garden with no georeference still degrades without a provider call —
+coordinates ARE the request. Scheduling is closed: the worker's hourly
 interval scheduler triggers `/internal/weather-refresh/sweep`, which iterates active georeferenced
 gardens through `RefreshGardenWeather` (least-recently-fetched first, batch-capped,
 quota-exhaustion stops the batch honestly) — with no active provider a typed, logged, observable

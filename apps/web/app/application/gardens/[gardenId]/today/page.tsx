@@ -1,4 +1,5 @@
 import { TodayList } from '@/features/recommendations/public';
+import { WeatherPanel } from '@/features/weather/public';
 import { getRequestTranslator } from '@/shared/localization/server';
 import { RouteBody, RouteHeader, RoutePage, RoutePanel, SunIcon } from '@/shared/ui/public';
 
@@ -26,6 +27,14 @@ export default async function TodayPage({
         icon={<SunIcon size={18} />}
       />
       <RouteBody>
+        {/* The conditions first, then what to do about them. Two of the seven
+            rules read weather and quote the exact reading they fired on, so
+            the readings above the list are what make those recommendations
+            checkable — and what makes their ABSENCE legible on a day the
+            garden has no weather at all. */}
+        <RoutePanel>
+          <WeatherPanel gardenId={gardenId} />
+        </RoutePanel>
         {/* No band heading: it would repeat the route title verbatim. */}
         <RoutePanel fill>
           <TodayList gardenId={gardenId} />

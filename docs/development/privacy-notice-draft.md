@@ -626,13 +626,13 @@ enablement checklist rather than in this notice.
 
 ### 4.4 Providers that do not exist
 
-| Provider class       | State                                                                                 | Evidence                           |
-| -------------------- | ------------------------------------------------------------------------------------- | ---------------------------------- |
-| Weather              | Port only. `new WeatherProviderRegistry([])`; `WEATHER_ACTIVE_PROVIDER_KEY` never set | `compose-integrations.ts:66`       |
-| Plant content        | Port and use cases exist but are **not composed anywhere**                            | no reference in any `compose-*.ts` |
-| Photo identification | Stub returning `{ null, 0 }` — no image ever leaves for analysis                      | `identify-plant-from-photo.ts`     |
-| Malware scanning     | Honest always-`unavailable` placeholder                                               | `threat-model.md` `T-UPL-12`       |
-| Transactional email  | None. Firebase Authentication sends the sign-in link itself                           | verified absent                    |
+| Provider class       | State                                                                                                  | Evidence                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| Weather              | ACTIVE. Open-Meteo registered and selected; only garden coordinates leave, never plant or account data | `compose-integrations.ts`, `open-meteo-weather-adapter.ts` |
+| Plant content        | Port and use cases exist but are **not composed anywhere**                                             | no reference in any `compose-*.ts`                         |
+| Photo identification | Stub returning `{ null, 0 }` — no image ever leaves for analysis                                       | `identify-plant-from-photo.ts`                             |
+| Malware scanning     | Honest always-`unavailable` placeholder                                                                | `threat-model.md` `T-UPL-12`                               |
+| Transactional email  | None. Firebase Authentication sends the sign-in link itself                                            | verified absent                                            |
 
 ## 5. Permission copy — both clients
 

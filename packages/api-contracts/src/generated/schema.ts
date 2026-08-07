@@ -2318,6 +2318,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/weather": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get the garden's stored weather
+         * @description The garden's latest stored observation and forecast, each with the
+         *     freshness label derived at read time and the provider attribution the
+         *     reading's licence requires a client to render.
+         *
+         *     A pure read of what the scheduled weather-refresh sweep already
+         *     fetched — this operation never calls the provider, so it spends no
+         *     quota, cannot fail because a provider is down, and has no latency
+         *     coupling to a third party. A garden whose weather is missing gets a
+         *     typed `unavailableReason` rather than an error, because "no reading
+         *     yet" is an ordinary state of a garden that was just created, has no
+         *     location set, or is running in an environment with no active provider.
+         *
+         *     Requires the ordinary `viewGarden` capability: weather is garden
+         *     context, readable by anyone who can read the garden.
+         *
+         *     Source: architecture/external-integrations.md section 5;
+         *     architecture/recommendations-and-ai.md section 4.
+         */
+        get: operations["getGardenWeather"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/gardens/{gardenId}/seasonal-plan": {
         parameters: {
             query?: never;
@@ -8461,6 +8499,100 @@ export interface components {
             proposals: components["schemas"]["AerialTracingProposal"][];
             disclaimer: string;
         };
+        /**
+         * @description One stored, provider-neutral weather record for the garden, normalized
+         *     to the single documented SI profile — temperature in degrees Celsius,
+         *     precipitation depth in millimetres, wind speed in metres per second,
+         *     relative humidity in percent.
+         *
+         *     Every measurement is nullable and no absent measurement is ever
+         *     substituted with a default: a provider that does not report a field
+         *     leaves it `null`, the same "missing facts remain missing" rule the rule
+         *     engine applies to its own inputs. At least one measurement is present
+         *     on any record that exists at all.
+         */
+        GardenWeatherReading: {
+            /**
+             * Format: date-time
+             * @description The moment the reading is ABOUT — the observation time for an
+             *     observation, the forecast target time for a forecast. Not the
+             *     moment it was fetched; see `retrievedAt` for that.
+             */
+            effectiveAt: string;
+            /**
+             * Format: date-time
+             * @description When this record was fetched from the provider. The age this is measured against is what `freshness` classifies.
+             */
+            retrievedAt: string;
+            /**
+             * @description Derived at read time from `retrievedAt` and the per-kind freshness
+             *     window, never stored — a stored classification would rot as
+             *     wall-clock time passes.
+             *
+             *     `stale` is a real, displayable state, not an error: the reading is
+             *     still the most recent one this garden has, and a client should show
+             *     it labelled rather than hide it. It carries the same meaning the
+             *     rule engine's own weather gate branches on.
+             * @enum {string}
+             */
+            freshness: "fresh" | "stale";
+            temperatureCelsius: number | null;
+            /** @description Accumulated precipitation depth. The accumulation interval is provider-defined and deliberately not normalized — no canonical interval exists to normalize to. */
+            precipitationMm: number | null;
+            windSpeedMps: number | null;
+            humidityPercent: number | null;
+        };
+        /**
+         * @description The garden's current conditions and its nearest upcoming forecast, as
+         *     stored by the scheduled refresh sweep. This operation never calls a
+         *     provider: it reads what the sweep already fetched, so it cannot spend
+         *     quota, cannot block on a provider outage, and cannot vary in latency
+         *     with a third party.
+         *
+         *     Every field degrades honestly rather than failing. A garden with no
+         *     georeference, an environment with no active provider, and a garden the
+         *     sweep has not reached yet all produce the same shape with `null`
+         *     readings — the reason is reported in `unavailableReason` rather than
+         *     inferred by the client from an empty response.
+         */
+        GardenWeatherResult: {
+            /** @description The latest stored observation, or `null` when none has been fetched. */
+            observation: components["schemas"]["GardenWeatherReading"] | null;
+            /** @description The latest stored forecast, or `null` when none has been fetched. */
+            forecast: components["schemas"]["GardenWeatherReading"] | null;
+            /**
+             * @description Whether this environment has an ACTIVE weather provider at all.
+             *     `false` means no reading will ever appear for any garden until the
+             *     deployment names one — a configuration fact, not a garden fact, and
+             *     the one case a client should not invite the person to fix.
+             */
+            providerConfigured: boolean;
+            /**
+             * @description The exact credit line a client MUST render alongside any reading it
+             *     displays. A licence obligation carried by the reading's own provider
+             *     terms, not a courtesy — Open-Meteo's free tier is CC BY 4.0 and
+             *     requires visible credit.
+             *
+             *     Snapshotted onto each stored record at fetch time and read back from
+             *     it here, so changing the active provider never re-attributes rows an
+             *     earlier provider produced. `null` exactly when no reading is present,
+             *     because there is then nothing displayed to credit.
+             */
+            attributionText: string | null;
+            /**
+             * @description Why no reading is available, when none is. `null` whenever at least
+             *     one reading is present.
+             *
+             *     - `noProviderConfigured` — the deployment names no active provider.
+             *     - `gardenNotGeoreferenced` — the garden has no coordinates, and
+             *       coordinates ARE the request; this is the one reason the person
+             *       can resolve themselves, by setting the garden's location.
+             *     - `notYetFetched` — provider and coordinates are both in place and
+             *       the scheduled refresh has not reached this garden yet.
+             * @enum {string|null}
+             */
+            unavailableReason: "noProviderConfigured" | "gardenNotGeoreferenced" | "notYetFetched" | null;
+        };
     };
     responses: {
         /** @description The request is malformed or fails validation. */
@@ -11494,6 +11626,31 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getGardenWeather: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden's stored weather, possibly with no readings yet. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GardenWeatherResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };

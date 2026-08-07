@@ -86,6 +86,14 @@ export type ConvertRecommendationToTaskResult = Schemas['ConvertRecommendationTo
 /** The seasonal plan schemas (P9D-SEASON-API-01) live in `./seasonal-plan.js` — same 600-line-rule posture as `./garden-context.js` above. */
 export * from './seasonal-plan.js';
 
+/**
+ * The garden weather read. Its readings are the SAME stored records the rule
+ * engine's own weather gate branches on, so a person and the engine cannot
+ * disagree about the conditions a recommendation was based on.
+ */
+export type GardenWeatherReading = Schemas['GardenWeatherReading'];
+export type GardenWeatherResult = Schemas['GardenWeatherResult'];
+
 /** The media schemas (P6-API-01). */
 export type MediaClass = Schemas['MediaClass'];
 export type MediaUploadState = Schemas['MediaUploadState'];

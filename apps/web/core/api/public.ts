@@ -46,6 +46,7 @@ export { createPlantGateway, type PlantGateway, type SearchPlantsParams } from '
 export { createPublisherGrantGateway, type PublisherGrantGateway } from './publisher-grant-gateway';
 export { createRecommendationGateway, type RecommendationGateway } from './recommendation-gateway';
 export { createSeasonalPlanGateway, type SeasonalPlanGateway } from './seasonal-plan-gateway';
+export { createWeatherGateway, type WeatherGateway } from './weather-gateway';
 export { createTaskGateway, type TaskGateway } from './task-gateway';
 export type {
   WireCategoryDetails,

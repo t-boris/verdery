@@ -64,6 +64,14 @@ Normalized weather data records:
 
 Recommendations check freshness and degrade when data is stale.
 
+**Reading the stored records.** `GET /gardens/{gardenId}/weather` exposes the latest observation and
+forecast to an authorized garden reader, with the freshness label derived at read time and the
+record's own snapshotted attribution. The read never calls a provider — refreshing is exclusively the
+scheduled sweep's job — so a person reloading a page cannot spend quota, and the surface is
+unaffected by a provider outage. When no reading exists the response carries a typed reason
+(`noProviderConfigured`, `gardenNotGeoreferenced`, `notYetFetched`) rather than an empty body,
+because only one of those three is something the reader can act on.
+
 ### 5.1 Selected Provider
 
 **Open-Meteo** (paid Standard plan) is the selected weather provider, decided July 26, 2026 — the weather half of `P0-PROV-01`. **NWS / api.weather.gov** is the named fallback provider and is not implemented; adding it is one adapter class plus one registration.

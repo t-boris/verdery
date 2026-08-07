@@ -23,9 +23,11 @@ import { englishPublicationsMessages } from './en-publications';
 import { englishSeasonalPlanMessages } from './en-seasonal-plan';
 import { englishTaskCollaborationMessages } from './en-task-collaboration';
 import { englishTodayMessages } from './en-today';
+import { englishWeatherMessages } from './en-weather';
 
 export const englishMessages = {
   ...englishTodayMessages,
+  ...englishWeatherMessages,
   ...englishAccessibilityMessages,
   ...englishCollaborationMessages,
   ...englishTaskCollaborationMessages,

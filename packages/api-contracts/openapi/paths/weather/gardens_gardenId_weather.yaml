@@ -1,0 +1,42 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: getGardenWeather
+  tags: [Weather]
+  summary: Get the garden's stored weather
+  description: |
+    The garden's latest stored observation and forecast, each with the
+    freshness label derived at read time and the provider attribution the
+    reading's licence requires a client to render.
+
+    A pure read of what the scheduled weather-refresh sweep already
+    fetched — this operation never calls the provider, so it spends no
+    quota, cannot fail because a provider is down, and has no latency
+    coupling to a third party. A garden whose weather is missing gets a
+    typed `unavailableReason` rather than an error, because "no reading
+    yet" is an ordinary state of a garden that was just created, has no
+    location set, or is running in an environment with no active provider.
+
+    Requires the ordinary `viewGarden` capability: weather is garden
+    context, readable by anyone who can read the garden.
+
+    Source: architecture/external-integrations.md section 5;
+    architecture/recommendations-and-ai.md section 4.
+  responses:
+    '200':
+      description: The garden's stored weather, possibly with no readings yet.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/weather.yaml#/GardenWeatherResult'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

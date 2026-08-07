@@ -33,14 +33,12 @@ import { composeSynchronization } from './compose-synchronization.js';
 import { composeTasksRecommendations } from './compose-tasks-recommendations.js';
 import {
   registerPlantAssertionReviewRoutes,
-  registerTaxonEnrichmentSweepRoute,
   registerGeocodingRoutes,
-  registerWeatherRefreshSweepRoute,
+  registerWeatherRoutes,
 } from './modules/integrations/public.js';
 import {
   registerGardenContextRoutes,
   registerGardenRoutes,
-  registerInvitationExpirySweepRoute,
   registerInvitationRoutes,
   registerGeoreferenceRoutes,
   registerMapRoutes,
@@ -53,25 +51,11 @@ import {
   KyselyProfileRepository,
   ProvisionProfile,
 } from './modules/identity-access/public.js';
+import { registerClientExportRoutes, registerExportRoutes } from './modules/exports/public.js';
+import { registerAccountDeletionRoutes } from './modules/deletion/public.js';
+import { registerClientMediaRoutes, registerMediaRoutes } from './modules/media/public.js';
 import {
-  registerClientExportRoutes,
-  registerExportInternalRoutes,
-  registerExportRoutes,
-} from './modules/exports/public.js';
-import {
-  registerAccountDeletionRoutes,
-  registerDeletionSweepRoute,
-} from './modules/deletion/public.js';
-import {
-  registerClientMediaRoutes,
-  registerMediaProcessingCallbackRoute,
-  registerMediaRetentionSweepRoute,
-  registerMediaRoutes,
-} from './modules/media/public.js';
-import {
-  registerNotificationDeliverySweepRoute,
   registerNotificationDeviceRoutes,
-  registerNotificationEventsRoute,
   registerNotificationRoutes,
 } from './modules/notifications/public.js';
 import {
@@ -95,12 +79,12 @@ import {
   ServiceHealth,
 } from './modules/service-health/public.js';
 import {
-  registerRecommendationEvaluationSweepRoute,
   registerRecommendationRoutes,
   registerSeasonalPlanRoutes,
   registerTaskRoutes,
 } from './modules/tasks-recommendations/public.js';
 import { registerSyncRoutes } from './modules/synchronization/public.js';
+import { registerInternalRoutes } from './register-internal-routes.js';
 import { KyselyAuditLogger } from './platform/audit/kysely-audit-logger.js';
 import { registerAppCheck } from './platform/app-check/app-check-plugin.js';
 import { registerAuthentication } from './platform/authentication/authentication-plugin.js';
@@ -184,6 +168,7 @@ export async function buildApplication(
     identifyPlantSpecies,
     analyzePlantCondition,
     geocodingRoutesDependencies,
+    weatherRoutesDependencies,
     weatherRefreshSweepRouteDependencies,
     taxonEnrichmentSweepRouteDependencies,
     taxonProfileEnricher,
@@ -192,6 +177,7 @@ export async function buildApplication(
   } = composeIntegrations(
     database,
     clock,
+    gardenAuthorization,
     configuration.weather,
     configuration.aiExplanation,
     aiExplanationAdapter,
@@ -456,27 +442,18 @@ export async function buildApplication(
   // for Firebase.
   await app.register(
     (instance, _options, done) => {
-      registerMediaProcessingCallbackRoute(instance, mediaProcessingCallbackRouteDependencies);
-      // P6-RET-01: the worker-triggered retention sweep, same machine-to-machine identity check as the callback above.
-      registerMediaRetentionSweepRoute(instance, mediaRetentionSweepRouteDependencies);
-      // P7-ASYNC-01: the worker-triggered weather-refresh and recommendation-evaluation sweeps — same identity check again.
-      registerWeatherRefreshSweepRoute(instance, weatherRefreshSweepRouteDependencies);
-      registerRecommendationEvaluationSweepRoute(
-        instance,
-        recommendationEvaluationSweepRouteDependencies,
-      );
-      // P7-NOTIF-01: the workers outbox relay's notification-event endpoint — same identity check yet again.
-      registerNotificationEventsRoute(instance, notificationEventsRouteDependencies);
-      // P7-NOTIF-02: the worker-triggered notification delivery sweep — same identity check once more.
-      registerNotificationDeliverySweepRoute(instance, notificationDeliverySweepRouteDependencies);
-      // P8-EXPORT-01: the export-generation worker's snapshot/checkpoint/completion endpoints — same identity check again.
-      registerExportInternalRoutes(instance, exportInternalRoutesDependencies);
-      // P8-DELETE-01: the deletion sweep — same identity check, fifth sweep.
-      registerDeletionSweepRoute(instance, deletionSweepRouteDependencies);
-      // P9A-API-01: the invitation expiry sweep — same identity check, sixth sweep. Not yet scheduled by a worker (see that route's own header for why) but callable the same way every sibling sweep is.
-      registerInvitationExpirySweepRoute(instance, invitationExpirySweepRouteDependencies);
-      // P11-ASYNC-01: the taxon-enrichment sweep — same identity check, seventh sweep.
-      registerTaxonEnrichmentSweepRoute(instance, taxonEnrichmentSweepRouteDependencies);
+      registerInternalRoutes(instance, {
+        mediaProcessingCallback: mediaProcessingCallbackRouteDependencies,
+        mediaRetentionSweep: mediaRetentionSweepRouteDependencies,
+        weatherRefreshSweep: weatherRefreshSweepRouteDependencies,
+        recommendationEvaluationSweep: recommendationEvaluationSweepRouteDependencies,
+        notificationEvents: notificationEventsRouteDependencies,
+        notificationDeliverySweep: notificationDeliverySweepRouteDependencies,
+        exportInternal: exportInternalRoutesDependencies,
+        deletionSweep: deletionSweepRouteDependencies,
+        invitationExpirySweep: invitationExpirySweepRouteDependencies,
+        taxonEnrichmentSweep: taxonEnrichmentSweepRouteDependencies,
+      });
       done();
     },
     { prefix: API_BASE_PATH },
@@ -507,6 +484,10 @@ export async function buildApplication(
       // provider call, and an unauthenticated one would be a free proxy to a
       // third-party service.
       registerGeocodingRoutes(instance, geocodingRoutesDependencies);
+      // The garden's stored weather — the same readings the rule engine's
+      // weather gate reasons from, so what a person sees and what the
+      // engine decided on cannot disagree.
+      registerWeatherRoutes(instance, weatherRoutesDependencies);
       // P9D-CONTEXT-01: reviewed/declared garden context facts (sun
       // exposure, soil type, drainage, irrigation method, growing context,
       // microclimate).

@@ -100,6 +100,18 @@ export type {
   GetGardenWeatherResult,
 } from './application/get-garden-weather.js';
 
+// The client-facing weather read — the authorized surface `GetGardenWeather`
+// above deliberately left to "the stage that first exposes weather to an
+// actor". See `get-garden-weather-view.ts`'s own header.
+export { GetGardenWeatherView } from './application/get-garden-weather-view.js';
+export type {
+  GardenWeatherReadingResource,
+  GardenWeatherResource,
+  GardenWeatherUnavailableReason,
+} from './application/get-garden-weather-view.js';
+export { registerWeatherRoutes } from './transport/weather-routes.js';
+export type { WeatherRoutesDependencies } from './transport/weather-routes.js';
+
 // P7-ASYNC-01: the scheduled weather-refresh sweep and its internal route.
 export {
   RunWeatherRefreshSweep,

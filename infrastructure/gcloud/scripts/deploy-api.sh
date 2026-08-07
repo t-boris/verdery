@@ -106,6 +106,25 @@ env_vars+="#USA_NPN_PROVIDER_ENABLED=${VERDERY_USA_NPN_PROVIDER_ENABLED:-false}"
 env_vars+="#PLAT_READING_ENABLED=${VERDERY_PLAT_READING_ENABLED:-false}"
 env_vars+="#PLAT_READING_MODEL=${VERDERY_PLAT_READING_MODEL:-unset}"
 
+# P0-PROV-01 (weather half, decided 2026-07-26): which REGISTERED weather
+# provider is the ACTIVE one. `compose-integrations.ts` registers Open-Meteo
+# unconditionally with its real license/quota/timeout metadata, but the
+# registry does not choose — this key does, and until this stage it was set
+# in no environment, so every garden degraded to the typed
+# `noProviderConfigured` outcome and both weather-dependent rules
+# (`watering.dry-spell-check`, `weather.frost-watch`) recorded a
+# `weatherMissing` skip on every evaluation.
+#
+# Set ONLY when the environment names one, never defaulted here: the
+# configuration schema types this variable as optional-but-non-empty, and
+# "absent means off" is the honest posture its own comment documents. An
+# environment that names a key with no matching registration fails at
+# startup construction, by design — a typo cannot degrade silently into a
+# provider-less runtime.
+if [[ -n "${VERDERY_WEATHER_ACTIVE_PROVIDER_KEY:-}" ]]; then
+  env_vars+="#WEATHER_ACTIVE_PROVIDER_KEY=${VERDERY_WEATHER_ACTIVE_PROVIDER_KEY}"
+fi
+
 # Browser CORS for the deployed web client (Phase 8 web deployment stage).
 #
 # P8-NET-01: an environment with a custom domain states its browser origin

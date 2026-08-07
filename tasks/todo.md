@@ -9457,3 +9457,65 @@ Still open, deliberately: the `photoTooLarge` reason is not surfaced to the
 person. With the derivative wait in place it is reachable only when processing
 itself failed, and showing it means carrying an identification outcome through
 a contract that currently returns only the created record.
+
+## Care-engine activation — closing the six gaps that keep the rule engine idle (2026-08-07)
+
+The engine, its seven versioned rules, evidence, priority, sweeps, Today and the
+feedback commands were all complete. Two data inputs were not connected, so five
+of seven rules could never fire and a new plant produced nothing for fourteen days.
+
+- [ ] **1. Activate the weather provider.** Open-Meteo is registered with real
+      license/quota/timeout metadata but `WEATHER_ACTIVE_PROVIDER_KEY` was set in no
+      environment, so every garden degraded to `noProviderConfigured` and both
+      weather-dependent rules recorded `weatherMissing` forever. (`P0-PROV-01`
+      weather half, `P7-INT-01`.)
+- [ ] **2. Give `taxonomy_seasonal_fact` a write path and real content.** The table
+      had no seed, no command and no import, so the three seasonal rules and the
+      seasonal-plan read had nothing to read. (`P9D-SEASON-01`.)
+- [ ] **3. Make the horticultural review of that content performable.** ADR-0013
+      and the safety catalog require a named human reviewer; the mechanism to record
+      one did not exist for seasonal facts. (`P7-SAFE-01`, `P9D-SEASON-01`.)
+- [ ] **4. Re-evaluate a garden when its facts change.** Evaluation ran only on the
+      six-hourly sweep, so adding a plant produced nothing until the next tick.
+- [ ] **5. Accept a lifecycle stage when a plant is added.** Every new plant landed
+      in `planned`, a stage no weather or harvest rule accepts. (`P4-BE-01`,
+      `P4-WEB-01`.)
+- [ ] **6. Ask for the garden's location during onboarding.** Without a georeference
+      there is no weather and no hemisphere, and five of seven rules go silent.
+- [ ] **7. Feed completed care back into the engine.** `GardenFacts.openTasks`
+      carried only `planned`/`suggested` tasks, so completing a watering task removed
+      the only thing suppressing its own recommendation, and the recurrence interval
+      was still measured from the candidate's creation rather than from the moment
+      the work was actually done. Recent completions become a fact the engine reads.
+- [ ] **8. Show the garden's weather.** `GetGardenWeather` existed only as a
+      cross-module injection into the rule engine; no HTTP surface exposed a reading
+      to a client. The garden gains a weather read with its freshness label and the
+      provider attribution Open-Meteo's CC BY 4.0 terms require a client to render.
+- [ ] **9. Decide watering from ACCUMULATED rainfall, not one reading.**
+      `watering.dry-spell-check` v1 read a single latest observation's
+      `precipitationMm` — a point value whose accumulation interval is
+      provider-defined. Open-Meteo already stores a series of daily
+      `precipitation_sum` rows (`past_days`, default 7), so the data to sum was
+      being persisted and ignored. A new rule version reads the window total and
+      the days since the last meaningful rain.
+- [ ] **10. Let the model reason across every input — inside its own lane.**
+      ADR-0008 and ADR-0013 forbid a generative model from being the care
+      AUTHORITY at request time; the deterministic rules stay the decider, which is
+      what makes a recommendation explainable, reproducible and available during a
+      provider outage. The lane that IS permitted is bounded explanation over
+      already-decided evidence, and it is fully built behind
+      `RECOMMENDATION_AI_EXPLANATION_ENABLED`, off in every environment. Switch it
+      on and widen the evidence packet so the synthesis actually spans weather,
+      accumulated rainfall, temperature, taxon, lifecycle stage and observed
+      symptoms rather than the two facts a single rule happened to cite.
+- [ ] **11. Show the automatic rules as a list, per garden.** The seven versioned
+      rules are invisible to the person they act for. A care-rules surface names
+      every active rule, what it needs, its safety tier and review status — and,
+      for THIS garden, whether it can currently fire at all. The engine already
+      computes a typed skip reason per rule; surfacing it turns "why do I have no
+      tasks" from a mystery into a list of named, mostly-fixable causes.
+- [ ] **12. Let the model PROPOSE a rule-relevant fact for a new plant.** ADR-0013's
+      second permitted lane: a plant whose taxon has no reviewed seasonal fact gets
+      an AI-drafted proposal into the review queue, inert and unreadable by the
+      engine until a named reviewer accepts or corrects it. `ai_proposed_reviewed`
+      already exists in the domain's authoring vocabulary for exactly this.

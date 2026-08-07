@@ -34,6 +34,7 @@ import {
   GBIF_PROVIDER_KEY,
   GenerateAiExplanation,
   GetGardenWeather,
+  GetGardenWeatherView,
   IdentifyPlantSpecies,
   KyselyPlantDistributionAssertionRepository,
   KyselyPlantFactAssertionRepository,
@@ -69,7 +70,9 @@ import type {
   TaxonEnrichmentSweepRouteDependencies,
   TransactionalEmailAdapter,
   WeatherRefreshSweepRouteDependencies,
+  WeatherRoutesDependencies,
 } from './modules/integrations/public.js';
+import type { GardenAuthorization } from './modules/gardens-mapping/public.js';
 import { KyselyGeoreferenceRepository } from './modules/gardens-mapping/public.js';
 import {
   KyselyPlantProfileVersionRepository,
@@ -114,6 +117,8 @@ export interface IntegrationsComposition {
   readonly taxonProfileEnricher: TaxonProfileEnricher;
   /** P12-GEO-01: address search, the one interactive provider call in this module. */
   readonly geocodingRoutesDependencies: GeocodingRoutesDependencies;
+  /** The client-facing garden weather read — see `get-garden-weather-view.ts`. */
+  readonly weatherRoutesDependencies: WeatherRoutesDependencies;
   readonly weatherRefreshSweepRouteDependencies: WeatherRefreshSweepRouteDependencies;
   /** P11-ASYNC-01: the scheduled taxon-enrichment sweep's internal route dependencies — the `weatherRefreshSweepRouteDependencies` precedent, second instance. */
   readonly taxonEnrichmentSweepRouteDependencies: TaxonEnrichmentSweepRouteDependencies;
@@ -126,6 +131,8 @@ export interface IntegrationsComposition {
 export function composeIntegrations(
   database: DatabaseGateway,
   clock: Clock,
+  /** Reused from `composeGardensMapping`, which runs first — the client-facing weather read authorizes `viewGarden` like every other garden read. */
+  gardenAuthorization: GardenAuthorization,
   weather: WeatherConfiguration,
   aiExplanation: AiExplanationConfiguration,
   aiExplanationAdapter: AiExplanationProviderAdapter | null,
@@ -169,12 +176,17 @@ export function composeIntegrations(
     forecastFreshForMs: weather.forecastFreshForMs,
   };
 
+  // One stateless read-only instance shared by the refresh use case (which
+  // needs coordinates to fetch AT ALL) and the client-facing read (which
+  // needs to tell "no location set" apart from "not fetched yet").
+  const georeferences = new KyselyGeoreferenceRepository(database.queries);
+
   const refreshGardenWeather = new RefreshGardenWeather(
     registry,
     { activeProviderKey: weather.activeProviderKey, freshnessPolicy },
     weatherRecords,
     providerQuotas,
-    new KyselyGeoreferenceRepository(database.queries),
+    georeferences,
     clock,
   );
 
@@ -230,6 +242,18 @@ export function composeIntegrations(
   );
 
   const getGardenWeather = new GetGardenWeather(weatherRecords, freshnessPolicy, clock);
+
+  // The client-facing read over that same use case. `activeProviderKey` is
+  // passed so the response can report `noProviderConfigured` as a typed
+  // reason rather than leaving a client to infer it from an empty body.
+  const weatherRoutesDependencies: WeatherRoutesDependencies = {
+    getGardenWeatherView: new GetGardenWeatherView(
+      getGardenWeather,
+      gardenAuthorization,
+      georeferences,
+      weather.activeProviderKey,
+    ),
+  };
 
   // P12-GEO-01: the US Census geocoder needs no key and no configuration, so
   // unlike every other adapter here it is always present — there is no
@@ -403,6 +427,7 @@ export function composeIntegrations(
     identifyPlantSpecies,
     analyzePlantCondition,
     geocodingRoutesDependencies,
+    weatherRoutesDependencies,
     weatherRefreshSweepRouteDependencies,
     taxonEnrichmentSweepRouteDependencies,
     taxonProfileEnricher,
