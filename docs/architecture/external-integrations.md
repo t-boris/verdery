@@ -64,6 +64,18 @@ Normalized weather data records:
   interval take part in no sum. Open-Meteo reports both an hourly `current.precipitation` and a
   daily `precipitation_sum`, so recording the interval is what keeps a weekly total from counting
   the current hour twice.
+- **The interval is not enough on its own.** `past_days` returns the whole recent past on EVERY
+  refresh, and the store is append-only, so one elapsed day accumulates one row per sweep — all with
+  the same effective time and the same interval. A read that sums the raw rows multiplies rainfall by
+  the number of sweeps behind it (observed on `dev`, August 7 2026: 175.2 mm reported "across 18 of 7
+  days" against a true 58.4 mm). Any accumulation read must therefore collapse to **one row per
+  period**, keeping the most recently fetched reading — a later fetch may legitimately revise a day's
+  figure, and both readings stay as history. This lives in the shared read
+  (`listElapsedPrecipitation`), never in each consumer: the rule engine, the per-plant care view, and
+  the garden weather panel all accumulate over it, and correcting some of them is how they drift
+  apart. The failure direction is what makes it urgent — an inflated total makes the watering check
+  UNDER-fire, staying silent on a garden that is genuinely dry, and silence looks identical whether
+  it is right or wrong.
 - Confidence or provider quality where supplied.
 - License and redistribution constraints.
 

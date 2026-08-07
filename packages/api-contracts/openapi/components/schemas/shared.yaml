@@ -5,6 +5,28 @@ Uuid:
   pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
   examples: ['019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0b']
 
+CatalogUuid:
+  type: string
+  format: uuid
+  description: |
+    An identifier for SHARED CATALOG content — a `taxonomy_reference` or a
+    `taxonomy_seasonal_fact` — of any UUID version.
+
+    Deliberately NOT `Uuid`. That schema pins version 7, which is the right
+    requirement for an id a CLIENT mints (an idempotency key, an
+    offline-created record) or that this application generates with
+    `generateUuidV7()`: time ordering is an index property those paths
+    depend on. Catalog rows are seeded by SQL migrations with
+    `gen_random_uuid()` — version 4 — so demanding version 7 of them
+    rejected every real catalog id at the transport boundary with `400`,
+    including the ones the server itself had just handed the client.
+
+    A client never invents one of these. It reads one from a catalog
+    search or an acceptance queue and hands it straight back, so the only
+    honest constraint is "a UUID".
+  pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
+  examples: ['4f3a1c2e-9b7d-4e51-8a06-2d5c9f1b3e7a']
+
 Timestamp:
   type: string
   format: date-time

@@ -1,0 +1,181 @@
+# ------------------------------------------------------------------
+# Per-garden seasonal-timing acceptance.
+#
+# Seasonal timing is SHARED content — `taxonomy_seasonal_fact` has no
+# `garden_id`. What a garden's owner or editor decides here is therefore
+# not "this content is reviewed" but "use this content in MY garden",
+# recorded in `garden_seasonal_fact_acceptance`. Three rules
+# (`seasonal.sowing-window-check`, `succession.replanting-reminder`,
+# `rotation.crop-rotation-caution`) treat timing this garden has not
+# accepted as absent, so until this queue is worked through they stay
+# silent — which is what `CareRuleBlocker.seasonalTimingNotAccepted`
+# reports.
+#
+# Source: architecture/decisions/ADR-0013-ai-assisted-care-content-authoring.md;
+# migrations/1789700000000_garden-seasonal-fact-acceptance.sql.
+# ------------------------------------------------------------------
+SeasonalTimingAuthoringMethod:
+  type: string
+  enum: [human_authored, ai_extracted_from_source, ai_proposed_reviewed]
+  description: |
+    How the timing came to exist — one of ADR-0013's two permitted AI
+    routes, or plain human authoring. `sourceCitation` accompanies
+    `ai_extracted_from_source` and only that value: an accepted proposal
+    becomes the project's own content rather than a borrowed source.
+
+SeasonalTimingReviewStatus:
+  type: string
+  enum: [awaiting_horticultural_review, horticulturally_reviewed]
+  description: |
+    Whether a named horticultural reviewer has signed the CONTENT off.
+    Orthogonal to this garden's own acceptance: a reviewed fact still
+    does nothing here until the garden accepts it, and a garden may
+    accept timing that carries no sign-off — the reader is shown which,
+    so the decision is made with that in hand rather than around it.
+
+GardenSeasonalFactAwaitingAcceptance:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      id,
+      taxonomyReferenceId,
+      scientificName,
+      commonName,
+      hemisphere,
+      timing,
+      authoringMethod,
+      reviewStatus,
+      createdAt,
+    ]
+  description: |
+    One taxon's seasonal timing, offered to this garden for a decision.
+
+    Carries the taxon's NAME and its actual months, never bare
+    identifiers: the point of the gate is that a person saw what they
+    signed, and a list of UUIDs and month numbers is not reviewable
+    content.
+  properties:
+    id:
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/CatalogUuid'
+      description: The `factId` the accept operation takes. Any UUID version — the fact is seeded catalog content, not an application-minted record.
+    taxonomyReferenceId:
+      $ref: '../../components/schemas/shared.yaml#/CatalogUuid'
+    scientificName:
+      type: string
+      minLength: 1
+    commonName:
+      oneOf:
+        - type: string
+          minLength: 1
+        - type: 'null'
+    hemisphere:
+      allOf:
+        - $ref: '../../components/schemas/seasonal-plan.yaml#/Hemisphere'
+      description: |
+        Always this garden's own hemisphere — the queue never offers
+        timing computed for the other half of the world, and the accept
+        re-checks it in SQL rather than trusting the caller.
+    timing:
+      allOf:
+        - $ref: '../../components/schemas/seasonal-plan.yaml#/SeasonalPlanTaxonomyTiming'
+      description: |
+        The same timing shape `SeasonalPlan` renders for already-usable
+        facts, deliberately — what a person accepts here is exactly what
+        they will read afterwards.
+    authoringMethod:
+      $ref: '#/SeasonalTimingAuthoringMethod'
+    sourceCitation:
+      type: string
+      minLength: 1
+      description: Present exactly when `authoringMethod` is `ai_extracted_from_source` — the licensed source that was parsed.
+    reviewStatus:
+      $ref: '#/SeasonalTimingReviewStatus'
+    reviewedBy:
+      type: string
+      minLength: 1
+      description: Present exactly when `reviewStatus` is `horticulturally_reviewed`.
+    reviewedOn:
+      type: string
+      format: date
+      description: Present exactly when `reviewStatus` is `horticulturally_reviewed`.
+    createdAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
+GardenSeasonalAcceptanceQueue:
+  type: object
+  additionalProperties: false
+  required: [hemisphereKnown, items]
+  properties:
+    hemisphereKnown:
+      type: boolean
+      description: |
+        Reported rather than inferred from an empty list. Sowing months
+        are meaningless without knowing which half of the world the
+        garden is in, so `false` means "nothing can be decided yet,
+        set the garden's location" — a different situation from an
+        empty `items` with `true`, which means "nothing left to decide".
+    items:
+      type: array
+      description: Timing for taxa this garden actually grows and has not already decided about, oldest fact first.
+      items:
+        $ref: '#/GardenSeasonalFactAwaitingAcceptance'
+
+AcceptSeasonalFactAccepted:
+  type: object
+  additionalProperties: false
+  required: [outcome, acceptedOn]
+  properties:
+    outcome:
+      type: string
+      enum: [accepted]
+    acceptedOn:
+      type: string
+      format: date
+      description: The calendar date the decision was recorded on. Unchanged by a repeated accept — the decision is recorded once.
+
+AcceptSeasonalFactNotAcceptableHere:
+  type: object
+  additionalProperties: false
+  required: [outcome]
+  description: |
+    No such fact, or its hemisphere is not this garden's.
+    Indistinguishable on purpose: both mean "there is nothing here for
+    this garden to accept", and separating them would let a probe
+    confirm that an id exists.
+  properties:
+    outcome:
+      type: string
+      enum: [notAcceptableHere]
+
+AcceptSeasonalFactHemisphereUnknown:
+  type: object
+  additionalProperties: false
+  required: [outcome]
+  description: The garden has no georeference, so no timing can apply to it yet. Resolved by setting the garden's location, not by retrying.
+  properties:
+    outcome:
+      type: string
+      enum: [hemisphereUnknown]
+
+AcceptSeasonalFactResult:
+  oneOf:
+    - $ref: '#/AcceptSeasonalFactAccepted'
+    - $ref: '#/AcceptSeasonalFactNotAcceptableHere'
+    - $ref: '#/AcceptSeasonalFactHemisphereUnknown'
+  description: |
+    Every outcome is `200`. A retried accept, a fact that does not apply
+    here, and a garden without a location are all legitimate states of
+    this request rather than client errors, and the caller is told which
+    one it got.
+  discriminator:
+    propertyName: outcome
+    # Without explicit mapping, openapi-typescript sets each branch's
+    # discriminator literal to the referenced schema's own *name*
+    # instead of the real wire value — see `SeasonalPlanTaxonomyStatus`'s
+    # identical note.
+    mapping:
+      accepted: '#/AcceptSeasonalFactAccepted'
+      notAcceptableHere: '#/AcceptSeasonalFactNotAcceptableHere'
+      hemisphereUnknown: '#/AcceptSeasonalFactHemisphereUnknown'

@@ -33,7 +33,7 @@ export const englishCareRulesMessages = {
   'careRules.blocker.noIdentifiedPlants':
     'No active plant has a species yet. A check about a species cannot say anything about an unidentified plant.',
   'careRules.blocker.seasonalTimingNotAccepted':
-    'You have not accepted seasonal timing for the plants here yet. Review and accept it to switch these checks on.',
+    'You have not accepted seasonal timing for the plants here yet. Accept it below to switch these checks on.',
   'careRules.blocker.noPlacedPlants':
     'No active plant is placed in a garden area, so there is no bed history to reason about.',
   'careRules.blocker.awaitingHorticulturalReview':

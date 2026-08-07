@@ -1,0 +1,49 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: listGardenSeasonalFactsAwaitingAcceptance
+  tags: [SeasonalAcceptance]
+  summary: List seasonal timing this garden has not decided about yet
+  description: |
+    The working queue: seasonal timing for taxa this garden actually
+    grows, in this garden's own hemisphere, that it has not already
+    accepted. Each entry carries the taxon's name and its actual months,
+    because the gate exists so that a person saw what they signed.
+
+    Requires `editGardenContent` (owner or editor), not `viewGarden`.
+    Read access is not enough: this queue exists to be acted on, and
+    showing a viewer a list of buttons they cannot press is worse than
+    showing them nothing.
+
+    Source: architecture/decisions/ADR-0013-ai-assisted-care-content-authoring.md;
+    docs/development/recommendation-safety-catalog.md.
+  parameters:
+    - name: limit
+      in: query
+      required: false
+      description: A working set, not a browsable collection — the same cap-not-cursor choice the Today view makes. Defaults to 25, bounded at 100.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+  responses:
+    '200':
+      description: The garden's outstanding seasonal-timing decisions.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/seasonal-acceptance.yaml#/GardenSeasonalAcceptanceQueue'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

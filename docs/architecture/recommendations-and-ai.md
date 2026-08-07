@@ -53,9 +53,10 @@ Inputs may include:
 - Garden location, time zone, and season.
 - Weather observations and forecast freshness.
 - Accumulated rainfall over recent elapsed days, summed within one provider-stated accumulation
-  interval so a shorter period is never added to the longer one containing it. A single latest
-  precipitation figure covers one provider-defined period and cannot distinguish a calm hour from
-  a dry week; the watering rule reads the accumulation instead.
+  interval so a shorter period is never added to the longer one containing it, and over one row per
+  period so a day the refresh sweep stored repeatedly is counted once (external-integrations.md
+  section 5). A single latest precipitation figure covers one provider-defined period and cannot
+  distinguish a calm hour from a dry week; the watering rule reads the accumulation instead.
 - Recently completed tasks, with the rule and target each provably addressed. A rule's recurrence
   is measured from work actually DONE where a completion exists, not only from when the work was
   last suggested.

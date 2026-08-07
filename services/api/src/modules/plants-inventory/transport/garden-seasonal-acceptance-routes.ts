@@ -15,12 +15,65 @@ import type {
   ListGardenSeasonalFactsAwaitingAcceptance,
 } from '../application/accept-garden-seasonal-facts.js';
 import { SEASONAL_ACCEPTANCE_QUEUE_DEFAULT_LIMIT } from '../application/accept-garden-seasonal-facts.js';
-import { invalid, UUID_PATTERN } from '../../gardens-mapping/transport/garden-routes.js';
+import {
+  CATALOG_UUID_PATTERN,
+  invalid,
+  UUID_PATTERN,
+} from '../../gardens-mapping/transport/garden-routes.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
+import type { TaxonomySeasonalFactReviewItem } from '../application/taxonomy-seasonal-fact-repository.js';
 
 export interface GardenSeasonalAcceptanceRoutesDependencies {
   readonly listGardenSeasonalFactsAwaitingAcceptance: ListGardenSeasonalFactsAwaitingAcceptance;
   readonly acceptGardenSeasonalFact: AcceptGardenSeasonalFact;
+}
+
+/**
+ * The wire shape of one queue entry, per
+ * `GardenSeasonalFactAwaitingAcceptance` in the contract.
+ *
+ * The twelve month/duration fields are grouped under `timing` rather than
+ * spread flat beside the provenance columns, so the object a person is
+ * asked to accept is the SAME `SeasonalPlanTaxonomyTiming` the seasonal
+ * plan already renders for timing that is in use. One month vocabulary,
+ * one renderer, on both sides of the decision.
+ *
+ * `sourceCitation` / `reviewedBy` / `reviewedOn` are spread from the fact's
+ * own discriminated unions, so each is present exactly when its
+ * discriminator says it is — absent, never `null`.
+ */
+function toQueueItemResource(item: TaxonomySeasonalFactReviewItem) {
+  const { fact } = item;
+  return {
+    id: fact.id,
+    taxonomyReferenceId: fact.taxonomyReferenceId,
+    scientificName: item.scientificName,
+    commonName: item.commonName,
+    hemisphere: fact.hemisphere,
+    timing: {
+      sowIndoorsStartMonth: fact.sowIndoorsStartMonth,
+      sowIndoorsEndMonth: fact.sowIndoorsEndMonth,
+      sowOutdoorsStartMonth: fact.sowOutdoorsStartMonth,
+      sowOutdoorsEndMonth: fact.sowOutdoorsEndMonth,
+      transplantStartMonth: fact.transplantStartMonth,
+      transplantEndMonth: fact.transplantEndMonth,
+      harvestStartMonth: fact.harvestStartMonth,
+      harvestEndMonth: fact.harvestEndMonth,
+      daysToMaturityMin: fact.daysToMaturityMin,
+      daysToMaturityMax: fact.daysToMaturityMax,
+      successionIntervalDays: fact.successionIntervalDays,
+      rotationRestSeasons: fact.rotationRestSeasons,
+    },
+    authoringMethod: fact.authoringMethod,
+    ...(fact.authoringMethod === 'ai_extracted_from_source'
+      ? { sourceCitation: fact.sourceCitation }
+      : {}),
+    reviewStatus: fact.reviewStatus,
+    ...(fact.reviewStatus === 'horticulturally_reviewed'
+      ? { reviewedBy: fact.reviewedBy, reviewedOn: fact.reviewedOn }
+      : {}),
+    createdAt: fact.createdAt.toISOString(),
+  };
 }
 
 function requireGardenId(request: FastifyRequest): Uuid {
@@ -31,9 +84,16 @@ function requireGardenId(request: FastifyRequest): Uuid {
   return gardenId;
 }
 
+/**
+ * `CATALOG_UUID_PATTERN`, not `UUID_PATTERN`: this id names a
+ * `taxonomy_seasonal_fact` row seeded by a SQL migration with
+ * `gen_random_uuid()` (version 4), and the client is handing back an id the
+ * acceptance queue itself gave it. Demanding version 7 here rejected every
+ * real fact with `400`, so no client could ever have accepted anything.
+ */
 function requireFactId(request: FastifyRequest): Uuid {
   const factId = (request.params as Record<string, unknown>)['factId'];
-  if (typeof factId !== 'string' || !UUID_PATTERN.test(factId)) {
+  if (typeof factId !== 'string' || !CATALOG_UUID_PATTERN.test(factId)) {
     throw invalid('factId must be a UUID.', 'request.factId.invalid', '/factId');
   }
   return factId;
@@ -67,12 +127,7 @@ export function registerGardenSeasonalAcceptanceRoutes(
       // no location yet" and "there is nothing left to accept" are different
       // situations, and a reader who cannot tell them apart cannot act.
       hemisphereKnown: queue.hemisphereKnown,
-      items: queue.items.map((item) => ({
-        ...item.fact,
-        createdAt: item.fact.createdAt.toISOString(),
-        scientificName: item.scientificName,
-        commonName: item.commonName,
-      })),
+      items: queue.items.map(toQueueItemResource),
     });
   });
 

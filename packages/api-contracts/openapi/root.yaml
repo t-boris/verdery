@@ -60,6 +60,19 @@ tags:
     description: The garden's stored weather — the latest observation and forecast the scheduled refresh sweep fetched, each carrying the read-time freshness label the rule engine branches on and the provider attribution its licence requires a client to render. Read-only and provider-free, so this tag never triggers a provider call, spends no quota, and cannot fail with a third party.
   - name: SeasonalPlan
     description: A garden-wide, forward-looking read of every reviewed seasonal timing fact for the garden's own plants (every configured window, not only whichever one happens to be open right now) plus the continuous bed-rotation status per placed plant with a known family — distinct from the rule-fired Today/Recommendations set above, which only ever surfaces a candidate within its own narrow eligibility window.
+  - name: SeasonalAcceptance
+    description: |
+      The per-garden decision that turns shared seasonal timing into
+      timing this garden's rules may use. `taxonomy_seasonal_fact` has no
+      `garden_id` — the content is shared — so what an owner or editor
+      grants here is not "this content is reviewed" but "use it in MY
+      garden", which is a scope they already control. Until a taxon is
+      accepted, `seasonal.sowing-window-check`,
+      `succession.replanting-reminder` and `rotation.crop-rotation-caution`
+      treat its timing as absent and stay silent, which is what
+      `CareRuleBlocker.seasonalTimingNotAccepted` reports. Per taxon, with
+      the months shown: the gate exists so that a person saw what they
+      signed.
   - name: Media
     description: Garden-scoped media upload registration, backend-authorized resumable upload sessions, client-triggered completion verification, status, and short-lived authorized download access.
   - name: Synchronization
@@ -295,6 +308,10 @@ paths:
     { $ref: './paths/plants/gardens_gardenId_plants_plantId_care.yaml' }
   '/gardens/{gardenId}/seasonal-plan':
     { $ref: './paths/seasonal-plan/gardens_gardenId_seasonal-plan.yaml' }
+  '/gardens/{gardenId}/seasonal-facts/awaiting-acceptance':
+    { $ref: './paths/seasonal-acceptance/gardens_gardenId_seasonal-facts_awaiting-acceptance.yaml' }
+  '/gardens/{gardenId}/seasonal-facts/{factId}/accept':
+    { $ref: './paths/seasonal-acceptance/gardens_gardenId_seasonal-facts_factId_accept.yaml' }
   '/gardens/{gardenId}/recommendations/{recommendationId}/complete':
     {
       $ref: './paths/recommendations/gardens_gardenId_recommendations_recommendationId_complete.yaml',
@@ -444,6 +461,7 @@ components:
     ServiceUnavailable: { $ref: './components/responses.yaml#/ServiceUnavailable' }
   schemas:
     Uuid: { $ref: './components/schemas/shared.yaml#/Uuid' }
+    CatalogUuid: { $ref: './components/schemas/shared.yaml#/CatalogUuid' }
     Timestamp: { $ref: './components/schemas/shared.yaml#/Timestamp' }
     Revision: { $ref: './components/schemas/shared.yaml#/Revision' }
     GardenLifecycleState: { $ref: './components/schemas/gardens.yaml#/GardenLifecycleState' }
@@ -820,6 +838,24 @@ components:
     SeasonalPlanRotationStatusEntry:
       { $ref: './components/schemas/seasonal-plan.yaml#/SeasonalPlanRotationStatusEntry' }
     SeasonalPlanResult: { $ref: './components/schemas/seasonal-plan.yaml#/SeasonalPlanResult' }
+    SeasonalTimingAuthoringMethod:
+      { $ref: './components/schemas/seasonal-acceptance.yaml#/SeasonalTimingAuthoringMethod' }
+    SeasonalTimingReviewStatus:
+      { $ref: './components/schemas/seasonal-acceptance.yaml#/SeasonalTimingReviewStatus' }
+    GardenSeasonalFactAwaitingAcceptance:
+      {
+        $ref: './components/schemas/seasonal-acceptance.yaml#/GardenSeasonalFactAwaitingAcceptance',
+      }
+    GardenSeasonalAcceptanceQueue:
+      { $ref: './components/schemas/seasonal-acceptance.yaml#/GardenSeasonalAcceptanceQueue' }
+    AcceptSeasonalFactAccepted:
+      { $ref: './components/schemas/seasonal-acceptance.yaml#/AcceptSeasonalFactAccepted' }
+    AcceptSeasonalFactNotAcceptableHere:
+      { $ref: './components/schemas/seasonal-acceptance.yaml#/AcceptSeasonalFactNotAcceptableHere' }
+    AcceptSeasonalFactHemisphereUnknown:
+      { $ref: './components/schemas/seasonal-acceptance.yaml#/AcceptSeasonalFactHemisphereUnknown' }
+    AcceptSeasonalFactResult:
+      { $ref: './components/schemas/seasonal-acceptance.yaml#/AcceptSeasonalFactResult' }
     MediaClass: { $ref: './components/schemas/media.yaml#/MediaClass' }
     MediaUploadState: { $ref: './components/schemas/media.yaml#/MediaUploadState' }
     MediaProcessingState: { $ref: './components/schemas/media.yaml#/MediaProcessingState' }

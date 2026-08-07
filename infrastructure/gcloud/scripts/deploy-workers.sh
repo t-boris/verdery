@@ -81,6 +81,11 @@ api_service_url="$(gcloud run services describe "${VERDERY_CLOUD_RUN_SERVICE_NAM
 result_callback_base="${api_service_url}/v1/internal/media-processing-jobs"
 
 env_vars="VERDERY_ENVIRONMENT=${VERDERY_ENVIRONMENT}"
+# The deployed build's identity, taken from the image tag CI built — see
+# deploy-api.sh's own note on the same line for why. Kept in step with the
+# API deliberately: a workers revision and an API revision from different
+# commits is exactly the situation this makes visible.
+env_vars+=",SERVICE_VERSION=${IMAGE##*:}"
 env_vars+=",TRACING_ENABLED=${VERDERY_TRACING_ENABLED:-false}"
 # P6-WORKER-02: the derived bucket the derivative-generation job writes to
 # directly — same env var name services/api's own deploy-api.sh already

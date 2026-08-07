@@ -45,14 +45,14 @@ Every SLI below is expressed over a signal that exists as a **structured log fie
 yet exist as a **metric**. This is not a caveat to skim; it is the largest single item of work
 between this draft and an approved scorecard.
 
-| Fact                                                                                                        | Consequence for this document                                                                                        |
-| ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| No OpenTelemetry meter, counter, or histogram exists anywhere in `services/` — telemetry is traces and logs | Every application SLI must first be created as a Cloud Monitoring **log-based metric** over `jsonPayload.<field>`.   |
-| `gcloud logging metrics list` on `verdery-dev` returns empty                                                | Zero of the ~40 metric definitions in observability-and-analytics.md have been created.                              |
-| `gcloud alpha monitoring policies list` returns empty                                                       | No error-budget alert can fire. Section 6's policies are definitions, not deployments.                               |
-| `services/workers` has never been deployed to any environment                                               | Every sweep, relay, and media-pipeline SLI below has **no producer today**. They are commitments for after rollout.  |
-| `SERVICE_VERSION` is `0.0.0-development` live                                                               | Burn-rate slicing by release is impossible; a bad deploy cannot be isolated in the budget until versions are stamped |
-| `TRACING_ENABLED` gates tracing and is off by default                                                       | Trace-derived latency is unavailable unless the deployment sets it.                                                  |
+| Fact                                                                                                        | Consequence for this document                                                                                       |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| No OpenTelemetry meter, counter, or histogram exists anywhere in `services/` — telemetry is traces and logs | Every application SLI must first be created as a Cloud Monitoring **log-based metric** over `jsonPayload.<field>`.  |
+| `gcloud logging metrics list` on `verdery-dev` returns empty                                                | Zero of the ~40 metric definitions in observability-and-analytics.md have been created.                             |
+| `gcloud alpha monitoring policies list` returns empty                                                       | No error-budget alert can fire. Section 6's policies are definitions, not deployments.                              |
+| `services/workers` has never been deployed to any environment                                               | Every sweep, relay, and media-pipeline SLI below has **no producer today**. They are commitments for after rollout. |
+| `SERVICE_VERSION` is the deployed image's tag (the commit SHA CI built)                                     | Burn-rate slicing by release is now possible; the slicing key is a commit SHA, not a semantic release identifier    |
+| `TRACING_ENABLED` gates tracing and is off by default                                                       | Trace-derived latency is unavailable unless the deployment sets it.                                                 |
 
 **Consequence for approval:** approving section 4's targets commits to building the metric layer in
 section 3. The two are one decision.
@@ -69,7 +69,7 @@ to run them — none needs new application code.
 | M3   | Deploy `services/workers` (three prerequisites named in [deferred-capabilities.md](deferred-capabilities.md))                                               | Producers for SLI-6 … SLI-11          |
 | M4   | Create the media/async log-based metrics (P6-OBS-01 subsection)                                                                                             | SLI-6, SLI-7, SLI-8, SLI-10           |
 | M5   | Create the care-loop log-based metrics (P7-ANALYTICS-01 subsection)                                                                                         | SLI-9                                 |
-| M6   | Stamp a real `SERVICE_VERSION` at build time                                                                                                                | Release-sliced burn rate, canary gate |
+| M6   | ~~Stamp a real `SERVICE_VERSION` at build time~~ — done: `deploy-api.sh`/`deploy-workers.sh` set it to the image tag                                        | Release-sliced burn rate, canary gate |
 | M7   | Create one notification channel and the section 6 alert policies                                                                                            | Any budget alert firing at all        |
 
 ## 4. Proposed SLIs and SLOs

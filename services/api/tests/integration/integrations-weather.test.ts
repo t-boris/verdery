@@ -315,6 +315,106 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     expect(Number(stored.rows)).toBe(3);
   });
 
+  it('counts each elapsed period once no matter how many sweeps stored it, keeping the newest reading and the whole history', async () => {
+    // The provider is asked for `past_days` of daily totals on EVERY refresh,
+    // so an append-only table accumulates one row per elapsed day per sweep.
+    // Summing the raw rows multiplied a garden's rainfall by the number of
+    // sweeps behind it (observed on dev: 175.2 mm "across 18 of 7 days"
+    // against a true 58.4 mm), which makes `watering.dry-spell-check`
+    // under-fire — it stays silent on a garden that is actually short of
+    // water, and silence looks the same whether it is right or wrong.
+    const gardenId = await insertGeoreferencedGarden(4.3, 52.1);
+    const records = new KyselyWeatherRecordRepository(db);
+    const base = {
+      gardenId,
+      providerKey: 'fake-provider-a',
+      kind: 'observation' as const,
+      location: { latitude: 52.1, longitude: 4.3 },
+      sourceUnits: {
+        temperature: null,
+        precipitation: 'millimetre',
+        windSpeed: null,
+        humidity: null,
+      },
+      quality: { confidence: null, label: null },
+      licenseNote: 'seed license',
+      attributionText: null,
+    };
+    const rainfall = (precipitationMm: number) => ({
+      temperatureCelsius: null,
+      precipitationMm,
+      windSpeedMps: null,
+      humidityPercent: null,
+    });
+    const DAY_MS = 24 * HOUR_MS;
+    const dayOne = new Date('2026-07-20T00:00:00Z');
+    const dayTwo = new Date('2026-07-21T00:00:00Z');
+    const dailyRow = (effectiveAt: Date, fetchedAt: Date, precipitationMm: number) => ({
+      ...base,
+      id: randomUUID(),
+      effectiveAt,
+      fetchedAt,
+      createdAt: fetchedAt,
+      precipitationIntervalSeconds: DAY_MS / 1000,
+      measurements: rainfall(precipitationMm),
+    });
+
+    const firstSweep = new Date('2026-07-22T06:00:00Z');
+    const secondSweep = new Date('2026-07-22T07:00:00Z');
+    const thirdSweep = new Date('2026-07-22T08:00:00Z');
+    await records.insertMany([
+      // Three sweeps, each storing BOTH elapsed days again. The last sweep
+      // also revises day one downward, the way a model re-analysis does.
+      dailyRow(dayOne, firstSweep, 9),
+      dailyRow(dayTwo, firstSweep, 2),
+      dailyRow(dayOne, secondSweep, 9),
+      dailyRow(dayTwo, secondSweep, 2),
+      dailyRow(dayOne, thirdSweep, 4),
+      dailyRow(dayTwo, thirdSweep, 2),
+      // An hourly total inside day two, so the collapse is proved to be per
+      // PERIOD and not a truncation to the calendar day — collapsing hourly
+      // rows per day would discard twenty-three hours of rain.
+      {
+        ...base,
+        id: randomUUID(),
+        effectiveAt: new Date(dayTwo.getTime() + HOUR_MS),
+        fetchedAt: firstSweep,
+        createdAt: firstSweep,
+        precipitationIntervalSeconds: HOUR_MS / 1000,
+        measurements: rainfall(0.5),
+      },
+      {
+        ...base,
+        id: randomUUID(),
+        effectiveAt: new Date(dayTwo.getTime() + 2 * HOUR_MS),
+        fetchedAt: firstSweep,
+        createdAt: firstSweep,
+        precipitationIntervalSeconds: HOUR_MS / 1000,
+        measurements: rainfall(0.25),
+      },
+    ]);
+
+    const daily = await records.listElapsedPrecipitation(gardenId, DAY_MS / 1000, dayOne);
+    expect(daily).toEqual([
+      // Day one carries the revised figure from the newest sweep, not 9 and
+      // not 22; day two carries its single agreed total once.
+      { effectiveAt: dayOne, precipitationMm: 4 },
+      { effectiveAt: dayTwo, precipitationMm: 2 },
+    ]);
+
+    const hourly = await records.listElapsedPrecipitation(gardenId, HOUR_MS / 1000, dayOne);
+    expect(hourly).toHaveLength(2);
+
+    // Nothing was repaired away: the collapse is a property of this READ, and
+    // every fetch fact survives as append-only history.
+    const stored = await db
+      .selectFrom('integrations.weather_record')
+      .select(db.fn.countAll<number>().as('rows'))
+      .where('garden_id', '=', gardenId)
+      .executeTakeFirstOrThrow();
+    expect(Number(stored.rows)).toBe(8);
+  });
+
   it('returns the typed no-provider outcome with zero providers configured and persists nothing', async () => {
     const gardenId = await insertGeoreferencedGarden(4.3, 52.1);
     const refresh = makeRefresh([], null, new SteppingClock(START));

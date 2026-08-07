@@ -346,6 +346,27 @@ way carries an interested amateur's judgment, which the rule surface continues t
 consequences stop at their own garden. A horticulturist-reviewed tier remains a pure addition: one
 more reason a fact is readable, alongside acceptance.
 
+**Where the decision is made, as of August 7, 2026.** The Today page carries a
+`SeasonalAcceptancePanel` directly under the care-rules disclosure that names
+`seasonalTimingNotAccepted` as a blocker, so the instruction and the way to follow it are adjacent.
+It lists one entry per taxon the garden actually grows, in the garden's own hemisphere, showing the
+taxon's name and its actual months — never identifiers — with its licensed source when it has one
+and an explicit "not reviewed by a horticulturist" pill when it lacks sign-off. There is
+deliberately **no "accept all"**: a single button over a list of names would satisfy the database
+and defeat the control, which exists so that a person saw what they signed. There is no reject
+either — timing this garden has not accepted is already invisible to the rules, so declining is
+leaving it in the queue. A viewer is refused the queue by `editGardenContent` and the panel renders
+nothing for them, rather than showing buttons they cannot press.
+
+**A defect this surface found on its first run.** The accept endpoint validated its `factId` against
+the version-7 UUID pattern this codebase requires of ids it mints itself, while
+`taxonomy_seasonal_fact` rows are seeded by SQL migration with `gen_random_uuid()` — version 4. Every
+real fact was therefore rejected with `400`, including ids the queue had just handed the client, so
+the gate could not have been passed from any client at all. The same pattern was applied to
+`taxonomyReferenceId`, which meant no plant could be attached to a catalog taxon either. Both now use
+`CatalogUuid`/`CATALOG_UUID_PATTERN`: a UUID's version is a property of who minted it, and a shared
+catalog id is not this application's to constrain.
+
 ### 5.9 Cross-rule behavior (reviewed as content, not per rule)
 
 `cross-rule.fixtures.ts`, 3 scenarios: idempotent re-evaluation (live candidates suppress

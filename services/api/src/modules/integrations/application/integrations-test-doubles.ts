@@ -112,20 +112,37 @@ export class InMemoryWeatherRecordRepository implements WeatherRecordRepository 
     return Promise.resolve(matching[0] ?? null);
   }
 
+  /**
+   * Mirrors the Kysely adapter's semantics, INCLUDING its collapse to one
+   * row per period: the table is append-only and stores the same elapsed day
+   * once per sweep, so a double that returned every row would let a caller
+   * pass here while double counting rainfall in production — which is
+   * exactly how the defect this closes stayed invisible.
+   */
   listElapsedPrecipitation(
     gardenId: Uuid,
     intervalSeconds: number,
     since: Date,
   ): Promise<readonly PrecipitationEntry[]> {
-    const entries = this.records
-      .filter(
-        (record) =>
-          record.gardenId === gardenId &&
-          record.kind === 'observation' &&
-          record.precipitationIntervalSeconds === intervalSeconds &&
-          record.measurements.precipitationMm !== null &&
-          record.effectiveAt.getTime() >= since.getTime(),
-      )
+    const newestPerPeriod = new Map<number, WeatherRecord>();
+    for (const record of this.records) {
+      if (
+        record.gardenId !== gardenId ||
+        record.kind !== 'observation' ||
+        record.precipitationIntervalSeconds !== intervalSeconds ||
+        record.measurements.precipitationMm === null ||
+        record.effectiveAt.getTime() < since.getTime()
+      ) {
+        continue;
+      }
+      const period = record.effectiveAt.getTime();
+      const kept = newestPerPeriod.get(period);
+      if (kept === undefined || isRecordedLaterThan(record, kept)) {
+        newestPerPeriod.set(period, record);
+      }
+    }
+
+    const entries = [...newestPerPeriod.values()]
       .sort((a, b) => a.effectiveAt.getTime() - b.effectiveAt.getTime())
       .map((record) => ({
         effectiveAt: record.effectiveAt,
@@ -133,6 +150,17 @@ export class InMemoryWeatherRecordRepository implements WeatherRecordRepository 
       }));
     return Promise.resolve(entries);
   }
+}
+
+/** The adapter's `fetched_at desc, created_at desc, id desc` precedence, as a comparison. */
+function isRecordedLaterThan(candidate: WeatherRecord, incumbent: WeatherRecord): boolean {
+  if (candidate.fetchedAt.getTime() !== incumbent.fetchedAt.getTime()) {
+    return candidate.fetchedAt.getTime() > incumbent.fetchedAt.getTime();
+  }
+  if (candidate.createdAt.getTime() !== incumbent.createdAt.getTime()) {
+    return candidate.createdAt.getTime() > incumbent.createdAt.getTime();
+  }
+  return candidate.id > incumbent.id;
 }
 
 /** Mirrors the Kysely adapter's semantics: count both windows atomically, refuse on the first exhausted one, count even unlimited windows. */

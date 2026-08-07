@@ -104,7 +104,7 @@ Plant:
       maxLength: 200
     taxonomyReferenceId:
       oneOf:
-        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - $ref: '../../components/schemas/shared.yaml#/CatalogUuid'
         - type: 'null'
     varietyLabel:
       type: [string, 'null']
@@ -301,7 +301,9 @@ TaxonomyReference:
     ]
   properties:
     id:
-      $ref: '../../components/schemas/shared.yaml#/Uuid'
+      allOf:
+        - $ref: '../../components/schemas/shared.yaml#/CatalogUuid'
+      description: The `taxonomyReferenceId` an `AddPlant` caller hands back. Any UUID version — see `CatalogUuid` for why this is not the version-7 `Uuid`.
     scientificName:
       type: string
     commonName:
@@ -372,7 +374,7 @@ AddPlantRequest:
       maxLength: 200
     taxonomyReferenceId:
       oneOf:
-        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - $ref: '../../components/schemas/shared.yaml#/CatalogUuid'
         - type: 'null'
     varietyLabel:
       type: [string, 'null']
@@ -434,7 +436,7 @@ UpdatePlantDetailsRequest:
       maxLength: 200
     taxonomyReferenceId:
       oneOf:
-        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - $ref: '../../components/schemas/shared.yaml#/CatalogUuid'
         - type: 'null'
     varietyLabel:
       type: [string, 'null']

@@ -474,3 +474,49 @@ without reading the _original_ would not have caught it.
   conventions, deliberately and by ADR — so callbacks, dismissals and navigation
   are exactly the code a test run cannot vouch for, and exactly where a careless
   edit survives.
+
+## Verifying a change against `src/` only is not verifying it
+
+**What happened**: the per-garden seasonal-acceptance change was checked with
+`npx vitest run src/`, which is green over the module's own unit tests. Three
+suites under `tests/` — HTTP, DST, and integration — broke on the same change
+and were found by CI instead. The local run was a narrower command than the one
+that gates the branch, chosen because it matched the directory being edited.
+
+**Rules for next time**:
+
+- Run the script CI runs. `pnpm --filter @verdery/api test` covers `src/` **and**
+  `tests/`; `npx vitest run src/` covers half the suite and reports success in
+  the same words. This repeats the 2026-08-01 lesson above about
+  `prettier --check` on a hand-written glob — same mistake, different tool, so
+  the general rule is: never verify with a command whose scope you chose.
+- In this codebase the `tests/` tree is where behaviour that crosses a boundary
+  lives — transport shapes, authorization outcomes, real SQL, DST arithmetic. A
+  change to an application service almost always has a consequence there, and
+  those are the consequences worth catching.
+
+## The wire shape of a route with no client is untested by construction
+
+**What happened**: `GET /gardens/{id}/seasonal-facts/awaiting-acceptance` and its
+accept were shipped, deployed, and described in a handoff as "the server side is
+complete". Both were covered at the use-case level and neither had ever been
+called over HTTP. Writing the first client found, in the first run of the first
+test, that `POST .../seasonal-facts/{factId}/accept` rejected **every** real fact
+id with `400`: the path validated `factId` against the version-7 `UUID_PATTERN`,
+while `taxonomy_seasonal_fact` rows are seeded with `gen_random_uuid()` —
+version 4. The same pattern was applied to `taxonomyReferenceId`, so no plant
+could be attached to a catalog taxon either. Neither could ever have worked from
+any client, and no test said so.
+
+**Rules for next time**:
+
+- A route without a client is not "complete", it is "unobserved". Either write
+  the HTTP-level test with the route, or say in the handoff that its wire
+  behaviour is unverified — those are the two honest options, and "the server
+  side is done" is neither.
+- Test fixtures must mint ids the way PRODUCTION mints them. Seeding a v7 id in
+  a test for a table whose rows are v4 makes the suite agree with the code and
+  both disagree with the database.
+- A UUID's version is a property of who minted it. Requiring v7 is right for an
+  id a client supplies or `generateUuidV7()` produces; it is wrong for a shared
+  catalog id the server handed out and the client is only handing back.

@@ -33,7 +33,7 @@ export const russianCareRulesMessages: Readonly<
   'careRules.blocker.noIdentifiedPlants':
     'Ни у одного активного растения нет вида. Проверка о виде ничего не может сказать о неопределённом растении.',
   'careRules.blocker.seasonalTimingNotAccepted':
-    'Вы ещё не приняли сезонные сроки для растений этого сада. Просмотрите и примите их, чтобы включить эти проверки.',
+    'Вы ещё не приняли сезонные сроки для растений этого сада. Примите их ниже, чтобы включить эти проверки.',
   'careRules.blocker.noPlacedPlants':
     'Ни одно активное растение не размещено в зоне сада, поэтому истории грядки нет.',
   'careRules.blocker.awaitingHorticulturalReview':

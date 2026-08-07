@@ -41,6 +41,27 @@ export interface GardenRoutesDependencies {
 // Exported for reuse by transport/map-routes.ts, rather than a second copy of
 // the same regex and parsing logic.
 export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+/**
+ * Matches `components.schemas.CatalogUuid`: an id for SHARED CATALOG content
+ * — a `taxonomy_reference` or a `taxonomy_seasonal_fact` — of any version.
+ *
+ * The version-7 requirement above is right for an id a CLIENT mints or this
+ * application generates with `generateUuidV7()`. Catalog rows are seeded by
+ * SQL migrations with `gen_random_uuid()`, which is version 4, so applying
+ * the version-7 pattern to them rejected every real catalog id with `400` —
+ * including ids the server had just handed the client to hand back. Both
+ * `POST /gardens/{id}/plants` with a taxon from the catalog search and
+ * `POST /gardens/{id}/seasonal-facts/{factId}/accept` with a fact from the
+ * acceptance queue failed that way, which is why the three seasonal rules
+ * could not have been unblocked from any client.
+ *
+ * A client never invents one of these, so "a UUID" is the only honest
+ * constraint. Case-insensitive because a catalog id is echoed back, not
+ * normalized.
+ */
+export const CATALOG_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 50;
 

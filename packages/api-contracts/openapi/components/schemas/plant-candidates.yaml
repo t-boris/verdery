@@ -143,7 +143,7 @@ PlantCandidate:
       maxLength: 200
     taxonomyReferenceId:
       oneOf:
-        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - $ref: '../../components/schemas/shared.yaml#/CatalogUuid'
         - type: 'null'
     varietyLabel:
       type: [string, 'null']
@@ -259,7 +259,7 @@ AddCandidateRequest:
       maxLength: 200
     taxonomyReferenceId:
       oneOf:
-        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - $ref: '../../components/schemas/shared.yaml#/CatalogUuid'
         - type: 'null'
     varietyLabel:
       type: [string, 'null']
@@ -306,7 +306,7 @@ UpdateCandidateDetailsRequest:
       maxLength: 200
     taxonomyReferenceId:
       oneOf:
-        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - $ref: '../../components/schemas/shared.yaml#/CatalogUuid'
         - type: 'null'
     varietyLabel:
       type: [string, 'null']
@@ -505,7 +505,7 @@ PlantProfileVersion:
     id:
       $ref: '../../components/schemas/shared.yaml#/Uuid'
     taxonomyReferenceId:
-      $ref: '../../components/schemas/shared.yaml#/Uuid'
+      $ref: '../../components/schemas/shared.yaml#/CatalogUuid'
     resolvedFacts:
       type: array
       items:

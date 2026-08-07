@@ -25,6 +25,18 @@ require_active_project
 # `--set-env-vars` below). HTTP_ALLOWED_ORIGINS is itself comma-separated, so
 # the default comma delimiter cannot represent more than one web origin.
 env_vars="VERDERY_ENVIRONMENT=${VERDERY_ENVIRONMENT}"
+# What `/v1/health/ready` reports as its version, and what the service sends
+# as `service.version` on every span.
+#
+# Without this the schema's own default applies and every deployed revision
+# answers `0.0.0-development`, so the only way to tell which build was
+# serving a given request was to look up the Cloud Run revision's image tag
+# out of band. The image reference this script was handed already carries
+# that identity — its tag is the commit SHA CI built from — so the honest
+# version is simply the tag, and health now answers the same thing the
+# registry does. Derived here rather than passed as a third argument so a
+# human running this script by hand gets it for free.
+env_vars+="#SERVICE_VERSION=${IMAGE##*:}"
 env_vars+="#DATABASE_CONNECTION_MODE=cloudSqlIam"
 env_vars+="#DATABASE_INSTANCE_CONNECTION_NAME=${VERDERY_PROJECT_ID}:${VERDERY_REGION}:${VERDERY_SQL_INSTANCE_NAME}"
 env_vars+="#DATABASE_IAM_USER=${VERDERY_RUNTIME_SERVICE_ACCOUNT_ID}@${VERDERY_PROJECT_ID}.iam"

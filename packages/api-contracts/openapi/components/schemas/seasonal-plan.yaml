@@ -159,7 +159,7 @@ SeasonalPlanPlantEntry:
       $ref: '../../components/schemas/shared.yaml#/Uuid'
     taxonomyReferenceId:
       oneOf:
-        - $ref: '../../components/schemas/shared.yaml#/Uuid'
+        - $ref: '../../components/schemas/shared.yaml#/CatalogUuid'
         - type: 'null'
     seasonalFact:
       $ref: '#/SeasonalPlanTaxonomyStatus'

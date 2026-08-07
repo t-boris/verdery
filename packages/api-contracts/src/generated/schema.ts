@@ -1785,7 +1785,7 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
-                taxonomyReferenceId: components["schemas"]["Uuid"];
+                taxonomyReferenceId: components["schemas"]["CatalogUuid"];
             };
             cookie?: never;
         };
@@ -2484,6 +2484,83 @@ export interface paths {
         get: operations["getGardenSeasonalPlan"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/seasonal-facts/awaiting-acceptance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List seasonal timing this garden has not decided about yet
+         * @description The working queue: seasonal timing for taxa this garden actually
+         *     grows, in this garden's own hemisphere, that it has not already
+         *     accepted. Each entry carries the taxon's name and its actual months,
+         *     because the gate exists so that a person saw what they signed.
+         *
+         *     Requires `editGardenContent` (owner or editor), not `viewGarden`.
+         *     Read access is not enough: this queue exists to be acted on, and
+         *     showing a viewer a list of buttons they cannot press is worse than
+         *     showing them nothing.
+         *
+         *     Source: architecture/decisions/ADR-0013-ai-assisted-care-content-authoring.md;
+         *     docs/development/recommendation-safety-catalog.md.
+         */
+        get: operations["listGardenSeasonalFactsAwaitingAcceptance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gardens/{gardenId}/seasonal-facts/{factId}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                factId: components["schemas"]["CatalogUuid"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept one taxon's seasonal timing for this garden
+         * @description Records that this garden will use one taxon's timing, and makes it
+         *     readable by the three seasonal rules FOR THIS GARDEN ONLY. The
+         *     acceptance is stamped with the CALLING actor's own profile — a
+         *     person can only record themselves as having accepted something.
+         *
+         *     Per taxon, deliberately, with no "accept everything": the gate's
+         *     whole purpose is that someone looked at these months.
+         *
+         *     Accept is the only transition. There is nothing to reject into — a
+         *     fact this garden has not accepted is already unreadable by the rules,
+         *     so declining is simply not accepting. Correcting bad timing is
+         *     authoring, not accepting.
+         *
+         *     Carries no `Idempotency-Key`: the unique
+         *     `(garden_id, taxonomy_seasonal_fact_id)` key already makes a repeat
+         *     one decision recorded once, so a retried or double-submitted accept
+         *     returns the same `accepted` outcome rather than an error.
+         *
+         *     Requires `editGardenContent` (owner or editor).
+         *
+         *     Source: architecture/decisions/ADR-0013-ai-assisted-care-content-authoring.md;
+         *     migrations/1789700000000_garden-seasonal-fact-acceptance.sql.
+         */
+        post: operations["acceptGardenSeasonalFact"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4731,6 +4808,26 @@ export interface components {
          */
         Uuid: string;
         /**
+         * Format: uuid
+         * @description An identifier for SHARED CATALOG content — a `taxonomy_reference` or a
+         *     `taxonomy_seasonal_fact` — of any UUID version.
+         *
+         *     Deliberately NOT `Uuid`. That schema pins version 7, which is the right
+         *     requirement for an id a CLIENT mints (an idempotency key, an
+         *     offline-created record) or that this application generates with
+         *     `generateUuidV7()`: time ordering is an index property those paths
+         *     depend on. Catalog rows are seeded by SQL migrations with
+         *     `gen_random_uuid()` — version 4 — so demanding version 7 of them
+         *     rejected every real catalog id at the transport boundary with `400`,
+         *     including the ones the server itself had just handed the client.
+         *
+         *     A client never invents one of these. It reads one from a catalog
+         *     search or an acceptance queue and hands it straight back, so the only
+         *     honest constraint is "a UUID".
+         * @example 4f3a1c2e-9b7d-4e51-8a06-2d5c9f1b3e7a
+         */
+        CatalogUuid: string;
+        /**
          * Format: date-time
          * @description RFC 3339 timestamp in UTC.
          * @example 2026-07-22T09:15:00Z
@@ -6307,7 +6404,7 @@ export interface components {
             gardenAreaMapObjectId: components["schemas"]["Uuid"] | null;
             placementMapObjectId: components["schemas"]["Uuid"] | null;
             displayName: string;
-            taxonomyReferenceId: components["schemas"]["Uuid"] | null;
+            taxonomyReferenceId: components["schemas"]["CatalogUuid"] | null;
             varietyLabel: string | null;
             acceptedIdentificationId: components["schemas"]["Uuid"] | null;
             acquisitionDate: string | null;
@@ -6373,7 +6470,8 @@ export interface components {
             suggestedAcquisitionDate: string | null;
         };
         TaxonomyReference: {
-            id: components["schemas"]["Uuid"];
+            /** @description The `taxonomyReferenceId` an `AddPlant` caller hands back. Any UUID version — see `CatalogUuid` for why this is not the version-7 `Uuid`. */
+            id: components["schemas"]["CatalogUuid"];
             scientificName: string;
             commonName: string | null;
             varietyName: string | null;
@@ -6407,7 +6505,7 @@ export interface components {
             gardenAreaMapObjectId?: components["schemas"]["Uuid"];
             placementMapObjectId?: components["schemas"]["Uuid"];
             displayName: string;
-            taxonomyReferenceId?: components["schemas"]["Uuid"] | null;
+            taxonomyReferenceId?: components["schemas"]["CatalogUuid"] | null;
             varietyLabel?: string | null;
             acquisitionDate?: string | null;
             acquisitionDateType?: components["schemas"]["PlantAcquisitionDateType"] | null;
@@ -6440,7 +6538,7 @@ export interface components {
          */
         UpdatePlantDetailsRequest: {
             displayName?: string;
-            taxonomyReferenceId?: components["schemas"]["Uuid"] | null;
+            taxonomyReferenceId?: components["schemas"]["CatalogUuid"] | null;
             varietyLabel?: string | null;
             acquisitionDate?: string | null;
             acquisitionDateType?: components["schemas"]["PlantAcquisitionDateType"] | null;
@@ -6507,7 +6605,7 @@ export interface components {
             proposedGardenAreaMapObjectId: components["schemas"]["Uuid"] | null;
             proposedPlacementMapObjectId: components["schemas"]["Uuid"] | null;
             displayName: string;
-            taxonomyReferenceId: components["schemas"]["Uuid"] | null;
+            taxonomyReferenceId: components["schemas"]["CatalogUuid"] | null;
             varietyLabel: string | null;
             groupingKind: components["schemas"]["PlantGroupingKind"];
             quantity: number | null;
@@ -6553,7 +6651,7 @@ export interface components {
             proposedGardenAreaMapObjectId?: components["schemas"]["Uuid"];
             proposedPlacementMapObjectId?: components["schemas"]["Uuid"];
             displayName: string;
-            taxonomyReferenceId?: components["schemas"]["Uuid"] | null;
+            taxonomyReferenceId?: components["schemas"]["CatalogUuid"] | null;
             varietyLabel?: string | null;
             groupingKind: components["schemas"]["PlantGroupingKind"];
             quantity?: number | null;
@@ -6573,7 +6671,7 @@ export interface components {
          */
         UpdateCandidateDetailsRequest: {
             displayName?: string;
-            taxonomyReferenceId?: components["schemas"]["Uuid"] | null;
+            taxonomyReferenceId?: components["schemas"]["CatalogUuid"] | null;
             varietyLabel?: string | null;
             quantity?: number | null;
             rationaleNote?: string | null;
@@ -6713,7 +6811,7 @@ export interface components {
          */
         PlantProfileVersion: {
             id: components["schemas"]["Uuid"];
-            taxonomyReferenceId: components["schemas"]["Uuid"];
+            taxonomyReferenceId: components["schemas"]["CatalogUuid"];
             resolvedFacts: components["schemas"]["ResolvedFact"][];
             /** @description True when at least one fact key seen among candidate assertions is not displayable because it is neither reviewed nor source-backed. */
             isPartial: boolean;
@@ -7344,7 +7442,7 @@ export interface components {
         SeasonalPlanTaxonomyStatus: components["schemas"]["SeasonalPlanTaxonomyStatusReviewed"] | components["schemas"]["SeasonalPlanTaxonomyStatusMissing"];
         SeasonalPlanPlantEntry: {
             plantId: components["schemas"]["Uuid"];
-            taxonomyReferenceId: components["schemas"]["Uuid"] | null;
+            taxonomyReferenceId: components["schemas"]["CatalogUuid"] | null;
             seasonalFact: components["schemas"]["SeasonalPlanTaxonomyStatus"];
         };
         /**
@@ -7379,6 +7477,114 @@ export interface components {
             plants: components["schemas"]["SeasonalPlanPlantEntry"][];
             rotationStatus: components["schemas"]["SeasonalPlanRotationStatusEntry"][];
         };
+        /**
+         * @description How the timing came to exist — one of ADR-0013's two permitted AI
+         *     routes, or plain human authoring. `sourceCitation` accompanies
+         *     `ai_extracted_from_source` and only that value: an accepted proposal
+         *     becomes the project's own content rather than a borrowed source.
+         * @enum {string}
+         */
+        SeasonalTimingAuthoringMethod: "human_authored" | "ai_extracted_from_source" | "ai_proposed_reviewed";
+        /**
+         * @description Whether a named horticultural reviewer has signed the CONTENT off.
+         *     Orthogonal to this garden's own acceptance: a reviewed fact still
+         *     does nothing here until the garden accepts it, and a garden may
+         *     accept timing that carries no sign-off — the reader is shown which,
+         *     so the decision is made with that in hand rather than around it.
+         * @enum {string}
+         */
+        SeasonalTimingReviewStatus: "awaiting_horticultural_review" | "horticulturally_reviewed";
+        /**
+         * @description One taxon's seasonal timing, offered to this garden for a decision.
+         *
+         *     Carries the taxon's NAME and its actual months, never bare
+         *     identifiers: the point of the gate is that a person saw what they
+         *     signed, and a list of UUIDs and month numbers is not reviewable
+         *     content.
+         */
+        GardenSeasonalFactAwaitingAcceptance: {
+            /** @description The `factId` the accept operation takes. Any UUID version — the fact is seeded catalog content, not an application-minted record. */
+            id: components["schemas"]["CatalogUuid"];
+            taxonomyReferenceId: components["schemas"]["CatalogUuid"];
+            scientificName: string;
+            commonName: string | null;
+            /**
+             * @description Always this garden's own hemisphere — the queue never offers
+             *     timing computed for the other half of the world, and the accept
+             *     re-checks it in SQL rather than trusting the caller.
+             */
+            hemisphere: components["schemas"]["Hemisphere"];
+            /**
+             * @description The same timing shape `SeasonalPlan` renders for already-usable
+             *     facts, deliberately — what a person accepts here is exactly what
+             *     they will read afterwards.
+             */
+            timing: components["schemas"]["SeasonalPlanTaxonomyTiming"];
+            authoringMethod: components["schemas"]["SeasonalTimingAuthoringMethod"];
+            /** @description Present exactly when `authoringMethod` is `ai_extracted_from_source` — the licensed source that was parsed. */
+            sourceCitation?: string;
+            reviewStatus: components["schemas"]["SeasonalTimingReviewStatus"];
+            /** @description Present exactly when `reviewStatus` is `horticulturally_reviewed`. */
+            reviewedBy?: string;
+            /**
+             * Format: date
+             * @description Present exactly when `reviewStatus` is `horticulturally_reviewed`.
+             */
+            reviewedOn?: string;
+            createdAt: components["schemas"]["Timestamp"];
+        };
+        GardenSeasonalAcceptanceQueue: {
+            /**
+             * @description Reported rather than inferred from an empty list. Sowing months
+             *     are meaningless without knowing which half of the world the
+             *     garden is in, so `false` means "nothing can be decided yet,
+             *     set the garden's location" — a different situation from an
+             *     empty `items` with `true`, which means "nothing left to decide".
+             */
+            hemisphereKnown: boolean;
+            /** @description Timing for taxa this garden actually grows and has not already decided about, oldest fact first. */
+            items: components["schemas"]["GardenSeasonalFactAwaitingAcceptance"][];
+        };
+        AcceptSeasonalFactAccepted: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            outcome: "accepted";
+            /**
+             * Format: date
+             * @description The calendar date the decision was recorded on. Unchanged by a repeated accept — the decision is recorded once.
+             */
+            acceptedOn: string;
+        };
+        /**
+         * @description No such fact, or its hemisphere is not this garden's.
+         *     Indistinguishable on purpose: both mean "there is nothing here for
+         *     this garden to accept", and separating them would let a probe
+         *     confirm that an id exists.
+         */
+        AcceptSeasonalFactNotAcceptableHere: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            outcome: "notAcceptableHere";
+        };
+        /** @description The garden has no georeference, so no timing can apply to it yet. Resolved by setting the garden's location, not by retrying. */
+        AcceptSeasonalFactHemisphereUnknown: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            outcome: "hemisphereUnknown";
+        };
+        /**
+         * @description Every outcome is `200`. A retried accept, a fact that does not apply
+         *     here, and a garden without a location are all legitimate states of
+         *     this request rather than client errors, and the caller is told which
+         *     one it got.
+         */
+        AcceptSeasonalFactResult: components["schemas"]["AcceptSeasonalFactAccepted"] | components["schemas"]["AcceptSeasonalFactNotAcceptableHere"] | components["schemas"]["AcceptSeasonalFactHemisphereUnknown"];
         /**
          * @description Matches section 3's class table exactly. No separate "purpose" field
          *     exists: see `media.media_record.media_class`'s own migration comment
@@ -11218,7 +11424,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                taxonomyReferenceId: components["schemas"]["Uuid"];
+                taxonomyReferenceId: components["schemas"]["CatalogUuid"];
             };
             cookie?: never;
         };
@@ -11992,6 +12198,62 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listGardenSeasonalFactsAwaitingAcceptance: {
+        parameters: {
+            query?: {
+                /** @description A working set, not a browsable collection — the same cap-not-cursor choice the Today view makes. Defaults to 25, bounded at 100. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The garden's outstanding seasonal-timing decisions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GardenSeasonalAcceptanceQueue"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    acceptGardenSeasonalFact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                factId: components["schemas"]["CatalogUuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Which of the three legitimate outcomes this request produced. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptSeasonalFactResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };

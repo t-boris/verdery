@@ -240,7 +240,7 @@ Verified by reading two real entries. Structured application logs land in
 | `jsonPayload.traceId`                                    | 32 hex chars            | Joins to Cloud Trace                        |
 | `jsonPayload.spanId`                                     | 16 hex chars            |                                             |
 | `jsonPayload.environment`                                | `development`           |                                             |
-| `jsonPayload.version`                                    | `0.0.0-development`     | Not a release identifier yet                |
+| `jsonPayload.version`                                    | the deployed image tag  | The commit SHA CI built; see 1.8            |
 | `jsonPayload.res.statusCode`, `jsonPayload.responseTime` | `200`, `0.897`          | On `request completed` only                 |
 
 The pino-to-Cloud-Logging severity mapping was checked rather than assumed, because
@@ -274,6 +274,12 @@ $ curl -s https://verdery-api-dev-t6amsr5o6a-uc.a.run.app/v1/health/live
 $ curl -s https://verdery-api-dev-t6amsr5o6a-uc.a.run.app/v1/health/ready
 {"status":"ready","version":"0.0.0-development","dependencies":[{"name":"database","status":"available"}]}
 ```
+
+The bodies above were captured before `deploy-api.sh` began setting `SERVICE_VERSION`, and are kept
+verbatim rather than rewritten to a value nobody has observed. From the next deploy onward, `version`
+is the tag of the image that revision runs — the commit SHA CI built from — so a live response
+identifies its own build. `0.0.0-development` in a live response now means the schema default
+applied, which is a deployment defect worth chasing rather than the expected value.
 
 The paths are `/v1/health/live` and `/v1/health/ready` — under the `/v1` prefix, not at the root.
 `/health/ready` returns 404. The readiness body is the fastest database-reachability check an

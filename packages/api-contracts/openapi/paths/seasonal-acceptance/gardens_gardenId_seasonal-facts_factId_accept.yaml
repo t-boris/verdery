@@ -1,0 +1,54 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: factId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/CatalogUuid'
+
+post:
+  operationId: acceptGardenSeasonalFact
+  tags: [SeasonalAcceptance]
+  summary: Accept one taxon's seasonal timing for this garden
+  description: |
+    Records that this garden will use one taxon's timing, and makes it
+    readable by the three seasonal rules FOR THIS GARDEN ONLY. The
+    acceptance is stamped with the CALLING actor's own profile — a
+    person can only record themselves as having accepted something.
+
+    Per taxon, deliberately, with no "accept everything": the gate's
+    whole purpose is that someone looked at these months.
+
+    Accept is the only transition. There is nothing to reject into — a
+    fact this garden has not accepted is already unreadable by the rules,
+    so declining is simply not accepting. Correcting bad timing is
+    authoring, not accepting.
+
+    Carries no `Idempotency-Key`: the unique
+    `(garden_id, taxonomy_seasonal_fact_id)` key already makes a repeat
+    one decision recorded once, so a retried or double-submitted accept
+    returns the same `accepted` outcome rather than an error.
+
+    Requires `editGardenContent` (owner or editor).
+
+    Source: architecture/decisions/ADR-0013-ai-assisted-care-content-authoring.md;
+    migrations/1789700000000_garden-seasonal-fact-acceptance.sql.
+  responses:
+    '200':
+      description: Which of the three legitimate outcomes this request produced.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/seasonal-acceptance.yaml#/AcceptSeasonalFactResult'
+    '400':
+      $ref: '../../components/responses.yaml#/BadRequest'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

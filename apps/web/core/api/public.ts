@@ -46,6 +46,10 @@ export { createPlantGateway, type PlantGateway, type SearchPlantsParams } from '
 export { createPublisherGrantGateway, type PublisherGrantGateway } from './publisher-grant-gateway';
 export { createRecommendationGateway, type RecommendationGateway } from './recommendation-gateway';
 export { createSeasonalPlanGateway, type SeasonalPlanGateway } from './seasonal-plan-gateway';
+export {
+  createSeasonalAcceptanceGateway,
+  type SeasonalAcceptanceGateway,
+} from './seasonal-acceptance-gateway';
 export { createWeatherGateway, type WeatherGateway } from './weather-gateway';
 export { createCareRuleGateway, type CareRuleGateway } from './care-rule-gateway';
 export { createPlantCareGateway, type PlantCareGateway } from './plant-care-gateway';

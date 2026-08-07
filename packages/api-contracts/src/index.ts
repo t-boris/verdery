@@ -87,6 +87,20 @@ export type ConvertRecommendationToTaskResult = Schemas['ConvertRecommendationTo
 export * from './seasonal-plan.js';
 
 /**
+ * The per-garden seasonal-timing acceptance queue and its one mutation —
+ * what unblocks `seasonal.sowing-window-check`,
+ * `succession.replanting-reminder` and `rotation.crop-rotation-caution` for
+ * a garden. `GardenSeasonalFactAwaitingAcceptance.timing` is the SAME
+ * `SeasonalPlanTaxonomyTiming` above, so a person reads the months in one
+ * shape whether they are deciding about them or already using them.
+ */
+export type SeasonalTimingAuthoringMethod = Schemas['SeasonalTimingAuthoringMethod'];
+export type SeasonalTimingReviewStatus = Schemas['SeasonalTimingReviewStatus'];
+export type GardenSeasonalFactAwaitingAcceptance = Schemas['GardenSeasonalFactAwaitingAcceptance'];
+export type GardenSeasonalAcceptanceQueue = Schemas['GardenSeasonalAcceptanceQueue'];
+export type AcceptSeasonalFactResult = Schemas['AcceptSeasonalFactResult'];
+
+/**
  * The garden weather read. Its readings are the SAME stored records the rule
  * engine's own weather gate branches on, so a person and the engine cannot
  * disagree about the conditions a recommendation was based on.

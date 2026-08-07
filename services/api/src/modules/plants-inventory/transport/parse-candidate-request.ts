@@ -8,7 +8,7 @@
  * implementation-plan.md work package P11-API-01.
  */
 
-import { invalid } from '../../gardens-mapping/transport/garden-routes.js';
+import { CATALOG_UUID_PATTERN, invalid } from '../../gardens-mapping/transport/garden-routes.js';
 import type { AddCandidateFromPhotoInput } from '../application/add-candidate-from-photo.js';
 import type { AddCandidateInput } from '../application/add-candidate.js';
 import type { ConvertCandidateInput } from '../application/convert-candidate.js';
@@ -71,6 +71,17 @@ function optionalNullableUuid(value: unknown, pointer: string): string | null | 
   if (value === undefined) return undefined;
   if (value === null) return null;
   return requireUuid(value, pointer);
+}
+
+/** See `CATALOG_UUID_PATTERN`: a taxon id is seeded catalog content, whose UUID version is not this application's to require. */
+function optionalNullableCatalogUuid(value: unknown, pointer: string): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const candidate = requireString(value, pointer);
+  if (!CATALOG_UUID_PATTERN.test(candidate)) {
+    throw invalid(`${pointer} must be a UUID.`, 'request.uuid.invalid', pointer);
+  }
+  return candidate;
 }
 
 function optionalNullableInteger(
@@ -136,7 +147,7 @@ export function parseAddCandidateRequest(body: unknown): AddCandidateInput {
     '/proposedPlacementMapObjectId',
   );
   const displayName = requireString(record['displayName'], '/displayName');
-  const taxonomyReferenceId = optionalNullableUuid(
+  const taxonomyReferenceId = optionalNullableCatalogUuid(
     record['taxonomyReferenceId'],
     '/taxonomyReferenceId',
   );
@@ -195,7 +206,7 @@ export function parseUpdateCandidateDetailsRequest(body: unknown): CandidateDeta
     record['displayName'] === undefined
       ? undefined
       : requireString(record['displayName'], '/displayName');
-  const taxonomyReferenceId = optionalNullableUuid(
+  const taxonomyReferenceId = optionalNullableCatalogUuid(
     record['taxonomyReferenceId'],
     '/taxonomyReferenceId',
   );

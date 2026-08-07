@@ -13,6 +13,7 @@ import { russianOrganizationsMessages } from './ru-organizations';
 import { russianPlantsMessages } from './ru-plants';
 import { russianPublicationsMessages } from './ru-publications';
 import { russianSeasonalPlanMessages } from './ru-seasonal-plan';
+import { russianSeasonalAcceptanceMessages } from './ru-seasonal-acceptance';
 import { russianTaskCollaborationMessages } from './ru-task-collaboration';
 import { russianTodayMessages } from './ru-today';
 import { russianWeatherMessages } from './ru-weather';
@@ -31,6 +32,7 @@ export const russianMessages: MessageCatalogue = {
   ...russianOrganizationsMessages,
   ...russianClientPortalMessages,
   ...russianSeasonalPlanMessages,
+  ...russianSeasonalAcceptanceMessages,
   ...russianCandidatesMessages,
   ...russianMapMessages,
   ...russianCatalogMessages,

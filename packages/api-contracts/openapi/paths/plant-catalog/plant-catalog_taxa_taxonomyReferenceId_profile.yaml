@@ -3,7 +3,7 @@ parameters:
     in: path
     required: true
     schema:
-      $ref: '../../components/schemas/shared.yaml#/Uuid'
+      $ref: '../../components/schemas/shared.yaml#/CatalogUuid'
 
 get:
   operationId: getTaxonProfile

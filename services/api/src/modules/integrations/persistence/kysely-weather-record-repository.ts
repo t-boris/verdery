@@ -8,6 +8,26 @@
  * trusted by cast, the same posture the migration's consistency CHECK takes
  * on the way in.
  *
+ * BECAUSE THE TABLE IS APPEND-ONLY, THE SAME PERIOD IS STORED MANY TIMES.
+ * Open-Meteo is asked for `past_days` of daily totals on every refresh, and
+ * every elapsed day in that block is persisted again with an identical
+ * `effective_at` (open-meteo-payload.ts, `readDaily`). That is correct as
+ * history — a later fetch may revise a day's figure, and this table keeps
+ * both readings — but it means a read that SUMS the rows counts one day once
+ * per sweep that has run. Observed on dev as "175.2 mm ... measured across
+ * 18 of 7 days" against a true 58.4 mm: three sweeps, three copies.
+ *
+ * `listElapsedPrecipitation` therefore collapses to one row per period HERE,
+ * in the shared read, not in its callers. Three consumers already accumulate
+ * over it — the rule engine's watering check, the per-plant care view and the
+ * garden weather panel — and fixing two of them while leaving the third is
+ * how they drift apart again. One day, one total is a property of the data.
+ *
+ * The failure direction this closes matters: an inflated total makes
+ * `watering.dry-spell-check` UNDER-fire, staying silent on a garden that is
+ * genuinely short of water. Silence looks identical whether it is right or
+ * wrong, so nothing outside this query could have caught it.
+ *
  * Source: migrations/1785700000000_integrations-weather-baseline.sql.
  */
 
@@ -133,6 +153,17 @@ export class KyselyWeatherRecordRepository implements WeatherRecordRepository {
   ): Promise<readonly PrecipitationEntry[]> {
     const rows = await this.db
       .selectFrom('integrations.weather_record')
+      // ONE ROW PER PERIOD — see this class's header for why the collapse
+      // lives here rather than in each caller. `effective_at` alone is the
+      // period key because every predicate below has already fixed the
+      // garden, the kind and the interval class, so two surviving rows with
+      // the same `effective_at` describe the same span of time twice.
+      //
+      // NOT a truncation to the calendar day: this read is parameterized by
+      // `intervalSeconds`, and collapsing hourly totals per day would throw
+      // away twenty-three hours of rain. For the daily class the two happen
+      // to coincide, which is where "one day, one total" comes from.
+      .distinctOn('effective_at')
       .select(['effective_at', 'precipitation_mm'])
       .where('garden_id', '=', gardenId)
       // Elapsed only — a forecast total is a prediction, and summing it into
@@ -141,7 +172,14 @@ export class KyselyWeatherRecordRepository implements WeatherRecordRepository {
       .where('precipitation_interval_seconds', '=', intervalSeconds)
       .where('precipitation_mm', 'is not', null)
       .where('effective_at', '>=', since)
+      // The leading key must match `distinctOn`; the rest picks WHICH
+      // duplicate survives — the most recently recorded reading of that
+      // period, the same precedence `findLatest` uses to resolve
+      // contradictory records.
       .orderBy('effective_at', 'asc')
+      .orderBy('fetched_at', 'desc')
+      .orderBy('created_at', 'desc')
+      .orderBy('id', 'desc')
       .execute();
 
     return rows.map((row) => ({

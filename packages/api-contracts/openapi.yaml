@@ -69,6 +69,19 @@ tags:
     description: The garden's stored weather — the latest observation and forecast the scheduled refresh sweep fetched, each carrying the read-time freshness label the rule engine branches on and the provider attribution its licence requires a client to render. Read-only and provider-free, so this tag never triggers a provider call, spends no quota, and cannot fail with a third party.
   - name: SeasonalPlan
     description: A garden-wide, forward-looking read of every reviewed seasonal timing fact for the garden's own plants (every configured window, not only whichever one happens to be open right now) plus the continuous bed-rotation status per placed plant with a known family — distinct from the rule-fired Today/Recommendations set above, which only ever surfaces a candidate within its own narrow eligibility window.
+  - name: SeasonalAcceptance
+    description: |
+      The per-garden decision that turns shared seasonal timing into
+      timing this garden's rules may use. `taxonomy_seasonal_fact` has no
+      `garden_id` — the content is shared — so what an owner or editor
+      grants here is not "this content is reviewed" but "use it in MY
+      garden", which is a scope they already control. Until a taxon is
+      accepted, `seasonal.sowing-window-check`,
+      `succession.replanting-reminder` and `rotation.crop-rotation-caution`
+      treat its timing as absent and stay silent, which is what
+      `CareRuleBlocker.seasonalTimingNotAccepted` reports. Per taxon, with
+      the months shown: the gate exists so that a person saw what they
+      signed.
   - name: Media
     description: Garden-scoped media upload registration, backend-authorized resumable upload sessions, client-triggered completion verification, status, and short-lived authorized download access.
   - name: Synchronization
@@ -3100,7 +3113,7 @@ paths:
         in: path
         required: true
         schema:
-          $ref: '#/components/schemas/Uuid'
+          $ref: '#/components/schemas/CatalogUuid'
     get:
       operationId: getTaxonProfile
       tags:
@@ -4159,6 +4172,111 @@ paths:
                 $ref: '#/components/schemas/SeasonalPlanResult'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /gardens/{gardenId}/seasonal-facts/awaiting-acceptance:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+    get:
+      operationId: listGardenSeasonalFactsAwaitingAcceptance
+      tags:
+        - SeasonalAcceptance
+      summary: List seasonal timing this garden has not decided about yet
+      description: |
+        The working queue: seasonal timing for taxa this garden actually
+        grows, in this garden's own hemisphere, that it has not already
+        accepted. Each entry carries the taxon's name and its actual months,
+        because the gate exists so that a person saw what they signed.
+
+        Requires `editGardenContent` (owner or editor), not `viewGarden`.
+        Read access is not enough: this queue exists to be acted on, and
+        showing a viewer a list of buttons they cannot press is worse than
+        showing them nothing.
+
+        Source: architecture/decisions/ADR-0013-ai-assisted-care-content-authoring.md;
+        docs/development/recommendation-safety-catalog.md.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: A working set, not a browsable collection — the same cap-not-cursor choice the Today view makes. Defaults to 25, bounded at 100.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+      responses:
+        '200':
+          description: The garden's outstanding seasonal-timing decisions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GardenSeasonalAcceptanceQueue'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /gardens/{gardenId}/seasonal-facts/{factId}/accept:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: factId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/CatalogUuid'
+    post:
+      operationId: acceptGardenSeasonalFact
+      tags:
+        - SeasonalAcceptance
+      summary: Accept one taxon's seasonal timing for this garden
+      description: |
+        Records that this garden will use one taxon's timing, and makes it
+        readable by the three seasonal rules FOR THIS GARDEN ONLY. The
+        acceptance is stamped with the CALLING actor's own profile — a
+        person can only record themselves as having accepted something.
+
+        Per taxon, deliberately, with no "accept everything": the gate's
+        whole purpose is that someone looked at these months.
+
+        Accept is the only transition. There is nothing to reject into — a
+        fact this garden has not accepted is already unreadable by the rules,
+        so declining is simply not accepting. Correcting bad timing is
+        authoring, not accepting.
+
+        Carries no `Idempotency-Key`: the unique
+        `(garden_id, taxonomy_seasonal_fact_id)` key already makes a repeat
+        one decision recorded once, so a retried or double-submitted accept
+        returns the same `accepted` outcome rather than an error.
+
+        Requires `editGardenContent` (owner or editor).
+
+        Source: architecture/decisions/ADR-0013-ai-assisted-care-content-authoring.md;
+        migrations/1789700000000_garden-seasonal-fact-acceptance.sql.
+      responses:
+        '200':
+          description: Which of the three legitimate outcomes this request produced.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptSeasonalFactResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
   /gardens/{gardenId}/recommendations/{recommendationId}/complete:
@@ -7460,6 +7578,28 @@ components:
       pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$
       examples:
         - 019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0b
+    CatalogUuid:
+      type: string
+      format: uuid
+      description: |
+        An identifier for SHARED CATALOG content — a `taxonomy_reference` or a
+        `taxonomy_seasonal_fact` — of any UUID version.
+
+        Deliberately NOT `Uuid`. That schema pins version 7, which is the right
+        requirement for an id a CLIENT mints (an idempotency key, an
+        offline-created record) or that this application generates with
+        `generateUuidV7()`: time ordering is an index property those paths
+        depend on. Catalog rows are seeded by SQL migrations with
+        `gen_random_uuid()` — version 4 — so demanding version 7 of them
+        rejected every real catalog id at the transport boundary with `400`,
+        including the ones the server itself had just handed the client.
+
+        A client never invents one of these. It reads one from a catalog
+        search or an acceptance queue and hands it straight back, so the only
+        honest constraint is "a UUID".
+      pattern: ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$
+      examples:
+        - 4f3a1c2e-9b7d-4e51-8a06-2d5c9f1b3e7a
     Timestamp:
       type: string
       format: date-time
@@ -10726,7 +10866,7 @@ components:
           maxLength: 200
         taxonomyReferenceId:
           oneOf:
-            - $ref: '#/components/schemas/Uuid'
+            - $ref: '#/components/schemas/CatalogUuid'
             - type: 'null'
         varietyLabel:
           type:
@@ -10917,7 +11057,9 @@ components:
         - matchedName
       properties:
         id:
-          $ref: '#/components/schemas/Uuid'
+          allOf:
+            - $ref: '#/components/schemas/CatalogUuid'
+          description: The `taxonomyReferenceId` an `AddPlant` caller hands back. Any UUID version — see `CatalogUuid` for why this is not the version-7 `Uuid`.
         scientificName:
           type: string
         commonName:
@@ -10997,7 +11139,7 @@ components:
           maxLength: 200
         taxonomyReferenceId:
           oneOf:
-            - $ref: '#/components/schemas/Uuid'
+            - $ref: '#/components/schemas/CatalogUuid'
             - type: 'null'
         varietyLabel:
           type:
@@ -11060,7 +11202,7 @@ components:
           maxLength: 200
         taxonomyReferenceId:
           oneOf:
-            - $ref: '#/components/schemas/Uuid'
+            - $ref: '#/components/schemas/CatalogUuid'
             - type: 'null'
         varietyLabel:
           type:
@@ -11291,7 +11433,7 @@ components:
           maxLength: 200
         taxonomyReferenceId:
           oneOf:
-            - $ref: '#/components/schemas/Uuid'
+            - $ref: '#/components/schemas/CatalogUuid'
             - type: 'null'
         varietyLabel:
           type:
@@ -11420,7 +11562,7 @@ components:
           maxLength: 200
         taxonomyReferenceId:
           oneOf:
-            - $ref: '#/components/schemas/Uuid'
+            - $ref: '#/components/schemas/CatalogUuid'
             - type: 'null'
         varietyLabel:
           type:
@@ -11474,7 +11616,7 @@ components:
           maxLength: 200
         taxonomyReferenceId:
           oneOf:
-            - $ref: '#/components/schemas/Uuid'
+            - $ref: '#/components/schemas/CatalogUuid'
             - type: 'null'
         varietyLabel:
           type:
@@ -11789,7 +11931,7 @@ components:
         id:
           $ref: '#/components/schemas/Uuid'
         taxonomyReferenceId:
-          $ref: '#/components/schemas/Uuid'
+          $ref: '#/components/schemas/CatalogUuid'
         resolvedFacts:
           type: array
           items:
@@ -13297,7 +13439,7 @@ components:
           $ref: '#/components/schemas/Uuid'
         taxonomyReferenceId:
           oneOf:
-            - $ref: '#/components/schemas/Uuid'
+            - $ref: '#/components/schemas/CatalogUuid'
             - type: 'null'
         seasonalFact:
           $ref: '#/components/schemas/SeasonalPlanTaxonomyStatus'
@@ -13385,6 +13527,172 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SeasonalPlanRotationStatusEntry'
+    SeasonalTimingAuthoringMethod:
+      type: string
+      enum:
+        - human_authored
+        - ai_extracted_from_source
+        - ai_proposed_reviewed
+      description: |
+        How the timing came to exist — one of ADR-0013's two permitted AI
+        routes, or plain human authoring. `sourceCitation` accompanies
+        `ai_extracted_from_source` and only that value: an accepted proposal
+        becomes the project's own content rather than a borrowed source.
+    SeasonalTimingReviewStatus:
+      type: string
+      enum:
+        - awaiting_horticultural_review
+        - horticulturally_reviewed
+      description: |
+        Whether a named horticultural reviewer has signed the CONTENT off.
+        Orthogonal to this garden's own acceptance: a reviewed fact still
+        does nothing here until the garden accepts it, and a garden may
+        accept timing that carries no sign-off — the reader is shown which,
+        so the decision is made with that in hand rather than around it.
+    GardenSeasonalFactAwaitingAcceptance:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - taxonomyReferenceId
+        - scientificName
+        - commonName
+        - hemisphere
+        - timing
+        - authoringMethod
+        - reviewStatus
+        - createdAt
+      description: |
+        One taxon's seasonal timing, offered to this garden for a decision.
+
+        Carries the taxon's NAME and its actual months, never bare
+        identifiers: the point of the gate is that a person saw what they
+        signed, and a list of UUIDs and month numbers is not reviewable
+        content.
+      properties:
+        id:
+          allOf:
+            - $ref: '#/components/schemas/CatalogUuid'
+          description: The `factId` the accept operation takes. Any UUID version — the fact is seeded catalog content, not an application-minted record.
+        taxonomyReferenceId:
+          $ref: '#/components/schemas/CatalogUuid'
+        scientificName:
+          type: string
+          minLength: 1
+        commonName:
+          oneOf:
+            - type: string
+              minLength: 1
+            - type: 'null'
+        hemisphere:
+          allOf:
+            - $ref: '#/components/schemas/Hemisphere'
+          description: |
+            Always this garden's own hemisphere — the queue never offers
+            timing computed for the other half of the world, and the accept
+            re-checks it in SQL rather than trusting the caller.
+        timing:
+          allOf:
+            - $ref: '#/components/schemas/SeasonalPlanTaxonomyTiming'
+          description: |
+            The same timing shape `SeasonalPlan` renders for already-usable
+            facts, deliberately — what a person accepts here is exactly what
+            they will read afterwards.
+        authoringMethod:
+          $ref: '#/components/schemas/SeasonalTimingAuthoringMethod'
+        sourceCitation:
+          type: string
+          minLength: 1
+          description: Present exactly when `authoringMethod` is `ai_extracted_from_source` — the licensed source that was parsed.
+        reviewStatus:
+          $ref: '#/components/schemas/SeasonalTimingReviewStatus'
+        reviewedBy:
+          type: string
+          minLength: 1
+          description: Present exactly when `reviewStatus` is `horticulturally_reviewed`.
+        reviewedOn:
+          type: string
+          format: date
+          description: Present exactly when `reviewStatus` is `horticulturally_reviewed`.
+        createdAt:
+          $ref: '#/components/schemas/Timestamp'
+    GardenSeasonalAcceptanceQueue:
+      type: object
+      additionalProperties: false
+      required:
+        - hemisphereKnown
+        - items
+      properties:
+        hemisphereKnown:
+          type: boolean
+          description: |
+            Reported rather than inferred from an empty list. Sowing months
+            are meaningless without knowing which half of the world the
+            garden is in, so `false` means "nothing can be decided yet,
+            set the garden's location" — a different situation from an
+            empty `items` with `true`, which means "nothing left to decide".
+        items:
+          type: array
+          description: Timing for taxa this garden actually grows and has not already decided about, oldest fact first.
+          items:
+            $ref: '#/components/schemas/GardenSeasonalFactAwaitingAcceptance'
+    AcceptSeasonalFactAccepted:
+      type: object
+      additionalProperties: false
+      required:
+        - outcome
+        - acceptedOn
+      properties:
+        outcome:
+          type: string
+          enum:
+            - accepted
+        acceptedOn:
+          type: string
+          format: date
+          description: The calendar date the decision was recorded on. Unchanged by a repeated accept — the decision is recorded once.
+    AcceptSeasonalFactNotAcceptableHere:
+      type: object
+      additionalProperties: false
+      required:
+        - outcome
+      description: |
+        No such fact, or its hemisphere is not this garden's.
+        Indistinguishable on purpose: both mean "there is nothing here for
+        this garden to accept", and separating them would let a probe
+        confirm that an id exists.
+      properties:
+        outcome:
+          type: string
+          enum:
+            - notAcceptableHere
+    AcceptSeasonalFactHemisphereUnknown:
+      type: object
+      additionalProperties: false
+      required:
+        - outcome
+      description: The garden has no georeference, so no timing can apply to it yet. Resolved by setting the garden's location, not by retrying.
+      properties:
+        outcome:
+          type: string
+          enum:
+            - hemisphereUnknown
+    AcceptSeasonalFactResult:
+      oneOf:
+        - $ref: '#/components/schemas/AcceptSeasonalFactAccepted'
+        - $ref: '#/components/schemas/AcceptSeasonalFactNotAcceptableHere'
+        - $ref: '#/components/schemas/AcceptSeasonalFactHemisphereUnknown'
+      description: |
+        Every outcome is `200`. A retried accept, a fact that does not apply
+        here, and a garden without a location are all legitimate states of
+        this request rather than client errors, and the caller is told which
+        one it got.
+      discriminator:
+        propertyName: outcome
+        mapping:
+          accepted: '#/components/schemas/AcceptSeasonalFactAccepted'
+          notAcceptableHere: '#/components/schemas/AcceptSeasonalFactNotAcceptableHere'
+          hemisphereUnknown: '#/components/schemas/AcceptSeasonalFactHemisphereUnknown'
     MediaClass:
       type: string
       enum:

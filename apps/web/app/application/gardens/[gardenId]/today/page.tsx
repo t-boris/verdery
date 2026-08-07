@@ -1,5 +1,6 @@
 import { CareRulesPanel } from '@/features/care-rules/public';
 import { TodayList } from '@/features/recommendations/public';
+import { SeasonalAcceptancePanel } from '@/features/seasonal-acceptance/public';
 import { WeatherPanel } from '@/features/weather/public';
 import { getRequestTranslator } from '@/shared/localization/server';
 import { RouteBody, RouteHeader, RoutePage, RoutePanel, SunIcon } from '@/shared/ui/public';
@@ -54,6 +55,17 @@ export default async function TodayPage({
             raises when it is empty, and is not the thing a person came for. */}
         <RoutePanel>
           <CareRulesPanel gardenId={gardenId} />
+        </RoutePanel>
+        {/* Immediately after the disclosure that names it. Three of the
+            seven checks are blocked by "seasonal timing not accepted", and
+            this is the only place that blocker can be resolved — putting
+            the instruction and the way to follow it anywhere but adjacent
+            would make the panel above a dead end.
+
+            It renders nothing at all for a viewer, who cannot accept
+            anything and never will be able to. */}
+        <RoutePanel>
+          <SeasonalAcceptancePanel gardenId={gardenId} />
         </RoutePanel>
       </RouteBody>
     </RoutePage>

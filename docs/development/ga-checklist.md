@@ -31,8 +31,8 @@ Every gate carries one status:
 | `M`  | **Manual, executable today.** The command works against what exists. Nobody has run it as a release gate. |
 | `X`  | **Impossible today.** A named system does not exist. The blocker and its owner are stated.                |
 
-**Summary of the 61 gates below: 19 automated, 26 manual, 16 impossible.** Section 10 lists the
-sixteen together, because that list is the real content of this document.
+**Summary of the 61 gates below: 20 automated, 26 manual, 15 impossible.** Section 10 lists the
+fifteen together, because that list is the real content of this document.
 
 ## 2. Release candidate identity
 
@@ -43,13 +43,14 @@ Before any gate runs, the candidate must be a thing you can name.
 | 1   | Candidate commit is fixed   | `git rev-parse HEAD` on the release branch                         | The 40-character SHA            | `M`    |
 | 2   | Working tree is clean       | `git status --porcelain` returns nothing                           | Empty output                    | `M`    |
 | 3   | Lockfile is authoritative   | `pnpm install --frozen-lockfile`                                   | Exits 0 with no lockfile change | `A`    |
-| 4   | Candidate carries a version | `SERVICE_VERSION` is a release identifier, not `0.0.0-development` | The live `/v1/health/live` body | `X`    |
+| 4   | Candidate carries a version | `SERVICE_VERSION` is a release identifier, not `0.0.0-development` | The live `/v1/health/live` body | `A`    |
 
-**Gate 4 is impossible today and matters more than it looks.** `SERVICE_VERSION` is
-`0.0.0-development` in the live environment (runbooks.md §1.7: "Not a release identifier yet"). Every
-downstream gate that compares "before and after" — canary, post-deploy validation, error-budget
-burn by release — has nothing to compare by. **Unblocked by**: stamping a version at build time in
-`deploy-dev.yml`; small, mechanical, and it is a prerequisite for gates 24, 26, and 27.
+**Gate 4 is closed.** `deploy-api.sh` and `deploy-workers.sh` now set `SERVICE_VERSION` to the tag of
+the image they were handed, which CI builds as the commit SHA — so `/v1/health/live` reports the
+build that is serving, and a human running either script by hand gets the same identity for free. The
+downstream gates that compare "before and after" — canary, post-deploy validation, error-budget burn
+by release — now have something to compare by. A commit SHA is not a semantic release identifier;
+when tagged releases exist, the tag is what these scripts should be handed.
 
 ## 3. Release-candidate test suite
 
@@ -212,11 +213,10 @@ any environment.
 
 **Gate 61 is impossible** because there is no error budget being measured (service-levels.md §2).
 
-## 10. The sixteen impossible gates, and who removes each blocker
+## 10. The fifteen impossible gates, and who removes each blocker
 
 | Gate                              | Blocker                                                  | Removed by                                                                                    |
 | --------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| 4 — release version identifier    | `SERVICE_VERSION` is `0.0.0-development`                 | A build-time stamp in `deploy-dev.yml`. Small, mechanical.                                    |
 | 16 — native device E2E            | No device, no simulator, no TestFlight build             | **Owner** — Apple Developer account actions (ios-distribution.md)                             |
 | 21 — migration rehearsal at scale | No production-shaped dataset                             | Staging environment (**owner**) + gate 24                                                     |
 | 24 — restore performed            | Never attempted                                          | **Owner** approval for one non-destructive restore to a scratch instance                      |

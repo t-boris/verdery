@@ -16,6 +16,7 @@
 
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
+  CATALOG_UUID_PATTERN,
   UUID_PATTERN,
   invalid,
   requireExpectedRevision,
@@ -99,10 +100,11 @@ function requireCandidateId(request: FastifyRequest): string {
   return candidateId;
 }
 
+/** `CATALOG_UUID_PATTERN`, not `UUID_PATTERN`: a taxon id names shared catalog content seeded with `gen_random_uuid()`, so its UUID version is not this application's to require. */
 function requireTaxonomyReferenceId(request: FastifyRequest): string {
   const { taxonomyReferenceId } = request.params as { taxonomyReferenceId?: unknown };
 
-  if (typeof taxonomyReferenceId !== 'string' || !UUID_PATTERN.test(taxonomyReferenceId)) {
+  if (typeof taxonomyReferenceId !== 'string' || !CATALOG_UUID_PATTERN.test(taxonomyReferenceId)) {
     throw invalid(
       'taxonomyReferenceId must be a UUID.',
       'request.taxonomy_reference_id.invalid',

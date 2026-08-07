@@ -13,7 +13,11 @@
  * implementation-plan.md work package P4-CONTRACT-01.
  */
 
-import { UUID_PATTERN, invalid } from '../../gardens-mapping/transport/garden-routes.js';
+import {
+  CATALOG_UUID_PATTERN,
+  UUID_PATTERN,
+  invalid,
+} from '../../gardens-mapping/transport/garden-routes.js';
 import type { AddPlantFromPhotoInput } from '../application/add-plant-from-photo.js';
 import type { AddPlantInput } from '../application/add-plant.js';
 import type { AttachPlantPhotoInput } from '../application/attach-plant-photo.js';
@@ -84,10 +88,20 @@ function requireOptionalUuid(value: unknown, pointer: string): string | undefine
   return value === undefined ? undefined : requireUuid(value, pointer);
 }
 
-function optionalNullableUuid(value: unknown, pointer: string): string | null | undefined {
+/**
+ * For an id that names SHARED CATALOG content rather than a record this
+ * application minted — see `CATALOG_UUID_PATTERN`'s own note. A taxon id
+ * comes from a catalog seeded with `gen_random_uuid()`, so requiring
+ * version 7 of it rejected every real catalog taxon with `400`.
+ */
+function optionalNullableCatalogUuid(value: unknown, pointer: string): string | null | undefined {
   if (value === undefined) return undefined;
   if (value === null) return null;
-  return requireUuid(value, pointer);
+  const candidate = requireString(value, pointer);
+  if (!CATALOG_UUID_PATTERN.test(candidate)) {
+    throw invalid(`${pointer} must be a UUID.`, 'request.uuid.invalid', pointer);
+  }
+  return candidate;
 }
 
 function optionalNullableInteger(
@@ -148,7 +162,7 @@ export function parseAddPlantRequest(body: unknown): AddPlantInput {
     '/placementMapObjectId',
   );
   const displayName = requireString(record['displayName'], '/displayName');
-  const taxonomyReferenceId = optionalNullableUuid(
+  const taxonomyReferenceId = optionalNullableCatalogUuid(
     record['taxonomyReferenceId'],
     '/taxonomyReferenceId',
   );
@@ -205,7 +219,7 @@ export function parseAddPlantFromPhotoRequest(body: unknown): AddPlantFromPhotoI
 export function parseUpdatePlantDetailsRequest(body: unknown): PlantDetailsChanges {
   const record = requireRecord(body, '');
   const displayName = requireOptionalString(record['displayName'], '/displayName');
-  const taxonomyReferenceId = optionalNullableUuid(
+  const taxonomyReferenceId = optionalNullableCatalogUuid(
     record['taxonomyReferenceId'],
     '/taxonomyReferenceId',
   );

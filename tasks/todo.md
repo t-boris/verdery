@@ -9540,3 +9540,153 @@ an allowlist and a runbook — where before there was a filter with nothing on t
 
 To light up the three seasonal rules: set `PLANT_REVIEWER_EMAILS`, open
 `GET /v1/plant-knowledge/seasonal-facts/awaiting-review`, and approve what you would stand behind.
+
+---
+
+# Plan — care-engine remaining work (tasks/remaining-work.md)
+
+## 1. Daily rainfall counted more than once — BLOCKING
+
+Root cause, verified from code rather than guessed:
+
+- `open-meteo-weather-adapter.ts` sends `past_days=<configured>`, and
+  `readDaily` (open-meteo-payload.ts) turns EVERY elapsed day in that block
+  into an `observation` with `precipitationIntervalSeconds = 86400` and
+  `effectiveAt` at UTC midnight of that day.
+- `refresh-garden-weather.ts` inserts the whole batch on every refresh that
+  is not a fresh cache hit.
+- So each sweep re-inserts the same elapsed days again, byte-identical
+  `effective_at`, and `listElapsedPrecipitation` sums all of them.
+
+That predicts `total = fetches × true total` and `rows = fetches × days`,
+which is exactly the 175.2 / 58.4 = 3 and 18 / 6 = 3 in the handoff.
+
+The handoff's other open question — "why does the Today weather panel show
+the correct figure" — is answered by the same reading: nothing collapses per
+day anywhere. Both surfaces share `GetGardenPrecipitation`; the weather panel
+was simply read when fewer fetches had landed.
+
+- [x] Collapse in the shared read: `listElapsedPrecipitation` returns one row
+      per stored period, keeping the most recently recorded one.
+- [x] Mirror the same semantics in `InMemoryWeatherRecordRepository`.
+- [x] Repository-level integration test against real PostgreSQL: several
+      same-period rows with different fetch times collapse to one, newest
+      wins, hourly rows are NOT collapsed per day, history stays whole.
+- [x] Unit test through `GetGardenWeatherView` for the same property.
+
+## 2. Seasonal timing acceptance UI — 3 rules stay dark
+
+- [x] OpenAPI: the two existing endpoints get their contract, under a new
+      `SeasonalAcceptance` tag.
+- [x] Regenerate the bundle and the generated types; export from
+      `@verdery/api-contracts`.
+- [x] `core/api/seasonal-acceptance-gateway.ts`.
+- [x] `features/seasonal-acceptance/`: queries, labels, panel, styles,
+      public surface, 9 tests.
+- [x] Place it on the Today page, directly under the care-rules panel.
+- [x] `en`/`ru` messages; the blocker copy now points at the panel below it.
+- [x] Bump `apps/web/package.json` to 0.6.0.
+- [x] **Unplanned, found by the first HTTP test:** the accept endpoint
+      rejected every real fact id with `400`. See the review below.
+
+## 3. Smaller
+
+- [x] API health reports the deployed build: `SERVICE_VERSION` from the image
+      tag in `deploy-api.sh` / `deploy-workers.sh`.
+- [x] `tasks/lessons.md` gains three entries from this session.
+
+## Docs
+
+- [x] `external-integrations.md` §5 — the one-row-per-period requirement and
+      why it belongs to the shared read.
+- [x] `recommendations-and-ai.md` §4 — the accumulation input now states it.
+- [x] `recommendation-safety-catalog.md` §5.8 — where the decision is made,
+      and the UUID-version defect it uncovered.
+- [x] `ga-checklist.md`, `service-levels.md`, `support-operations.md`,
+      `runbooks.md` — gate 4 / M6 closed; runbooks keeps its observed output
+      verbatim and says what changed instead of rewriting it.
+
+---
+
+## Review
+
+### What changed, and why it is what it is
+
+**Rainfall (item 1).** The collapse went into
+`KyselyWeatherRecordRepository.listElapsedPrecipitation` as `DISTINCT ON
+(effective_at)` ordered `fetched_at desc, created_at desc, id desc` — the same
+precedence `findLatest` already uses to resolve contradictory records. The
+handoff's preferred option, and for its stated reason: three consumers
+accumulate over this read and fixing some of them is how they drift again.
+
+One deliberate departure from the handoff's wording. It asked for "one row per
+calendar day"; the key is the PERIOD (`effective_at` within the already-filtered
+interval class), not a date truncation. This read is parameterised by
+`intervalSeconds`, and truncating hourly totals to a day would discard
+twenty-three hours of rain. For the daily class the two coincide, which is where
+"one day, one total" comes from. The integration test pins both halves.
+
+The in-memory double was changed in the same commit. A double that returned
+every row would let a caller pass while production double-counted — which is
+exactly how this survived.
+
+**Seasonal acceptance (item 2).** Built as specified: per taxon, names and real
+months, no "accept all", no reject. Two judgement calls worth naming:
+
+- The queue item nests its months under `timing` as the SAME
+  `SeasonalPlanTaxonomyTiming` the seasonal plan already renders, instead of
+  spreading twelve fields flat as the deployed route did. That reshaped a
+  working endpoint, which the handoff did not ask for — the alternative was a
+  second month vocabulary in the contract and a second renderer in the web app,
+  and the two would drift. The route had no client and no HTTP test, so nothing
+  depended on the old shape.
+- `timingRows` is duplicated from `features/seasonal-plan/labels.ts` rather than
+  imported. web-application-design.md §20 forbids cross-feature imports and
+  prefers exactly this duplication. The WORDING is not duplicated: both features
+  resolve the same `seasonalPlan.calendar.*` keys, so the months a person
+  accepts are labelled as they will read them afterwards.
+
+### The blocker the handoff did not know about
+
+The first run of the first HTTP test failed: `POST
+/gardens/{id}/seasonal-facts/{factId}/accept` returned `400` for a fact the
+queue had just handed it. The route validated `factId` against the version-7
+`UUID_PATTERN`, and `taxonomy_seasonal_fact` rows are seeded by SQL migration
+with `gen_random_uuid()` — version 4. **Every** real fact was rejected, so the
+gate could not have been passed from any client, with or without a UI.
+
+The same pattern was applied to `taxonomyReferenceId`, so `POST /plants` also
+rejected every taxon the catalog search returns. That is directly upstream: a
+garden whose plants cannot carry a seeded taxon has an empty acceptance queue
+no matter what the UI does, and the three rules stay dark anyway.
+
+Fixed at the root, once: `CatalogUuid` in the contract and
+`CATALOG_UUID_PATTERN` in transport, for ids that name shared catalog content.
+A UUID's version is a property of who minted it — version 7 is right for an id a
+client supplies or `generateUuidV7()` produces, and wrong for an id the server
+handed out and the client is only handing back. Applied to `factId`,
+`taxonomyReferenceId` (plant and candidate request bodies, and the
+`/plant-catalog/taxa/{id}/profile` path), and the `TaxonomyReference.id` the
+catalog returns.
+
+### Still open, deliberately
+
+- **Whether `watering.dry-spell-check@2` changes its mind** for garden
+  `019fcd29-ef99-720b-a64f-526eb3a3474d` is unknown until this deploys: the
+  handoff's 58.4 mm reading was already the de-duplicated figure, so the rule's
+  silence was probably correct, but the stored rows have not been re-read.
+- **The contract still types most `taxonomyReferenceId` RESPONSE fields as
+  `CatalogUuid` but other seeded-content ids as `Uuid`.** Only the ids that
+  cross a validating boundary were audited. A wider sweep for "which ids does a
+  SQL migration mint" is worth doing and was not done here.
+- **`SERVICE_VERSION` is a commit SHA, not a semantic release identifier.**
+  Gate 4 is closed in the sense that a build is identifiable; when tagged
+  releases exist, the tag is what the deploy scripts should be handed.
+
+### Gates
+
+`pnpm format:check`, `pnpm lint`, `pnpm typecheck`, `pnpm check:file-size` all
+pass. Tests: **379 files / 3045 tests** (API, every testcontainer suite
+included), **1280** web, **34** contract, **152** workers. The API suite was run
+as `pnpm --filter @verdery/api test` — the script CI runs — not a `src/`-scoped
+approximation of it, per this session's own lesson.

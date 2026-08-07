@@ -184,6 +184,43 @@ describe('GetGardenWeatherView', () => {
     expect(result.recentRainfall?.totalMm).toBe(3.3);
   });
 
+  it('counts a day the sweep re-fetched exactly once, and quotes the most recently fetched figure for it', async () => {
+    // The provider is asked for `past_days` of daily totals on every refresh,
+    // so an append-only table holds one row per elapsed day PER SWEEP. Before
+    // the read collapsed them, a garden with three sweeps behind it reported
+    // three times the rain that fell — and `watering.dry-spell-check` stayed
+    // silent on gardens that were genuinely dry.
+    const day = new Date(NOW.getTime() - 2 * 24 * HOUR_MS);
+    const sweeps = [
+      { id: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9e20', fetchedAt: NOW, precipitationMm: 4 },
+      {
+        id: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9e21',
+        fetchedAt: new Date(NOW.getTime() - HOUR_MS),
+        precipitationMm: 9,
+      },
+      {
+        id: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9e22',
+        fetchedAt: new Date(NOW.getTime() - 2 * HOUR_MS),
+        precipitationMm: 9,
+      },
+    ].map((sweep) => {
+      const record = storedRecord(sweep.id, 'observation', sweep.fetchedAt);
+      return {
+        ...record,
+        effectiveAt: day,
+        precipitationIntervalSeconds: 24 * 60 * 60,
+        measurements: { ...record.measurements, precipitationMm: sweep.precipitationMm },
+      };
+    });
+
+    const view = buildView({ records: sweeps, georeferenced: true });
+    const result = await view.execute(GARDEN_ID, PROFILE_ID);
+
+    expect(result.recentRainfall?.days).toHaveLength(1);
+    // 4, not 22: the revised figure from the newest fetch, counted once.
+    expect(result.recentRainfall?.totalMm).toBe(4);
+  });
+
   it('reports no rainfall series as null rather than an empty one — unknown is not the same claim as none', async () => {
     const view = buildView({ georeferenced: true });
 

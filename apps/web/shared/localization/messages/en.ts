@@ -21,6 +21,7 @@ import { englishOrganizationsMessages } from './en-organizations';
 import { englishPlantsMessages } from './en-plants';
 import { englishPublicationsMessages } from './en-publications';
 import { englishSeasonalPlanMessages } from './en-seasonal-plan';
+import { englishSeasonalAcceptanceMessages } from './en-seasonal-acceptance';
 import { englishTaskCollaborationMessages } from './en-task-collaboration';
 import { englishTodayMessages } from './en-today';
 import { englishWeatherMessages } from './en-weather';
@@ -38,6 +39,7 @@ export const englishMessages = {
   ...englishOrganizationsMessages,
   ...englishClientPortalMessages,
   ...englishSeasonalPlanMessages,
+  ...englishSeasonalAcceptanceMessages,
   ...englishGardenContextMessages,
   ...englishCandidatesMessages,
   ...englishMapMessages,
