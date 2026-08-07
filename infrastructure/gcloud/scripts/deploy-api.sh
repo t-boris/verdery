@@ -88,6 +88,17 @@ env_vars+="#MEDIA_PROCESSING_INVOKER_SERVICE_ACCOUNT_EMAIL=${VERDERY_WORKER_SERV
 # change for every environment.
 env_vars+="#RECOMMENDATION_AI_VERTEX_PROJECT_ID=${VERDERY_PROJECT_ID}"
 env_vars+="#RECOMMENDATION_AI_VERTEX_LOCATION=${VERDERY_AI_VERTEX_LOCATION:-${VERDERY_REGION}}"
+# The bounded AI-explanation kill-switch (P7-AI-01). Off unless the
+# environment names a model, the same "absent means off" posture the sibling
+# AI capabilities above take. Turning it on commits Vertex spend per
+# candidate, so it stays a per-environment decision rather than a default.
+#
+# The deterministic explanation is always stored and always served; an
+# embellishment is an ACCEPTED alternative rendering layered on top, and
+# flipping this back off restores baseline behaviour exactly, reads
+# included.
+env_vars+="#RECOMMENDATION_AI_EXPLANATION_ENABLED=${VERDERY_RECOMMENDATION_AI_ENABLED:-false}"
+env_vars+="#RECOMMENDATION_AI_MODEL=${VERDERY_RECOMMENDATION_AI_MODEL:-unset}"
 env_vars+="#PLANT_SPECIES_AI_ENABLED=${VERDERY_PLANT_SPECIES_AI_ENABLED:-false}"
 env_vars+="#PLANT_SPECIES_AI_MODEL=${VERDERY_PLANT_SPECIES_AI_MODEL:-unset}"
 env_vars+="#PLANT_CONDITION_AI_ENABLED=${VERDERY_PLANT_CONDITION_AI_ENABLED:-false}"

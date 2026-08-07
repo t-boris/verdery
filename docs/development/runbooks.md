@@ -1059,6 +1059,12 @@ Use `--update-env-vars` (merge), never `--set-env-vars` (replace) — see
 Trade-off: users lose AI explanations entirely rather than intermittently. For a vendor outage
 lasting hours, that is the better experience and the cheaper one.
 
+**AI explanations** are enabled in development (`VERDERY_RECOMMENDATION_AI_ENABLED="true"`,
+`gemini-3.6-flash`) and deliberately off in production, where enabling them is an owner decision
+about Vertex spend. Recommendations are unaffected either way: the deterministic explanation is
+what is stored and served, and an embellishment is an accepted alternative rendering layered on
+top. Unsetting the switch restores baseline behaviour exactly, reads included.
+
 **Option C — unset the provider selector.** Removing `WEATHER_ACTIVE_PROVIDER_KEY` returns the
 system to the typed `noProviderConfigured` path. Note the asymmetry, which is deliberate: setting
 the key to a name with **no registration fails at startup construction, by design** — the system
