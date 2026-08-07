@@ -56,6 +56,8 @@ describe('SearchTaxonomyReferences', () => {
         scientificName: 'Solanum lycopersicum',
         commonName: 'Tomato',
         varietyName: null,
+        family: 'Solanaceae',
+        genus: 'Solanum',
         source: 'system_catalog',
         createdByProfileId: null,
         createdAt: TOMATO.createdAt.toISOString(),

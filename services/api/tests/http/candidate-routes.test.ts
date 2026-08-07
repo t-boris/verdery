@@ -419,15 +419,35 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
   it('returns an empty profile envelope when no facts or images have been assembled', async () => {
     const { token } = await createGardenAsOwner();
+    const taxonomyReferenceId = generateUuidV7();
+    await db
+      .insertInto('plants_inventory.taxonomy_reference')
+      .values({
+        id: taxonomyReferenceId,
+        scientific_name: 'Acer saccharum',
+        common_name: 'Sugar maple',
+        variety_name: null,
+        source: 'system_catalog',
+        created_by_profile_id: null,
+      })
+      .execute();
 
     const response = await app.inject({
       method: 'GET',
-      url: `/v1/plant-catalog/taxa/${generateUuidV7()}/profile`,
+      url: `/v1/plant-catalog/taxa/${taxonomyReferenceId}/profile`,
       headers: bearer(token),
     });
 
     expect(response.statusCode).toBe(200);
-    expect(asProfile(response)).toEqual({ profile: null, images: [] });
+    expect(asProfile(response)).toMatchObject({
+      taxonomyReference: {
+        id: taxonomyReferenceId,
+        scientificName: 'Acer saccharum',
+        commonName: 'Sugar maple',
+      },
+      profile: null,
+      images: [],
+    });
   });
 
   it('serves a taxon materialized profile over real HTTP once one has been assembled', async () => {
