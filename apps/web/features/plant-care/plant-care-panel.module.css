@@ -1,0 +1,138 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.status,
+.empty {
+  padding: var(--space-6);
+  border: var(--border-width) dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* The water balance reads as one figure with its context, so the total
+   carries the visual weight and everything else recedes. */
+.water {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.waterHeadline {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.waterTotal {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.waterCaption,
+.waterNote {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.waterUnknown {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.waterTrack {
+  position: relative;
+  block-size: 0.5rem;
+  inline-size: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+}
+
+.waterFill {
+  block-size: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+}
+
+/* A hairline where the rule's threshold sits, so the bar shows not just how
+   much rain fell but where "short" begins. */
+.waterThreshold {
+  position: absolute;
+  inset-block: 0;
+  inline-size: 2px;
+  background: var(--color-text-muted);
+}
+
+.waterShort {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.waterOk {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.itemHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.itemTitle {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.itemBody {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.itemMeta {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}

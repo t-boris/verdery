@@ -17,12 +17,14 @@ import { russianTaskCollaborationMessages } from './ru-task-collaboration';
 import { russianTodayMessages } from './ru-today';
 import { russianWeatherMessages } from './ru-weather';
 import { russianCareRulesMessages } from './ru-care-rules';
+import { russianPlantCareMessages } from './ru-plant-care';
 
 /** Russian message catalogue. Typed against the English catalogue, so it cannot be incomplete. */
 export const russianMessages: MessageCatalogue = {
   ...russianTodayMessages,
   ...russianWeatherMessages,
   ...russianCareRulesMessages,
+  ...russianPlantCareMessages,
   ...russianAccessibilityMessages,
   ...russianCollaborationMessages,
   ...russianTaskCollaborationMessages,

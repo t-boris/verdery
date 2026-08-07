@@ -45,6 +45,7 @@ import {
   KyselyCareRulePlantReadinessSource,
   GetGardenSeasonalPlan,
   GetTaskActivity,
+  GetPlantCareView,
   GetTodayView,
   KyselyEvaluationGardenSource,
   KyselyRecommendationCandidateRepository,
@@ -236,6 +237,16 @@ export function composeTasksRecommendations(
     clock,
   };
   const recommendationRoutesDependencies: RecommendationRoutesDependencies = {
+    // Its own plant repository on the pooled connection, like the seasonal
+    // plan read below: this is a query, so it needs no transaction.
+    getPlantCareView: new GetPlantCareView(
+      new KyselyPlantRepository(database.queries),
+      candidateRepository,
+      taskRepository,
+      getGardenPrecipitation,
+      gardenAuthorization,
+      clock,
+    ),
     getTodayView: new GetTodayView(
       unitOfWork,
       gardenAuthorization,

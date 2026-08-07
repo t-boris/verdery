@@ -318,6 +318,13 @@ export type {
 export type { TaskActivityResource } from './application/task-activity-view.js';
 export { KyselyTaskActivityRepository } from './persistence/kysely-task-activity-repository.js';
 
+export { GetPlantCareView } from './application/get-plant-care-view.js';
+export type {
+  PlantCareRecommendation,
+  PlantCareTask,
+  PlantCareView,
+  PlantWaterBalance,
+} from './application/get-plant-care-view.js';
 export {
   GetTodayView,
   TODAY_DEFAULT_LIMIT,

@@ -1,0 +1,57 @@
+parameters:
+  - name: gardenId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+  - name: plantId
+    in: path
+    required: true
+    schema:
+      $ref: '../../components/schemas/shared.yaml#/Uuid'
+
+get:
+  operationId: getPlantCareView
+  tags: [Recommendations]
+  summary: What this plant needs, what is already open on it, and the rain it has had
+  description: |
+    The per-plant counterpart of `GET /gardens/{gardenId}/today`: the same
+    engine output, narrowed to one plant, plus the rainfall the watering
+    check reads.
+
+    This reads and quotes; it re-decides nothing. Every recommendation and
+    task here was produced by the scheduled evaluation and is returned as
+    stored, with the rule identity the engine recorded. Unlike `/today` it
+    records no presentation — opening a plant is not the system offering a
+    recommendation.
+
+    The water balance quotes the window, reference supply and threshold that
+    `watering.dry-spell-check@2` itself decides on, so the numbers here are
+    the numbers the rule read. It reports a shortfall in millimetres and
+    nothing further: never a watering amount, never a schedule, and never a
+    claim about the soil.
+
+    `water.known` is `false` when no elapsed daily totals are stored for the
+    window, and every millimetre field is then `null` rather than `0`.
+    Unknown is not dry, and a client must not render it as such.
+
+    Requires the ordinary `viewGarden` capability. A plant belonging to
+    another garden answers `404`, identically to an unknown id, so the
+    response cannot confirm that an id exists in a garden the caller cannot
+    see.
+
+    Source: modules/tasks-recommendations/application/get-plant-care-view.ts;
+    domain/rules/watering-dry-spell-check-v2.ts.
+  responses:
+    '200':
+      description: The plant's open care work and its water balance.
+      content:
+        application/json:
+          schema:
+            $ref: '../../components/schemas/plant-care.yaml#/PlantCareView'
+    '401':
+      $ref: '../../components/responses.yaml#/Unauthorized'
+    '403':
+      $ref: '../../components/responses.yaml#/Forbidden'
+    '404':
+      $ref: '../../components/responses.yaml#/NotFound'

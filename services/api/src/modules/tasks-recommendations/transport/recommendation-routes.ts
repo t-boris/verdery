@@ -24,6 +24,7 @@ import {
   requireIdempotencyKey,
 } from '../../gardens-mapping/transport/garden-routes.js';
 import type { ConvertRecommendationToTask } from '../application/convert-recommendation-to-task.js';
+import type { GetPlantCareView } from '../application/get-plant-care-view.js';
 import type { GetTodayView } from '../application/get-today-view.js';
 import { TODAY_DEFAULT_LIMIT, TODAY_MAX_LIMIT } from '../application/get-today-view.js';
 import type {
@@ -35,6 +36,7 @@ import type {
 
 export interface RecommendationRoutesDependencies {
   readonly getTodayView: GetTodayView;
+  readonly getPlantCareView: GetPlantCareView;
   readonly completeRecommendation: CompleteRecommendation;
   readonly postponeRecommendation: PostponeRecommendation;
   readonly dismissRecommendation: DismissRecommendation;
@@ -112,6 +114,25 @@ export function registerRecommendationRoutes(
   app: FastifyInstance,
   deps: RecommendationRoutesDependencies,
 ): void {
+  // The per-plant counterpart of `/today`: the same engine output, narrowed
+  // to one plant, plus the rainfall the watering check reads. A plain read —
+  // unlike `/today` it records no presentation, because opening a plant is
+  // not the system offering a recommendation.
+  app.get('/gardens/:gardenId/plants/:plantId/care', async (request, reply) => {
+    const plantId = (request.params as Record<string, unknown>)['plantId'];
+    if (typeof plantId !== 'string' || !UUID_PATTERN.test(plantId)) {
+      throw invalid('plantId must be a UUID.', 'request.plantId.invalid', '/plantId');
+    }
+
+    const view = await deps.getPlantCareView.execute(
+      requireGardenId(request),
+      plantId,
+      request.actorContext.profileId,
+    );
+
+    return reply.status(200).send(view);
+  });
+
   app.get('/gardens/:gardenId/today', async (request, reply) => {
     const gardenId = requireGardenId(request);
     const limit = parseTodayLimit(request);

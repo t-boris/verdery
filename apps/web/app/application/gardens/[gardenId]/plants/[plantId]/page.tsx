@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { PlantCarePanel } from '@/features/plant-care/public';
 import { PlantDetail } from '@/features/plants/public';
 import { ObservationTimeline, PlantJournalStrip } from '@/features/observations/public';
 import { getRequestTranslator } from '@/shared/localization/server';
@@ -69,6 +70,12 @@ export default async function PlantDetailPage({
             </RoutePanel>
           }
         />
+        {/* Directly below the plant's identity, above its history: a person
+            opening a plant is usually asking what it needs now, and the
+            journal below is the record of what they already did. */}
+        <RoutePanel title={t('plantCare.title')}>
+          <PlantCarePanel gardenId={gardenId} plantId={plantId} />
+        </RoutePanel>
       </RouteBody>
     </RoutePage>
   );

@@ -4056,6 +4056,64 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+  /gardens/{gardenId}/plants/{plantId}/care:
+    parameters:
+      - name: gardenId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+      - name: plantId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Uuid'
+    get:
+      operationId: getPlantCareView
+      tags:
+        - Recommendations
+      summary: What this plant needs, what is already open on it, and the rain it has had
+      description: |
+        The per-plant counterpart of `GET /gardens/{gardenId}/today`: the same
+        engine output, narrowed to one plant, plus the rainfall the watering
+        check reads.
+
+        This reads and quotes; it re-decides nothing. Every recommendation and
+        task here was produced by the scheduled evaluation and is returned as
+        stored, with the rule identity the engine recorded. Unlike `/today` it
+        records no presentation — opening a plant is not the system offering a
+        recommendation.
+
+        The water balance quotes the window, reference supply and threshold that
+        `watering.dry-spell-check@2` itself decides on, so the numbers here are
+        the numbers the rule read. It reports a shortfall in millimetres and
+        nothing further: never a watering amount, never a schedule, and never a
+        claim about the soil.
+
+        `water.known` is `false` when no elapsed daily totals are stored for the
+        window, and every millimetre field is then `null` rather than `0`.
+        Unknown is not dry, and a client must not render it as such.
+
+        Requires the ordinary `viewGarden` capability. A plant belonging to
+        another garden answers `404`, identically to an unknown id, so the
+        response cannot confirm that an id exists in a garden the caller cannot
+        see.
+
+        Source: modules/tasks-recommendations/application/get-plant-care-view.ts;
+        domain/rules/watering-dry-spell-check-v2.ts.
+      responses:
+        '200':
+          description: The plant's open care work and its water balance.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantCareView'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /gardens/{gardenId}/seasonal-plan:
     parameters:
       - name: gardenId
@@ -15970,3 +16028,154 @@ components:
           description: Every rule an evaluation of this garden would run, in evaluation order.
           items:
             $ref: '#/components/schemas/CareRule'
+    PlantCareRecommendation:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - ruleKey
+        - ruleVersion
+        - careCategory
+        - urgency
+        - safetyTier
+        - explanation
+        - state
+        - windowEnd
+        - createdAt
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        ruleKey:
+          type: string
+        ruleVersion:
+          type: integer
+        careCategory:
+          type: string
+        urgency:
+          type: string
+          enum:
+            - low
+            - normal
+            - high
+            - urgent
+        safetyTier:
+          type: string
+          enum:
+            - ordinary_care
+            - elevated_risk
+        explanation:
+          type:
+            - string
+            - 'null'
+          description: The engine's own deterministic explanation, quoted as stored.
+        state:
+          type: string
+        windowEnd:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+    PlantCareTask:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - title
+        - status
+        - dueDate
+        - originRecommendationId
+      properties:
+        id:
+          $ref: '#/components/schemas/Uuid'
+        title:
+          type: string
+        status:
+          type: string
+        dueDate:
+          type:
+            - string
+            - 'null'
+          format: date
+        originRecommendationId:
+          oneOf:
+            - $ref: '#/components/schemas/Uuid'
+            - type: 'null'
+          description: The recommendation this task was converted from, when it was.
+    PlantWaterBalance:
+      type: object
+      additionalProperties: false
+      description: |
+        The rainfall the watering check reads, expressed as a balance.
+
+        `known: false` means no elapsed daily totals are stored for the window,
+        and every millimetre field is then `null`. That is "not measured", NOT
+        "no rain fell" — a client must not render it as a dry window, and the
+        rule itself refuses to decide on this input.
+      required:
+        - known
+        - windowDays
+        - daysCovered
+        - accumulatedMm
+        - referenceMm
+        - thresholdMm
+        - shortfallMm
+        - lastWetDayAt
+      properties:
+        known:
+          type: boolean
+          description: Whether any daily total is stored for the window.
+        windowDays:
+          type: integer
+          description: How many elapsed days the total covers — the rule's own window.
+        daysCovered:
+          type: integer
+          description: Days within the window that carry a stored total. A partial window is reported, never extrapolated.
+        accumulatedMm:
+          type:
+            - number
+            - 'null'
+          description: Rain accumulated across the window.
+        referenceMm:
+          type: number
+          description: What the window normally supplies — the rule's own reference figure.
+        thresholdMm:
+          type: number
+          description: Below this total, the rule considers the window short.
+        shortfallMm:
+          type:
+            - number
+            - 'null'
+          description: How far below the threshold the window is, or `0` when it is not short. Never a watering amount.
+        lastWetDayAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: The most recent day whose total counted as meaningful rain.
+    PlantCareView:
+      type: object
+      additionalProperties: false
+      required:
+        - plantId
+        - gardenId
+        - recommendations
+        - tasks
+        - water
+      properties:
+        plantId:
+          $ref: '#/components/schemas/Uuid'
+        gardenId:
+          $ref: '#/components/schemas/Uuid'
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlantCareRecommendation'
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlantCareTask'
+        water:
+          $ref: '#/components/schemas/PlantWaterBalance'

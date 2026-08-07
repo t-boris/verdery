@@ -2397,6 +2397,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/gardens/{gardenId}/plants/{plantId}/care": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        /**
+         * What this plant needs, what is already open on it, and the rain it has had
+         * @description The per-plant counterpart of `GET /gardens/{gardenId}/today`: the same
+         *     engine output, narrowed to one plant, plus the rainfall the watering
+         *     check reads.
+         *
+         *     This reads and quotes; it re-decides nothing. Every recommendation and
+         *     task here was produced by the scheduled evaluation and is returned as
+         *     stored, with the rule identity the engine recorded. Unlike `/today` it
+         *     records no presentation — opening a plant is not the system offering a
+         *     recommendation.
+         *
+         *     The water balance quotes the window, reference supply and threshold that
+         *     `watering.dry-spell-check@2` itself decides on, so the numbers here are
+         *     the numbers the rule read. It reports a shortfall in millimetres and
+         *     nothing further: never a watering amount, never a schedule, and never a
+         *     claim about the soil.
+         *
+         *     `water.known` is `false` when no elapsed daily totals are stored for the
+         *     window, and every millimetre field is then `null` rather than `0`.
+         *     Unknown is not dry, and a client must not render it as such.
+         *
+         *     Requires the ordinary `viewGarden` capability. A plant belonging to
+         *     another garden answers `404`, identically to an unknown id, so the
+         *     response cannot confirm that an id exists in a garden the caller cannot
+         *     see.
+         *
+         *     Source: modules/tasks-recommendations/application/get-plant-care-view.ts;
+         *     domain/rules/watering-dry-spell-check-v2.ts.
+         */
+        get: operations["getPlantCareView"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/gardens/{gardenId}/seasonal-plan": {
         parameters: {
             query?: never;
@@ -8748,6 +8797,68 @@ export interface components {
             /** @description Every rule an evaluation of this garden would run, in evaluation order. */
             rules: components["schemas"]["CareRule"][];
         };
+        PlantCareRecommendation: {
+            id: components["schemas"]["Uuid"];
+            ruleKey: string;
+            ruleVersion: number;
+            careCategory: string;
+            /** @enum {string} */
+            urgency: "low" | "normal" | "high" | "urgent";
+            /** @enum {string} */
+            safetyTier: "ordinary_care" | "elevated_risk";
+            /** @description The engine's own deterministic explanation, quoted as stored. */
+            explanation: string | null;
+            state: string;
+            /** Format: date-time */
+            windowEnd: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        PlantCareTask: {
+            id: components["schemas"]["Uuid"];
+            title: string;
+            status: string;
+            /** Format: date */
+            dueDate: string | null;
+            /** @description The recommendation this task was converted from, when it was. */
+            originRecommendationId: components["schemas"]["Uuid"] | null;
+        };
+        /**
+         * @description The rainfall the watering check reads, expressed as a balance.
+         *
+         *     `known: false` means no elapsed daily totals are stored for the window,
+         *     and every millimetre field is then `null`. That is "not measured", NOT
+         *     "no rain fell" — a client must not render it as a dry window, and the
+         *     rule itself refuses to decide on this input.
+         */
+        PlantWaterBalance: {
+            /** @description Whether any daily total is stored for the window. */
+            known: boolean;
+            /** @description How many elapsed days the total covers — the rule's own window. */
+            windowDays: number;
+            /** @description Days within the window that carry a stored total. A partial window is reported, never extrapolated. */
+            daysCovered: number;
+            /** @description Rain accumulated across the window. */
+            accumulatedMm: number | null;
+            /** @description What the window normally supplies — the rule's own reference figure. */
+            referenceMm: number;
+            /** @description Below this total, the rule considers the window short. */
+            thresholdMm: number;
+            /** @description How far below the threshold the window is, or `0` when it is not short. Never a watering amount. */
+            shortfallMm: number | null;
+            /**
+             * Format: date-time
+             * @description The most recent day whose total counted as meaningful rain.
+             */
+            lastWetDayAt: string | null;
+        };
+        PlantCareView: {
+            plantId: components["schemas"]["Uuid"];
+            gardenId: components["schemas"]["Uuid"];
+            recommendations: components["schemas"]["PlantCareRecommendation"][];
+            tasks: components["schemas"]["PlantCareTask"][];
+            water: components["schemas"]["PlantWaterBalance"];
+        };
     };
     responses: {
         /** @description The request is malformed or fails validation. */
@@ -11827,6 +11938,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GardenCareRulesResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPlantCareView: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gardenId: components["schemas"]["Uuid"];
+                plantId: components["schemas"]["Uuid"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The plant's open care work and its water balance. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlantCareView"];
                 };
             };
             401: components["responses"]["Unauthorized"];

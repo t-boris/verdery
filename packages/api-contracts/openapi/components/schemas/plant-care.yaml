@@ -1,0 +1,136 @@
+PlantWaterBalance:
+  type: object
+  additionalProperties: false
+  description: |
+    The rainfall the watering check reads, expressed as a balance.
+
+    `known: false` means no elapsed daily totals are stored for the window,
+    and every millimetre field is then `null`. That is "not measured", NOT
+    "no rain fell" — a client must not render it as a dry window, and the
+    rule itself refuses to decide on this input.
+  required:
+    - known
+    - windowDays
+    - daysCovered
+    - accumulatedMm
+    - referenceMm
+    - thresholdMm
+    - shortfallMm
+    - lastWetDayAt
+  properties:
+    known:
+      type: boolean
+      description: Whether any daily total is stored for the window.
+    windowDays:
+      type: integer
+      description: How many elapsed days the total covers — the rule's own window.
+    daysCovered:
+      type: integer
+      description: Days within the window that carry a stored total. A partial window is reported, never extrapolated.
+    accumulatedMm:
+      type: [number, 'null']
+      description: Rain accumulated across the window.
+    referenceMm:
+      type: number
+      description: What the window normally supplies — the rule's own reference figure.
+    thresholdMm:
+      type: number
+      description: Below this total, the rule considers the window short.
+    shortfallMm:
+      type: [number, 'null']
+      description: How far below the threshold the window is, or `0` when it is not short. Never a watering amount.
+    lastWetDayAt:
+      type: [string, 'null']
+      format: date-time
+      description: The most recent day whose total counted as meaningful rain.
+
+PlantCareRecommendation:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - ruleKey
+    - ruleVersion
+    - careCategory
+    - urgency
+    - safetyTier
+    - explanation
+    - state
+    - windowEnd
+    - createdAt
+  properties:
+    id:
+      $ref: './shared.yaml#/Uuid'
+    ruleKey:
+      type: string
+    ruleVersion:
+      type: integer
+    careCategory:
+      type: string
+    urgency:
+      type: string
+      enum: [low, normal, high, urgent]
+    safetyTier:
+      type: string
+      enum: [ordinary_care, elevated_risk]
+    explanation:
+      type: [string, 'null']
+      description: The engine's own deterministic explanation, quoted as stored.
+    state:
+      type: string
+    windowEnd:
+      type: [string, 'null']
+      format: date-time
+    createdAt:
+      type: string
+      format: date-time
+
+PlantCareTask:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - title
+    - status
+    - dueDate
+    - originRecommendationId
+  properties:
+    id:
+      $ref: './shared.yaml#/Uuid'
+    title:
+      type: string
+    status:
+      type: string
+    dueDate:
+      type: [string, 'null']
+      format: date
+    originRecommendationId:
+      oneOf:
+        - $ref: './shared.yaml#/Uuid'
+        - type: 'null'
+      description: The recommendation this task was converted from, when it was.
+
+PlantCareView:
+  type: object
+  additionalProperties: false
+  required:
+    - plantId
+    - gardenId
+    - recommendations
+    - tasks
+    - water
+  properties:
+    plantId:
+      $ref: './shared.yaml#/Uuid'
+    gardenId:
+      $ref: './shared.yaml#/Uuid'
+    recommendations:
+      type: array
+      items:
+        $ref: '#/PlantCareRecommendation'
+    tasks:
+      type: array
+      items:
+        $ref: '#/PlantCareTask'
+    water:
+      $ref: '#/PlantWaterBalance'

@@ -100,6 +100,10 @@ export type DailyRainfall = Schemas['DailyRainfall'];
 export type CareRule = Schemas['CareRule'];
 export type CareRuleBlocker = Schemas['CareRuleBlocker'];
 export type GardenCareRulesResult = Schemas['GardenCareRulesResult'];
+export type PlantCareView = Schemas['PlantCareView'];
+export type PlantCareRecommendation = Schemas['PlantCareRecommendation'];
+export type PlantCareTask = Schemas['PlantCareTask'];
+export type PlantWaterBalance = Schemas['PlantWaterBalance'];
 
 /** The media schemas (P6-API-01). */
 export type MediaClass = Schemas['MediaClass'];

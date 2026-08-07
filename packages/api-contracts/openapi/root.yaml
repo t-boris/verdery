@@ -291,6 +291,8 @@ paths:
   '/gardens/{gardenId}/today': { $ref: './paths/recommendations/gardens_gardenId_today.yaml' }
   '/gardens/{gardenId}/weather': { $ref: './paths/weather/gardens_gardenId_weather.yaml' }
   '/gardens/{gardenId}/care-rules': { $ref: './paths/care-rules/gardens_gardenId_care-rules.yaml' }
+  '/gardens/{gardenId}/plants/{plantId}/care':
+    { $ref: './paths/plants/gardens_gardenId_plants_plantId_care.yaml' }
   '/gardens/{gardenId}/seasonal-plan':
     { $ref: './paths/seasonal-plan/gardens_gardenId_seasonal-plan.yaml' }
   '/gardens/{gardenId}/recommendations/{recommendationId}/complete':

@@ -31,6 +31,7 @@
  *         application/get-today-view.ts (the garden-wide sibling).
  */
 
+import { NotFoundError } from '../../../platform/errors/application-error.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type { GardenAuthorization } from '../../gardens-mapping/public.js';
@@ -107,14 +108,16 @@ export class GetPlantCareView {
     private readonly clock: Clock,
   ) {}
 
-  async execute(gardenId: Uuid, plantId: Uuid, profileId: Uuid): Promise<PlantCareView | null> {
+  async execute(gardenId: Uuid, plantId: Uuid, profileId: Uuid): Promise<PlantCareView> {
     await this.authorization.requireCapability(gardenId, profileId, 'viewGarden');
 
     const plant = await this.plants.findById(plantId);
     // The garden check is not redundant with the capability check above: it
-    // stops a member of garden A reading a plant of garden B by id.
+    // stops a member of garden A reading a plant of garden B by id. Both
+    // cases raise the SAME error, so the response cannot confirm that an id
+    // exists in a garden the caller cannot see.
     if (plant === null || plant.gardenId !== gardenId) {
-      return null;
+      throw new NotFoundError('plants_inventory.plant.not_found', 'Plant not found.');
     }
 
     const now = this.clock.now();
