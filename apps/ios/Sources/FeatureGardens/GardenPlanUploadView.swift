@@ -1,3 +1,4 @@
+import CoreDesignSystem
 import CoreMediaTransfer
 import PhotosUI
 import SwiftUI
@@ -28,18 +29,21 @@ public struct GardenPlanUploadView: View {
     }
 
     public var body: some View {
-        Form {
-            Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Metrics.space4) {
                 Text(model.description)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
+                    .font(FieldConsoleType.secondary.font)
+                    .foregroundStyle(Palette.textMuted)
 
-            pickerSection
-            statusSection
-            previewSection
+                pickerSection
+                statusSection
+                previewSection
+            }
+            .padding(Metrics.space4)
         }
         .navigationTitle(model.title)
+        .inlineNavigationTitle()
+        .screenBackground()
         .onChange(of: pickedPhotoItem) { _, newItem in
             guard let newItem else { return }
             Task { await loadAndAttach(newItem) }
@@ -57,19 +61,34 @@ public struct GardenPlanUploadView: View {
         }
     }
 
+    /// Two ways in, as picture buttons rather than form rows: a plan arrives
+    /// either as a photograph of a paper drawing or as a file somebody was
+    /// emailed, and neither is more likely than the other.
     private var pickerSection: some View {
-        Section {
-            PhotosPicker(model.selectImageTitle, selection: $pickedPhotoItem, matching: .images)
-                .accessibilityIdentifier("gardens.planUpload.pickPhoto")
-
-            Button(model.selectDocumentTitle) {
-                isFileImporterPresented = true
+        VStack(alignment: .leading, spacing: Metrics.space3) {
+            PhotosPicker(selection: $pickedPhotoItem, matching: .images) {
+                Label(model.selectImageTitle, systemImage: "photo.on.rectangle")
+                    .font(FieldConsoleType.bodyStrong.font)
+                    .foregroundStyle(Palette.text)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Metrics.space3)
+                    .background(
+                        RoundedRectangle(cornerRadius: Metrics.radiusControl, style: .continuous)
+                            .fill(Palette.surfaceSunken)
+                    )
             }
+            .accessibilityIdentifier("gardens.planUpload.pickPhoto")
+
+            Button {
+                isFileImporterPresented = true
+            } label: {
+                Label(model.selectDocumentTitle, systemImage: "doc")
+            }
+            .buttonStyle(SecondaryButtonStyle())
             .accessibilityIdentifier("gardens.planUpload.pickFile")
 
             if let message = model.validationErrorMessage {
-                Text(message)
-                    .foregroundStyle(.red)
+                InlineMessage(message, tone: .negative)
                     .accessibilityIdentifier("gardens.planUpload.validationError")
             }
         }
@@ -78,23 +97,34 @@ public struct GardenPlanUploadView: View {
     @ViewBuilder
     private var statusSection: some View {
         if model.attachment.status != .idle {
-            Section {
-                Text(model.statusText)
-                    .foregroundStyle(.secondary)
-                    .accessibilityIdentifier("gardens.planUpload.status")
+            SurfaceCard {
+                VStack(alignment: .leading, spacing: Metrics.space3) {
+                    Text(model.statusText)
+                        .font(FieldConsoleType.secondary.font)
+                        .foregroundStyle(Palette.textMuted)
+                        .accessibilityIdentifier("gardens.planUpload.status")
 
-                if model.attachment.status.isRetryable, case .failed = model.attachment.status {
-                    Button(model.retryTitle) {
-                        Task { await model.retry() }
+                    HStack(spacing: Metrics.space3) {
+                        if model.attachment.status.isRetryable,
+                            case .failed = model.attachment.status
+                        {
+                            CompactActionButton(
+                                symbol: "arrow.clockwise", title: model.retryTitle
+                            ) {
+                                Task { await model.retry() }
+                            }
+                            .accessibilityIdentifier("gardens.planUpload.retry")
+                        }
+
+                        CompactActionButton(
+                            symbol: "trash", title: model.removeTitle, tone: .negative
+                        ) {
+                            pickedPhotoItem = nil
+                            Task { await model.discard() }
+                        }
+                        .accessibilityIdentifier("gardens.planUpload.remove")
                     }
-                    .accessibilityIdentifier("gardens.planUpload.retry")
                 }
-
-                Button(model.removeTitle, role: .destructive) {
-                    pickedPhotoItem = nil
-                    Task { await model.discard() }
-                }
-                .accessibilityIdentifier("gardens.planUpload.remove")
             }
         }
     }
@@ -102,9 +132,10 @@ public struct GardenPlanUploadView: View {
     @ViewBuilder
     private var previewSection: some View {
         if model.isReady {
-            Section {
+            SurfaceCard {
+                VStack(alignment: .leading, spacing: Metrics.space3) {
                 Text(model.readyForMapText)
-                    .font(.footnote)
+                    .font(FieldConsoleType.secondary.font)
                     .accessibilityIdentifier("gardens.planUpload.readyForMap")
 
                 switch model.preview {
@@ -112,15 +143,13 @@ public struct GardenPlanUploadView: View {
                     EmptyView()
                 case .loading:
                     Text(model.previewLoadingText)
-                        .foregroundStyle(.secondary)
+                        .font(FieldConsoleType.secondary.font)
+                        .foregroundStyle(Palette.textMuted)
                 case .pdfDocument:
-                    Text(model.pdfNoticeText)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    InlineMessage(model.pdfNoticeText, tone: .neutral)
                         .accessibilityIdentifier("gardens.planUpload.pdfNotice")
                 case .unavailable:
-                    Text(model.previewUnavailableText)
-                        .foregroundStyle(.secondary)
+                    InlineMessage(model.previewUnavailableText, tone: .warning)
                         .accessibilityIdentifier("gardens.planUpload.previewUnavailable")
                 case let .ready(image):
                     Image(decorative: image, scale: 1)
@@ -128,6 +157,7 @@ public struct GardenPlanUploadView: View {
                         .scaledToFit()
                         .frame(maxHeight: previewMaxHeight)
                         .accessibilityIdentifier("gardens.planUpload.preview")
+                }
                 }
             }
         }
