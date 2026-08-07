@@ -4,8 +4,9 @@
   gap: var(--space-4);
   block-size: 100%;
   padding-inline: var(--space-3);
-  border-block-start: var(--border-width) solid var(--color-border);
-  background-color: var(--color-surface);
+  border-block-start: var(--border-width) solid var(--color-console-border);
+  background-color: var(--color-console);
+  color: var(--color-console-muted);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -27,7 +28,7 @@
   font-size: var(--label-size);
   font-variant-numeric: tabular-nums;
   letter-spacing: var(--label-letter-spacing);
-  color: var(--color-text);
+  color: var(--color-console-text);
 }
 
 /*

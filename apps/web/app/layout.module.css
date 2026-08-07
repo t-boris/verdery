@@ -8,26 +8,26 @@
   position: sticky;
   top: 0;
   z-index: 20;
-  border-bottom: var(--border-width) solid var(--color-border);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-xs);
+  min-block-size: var(--console-header-size);
+  border-bottom: var(--border-width) solid var(--color-console-border);
+  background-color: var(--color-console);
 }
 
 .headerInner {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2) var(--space-4);
-  width: min(96rem, 100%);
+  gap: var(--space-3);
+  width: min(92rem, 100%);
+  min-block-size: var(--console-header-size);
   margin: 0 auto;
-  padding: var(--space-3) var(--space-5);
+  padding-inline: var(--space-4);
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
-  color: var(--color-text);
+  gap: var(--space-2);
+  color: var(--color-console-text);
   text-decoration: none;
 }
 
@@ -40,58 +40,31 @@
   border-radius: var(--radius-md);
   background-color: var(--color-accent);
   color: var(--color-accent-text);
-  box-shadow: var(--shadow-xs);
 }
 
 .productName {
-  font-family: var(--font-family-display);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
   letter-spacing: var(--letter-spacing-tight);
 }
 
 .tagline {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-}
-
-@media (max-width: 30rem) {
-  .tagline {
-    display: none;
-  }
+  padding-inline-start: var(--space-3);
+  border-inline-start: var(--border-width) solid var(--color-console-border);
+  color: var(--color-console-muted);
+  font-family: var(--font-family-mono);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-letter-spacing);
+  text-transform: uppercase;
 }
 
 .main {
   flex: 1;
-  width: min(96rem, 100%);
+  width: min(92rem, 100%);
   margin: 0 auto;
-  padding: var(--space-5) var(--space-5) var(--space-8);
+  padding: var(--space-5);
 }
 
-@media (max-width: 40rem) {
-  .main {
-    padding: var(--space-4) var(--space-4) var(--space-7);
-  }
-}
-
-/*
- * Behind an authenticated route, `app/application/application-shell.tsx`
- * supplies the whole Kern chrome: one 48px header (carrying the wordmark this
- * one would otherwise duplicate), one scrolling region, and a permanent status
- * footer, sized to exactly `100dvh`.
- *
- * So this layout gets out of its way rather than stacking on top of it. Left
- * in place, the brand header's own height would push the shell's `100dvh` past
- * the viewport and reintroduce the document-level scrollbar the direction
- * removes, and `.main`'s padding and `96rem` cap would inset a chrome that is
- * meant to reach the edges.
- *
- * Keyed off the shell's own `data-app-shell` marker via `:has()` rather than a
- * prop threaded down from the route: the root layout renders on unauthenticated
- * routes too (sign-in, invite acceptance, the email-link handler), which keep
- * the brand header and the ordinary document scroll, and those routes must not
- * have to know this rule exists.
- */
 .shell:has([data-app-shell]) {
   block-size: 100dvh;
   min-block-size: 0;
@@ -123,4 +96,14 @@
 
 .skipLink:focus-visible {
   transform: translateY(0);
+}
+
+@media (max-width: 40rem) {
+  .tagline {
+    display: none;
+  }
+
+  .main {
+    padding: var(--space-3);
+  }
 }

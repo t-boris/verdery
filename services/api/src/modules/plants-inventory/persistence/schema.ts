@@ -174,6 +174,7 @@ export interface PlantCandidateRow {
   price_currency: string | null;
   purchase_source: string | null;
   alternative_to_candidate_id: string | null;
+  photo_analysis: unknown;
   revision: Generated<number>;
   created_by_profile_id: string;
   created_at: Generated<Date>;

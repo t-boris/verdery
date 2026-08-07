@@ -7,6 +7,7 @@
  */
 
 import type { PlantCandidate } from '../domain/plant-candidate.js';
+import type { CandidatePhotoAnalysis } from '../domain/plant-candidate.js';
 
 export interface CandidateResource {
   readonly id: string;
@@ -25,6 +26,7 @@ export interface CandidateResource {
   readonly priceCurrency: string | null;
   readonly purchaseSource: string | null;
   readonly alternativeToCandidateId: string | null;
+  readonly photoAnalysis: CandidatePhotoAnalysis | null;
   readonly revision: number;
   readonly createdByProfileId: string;
   readonly createdAt: string;
@@ -49,6 +51,7 @@ export function toCandidateResource(candidate: PlantCandidate): CandidateResourc
     priceCurrency: candidate.priceCurrency,
     purchaseSource: candidate.purchaseSource,
     alternativeToCandidateId: candidate.alternativeToCandidateId,
+    photoAnalysis: candidate.photoAnalysis,
     revision: candidate.revision,
     createdByProfileId: candidate.createdByProfileId,
     createdAt: candidate.createdAt.toISOString(),

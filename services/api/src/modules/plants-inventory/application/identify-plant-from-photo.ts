@@ -19,13 +19,11 @@
  *   shape the historical stub always returned.
  * - A confident candidate whose `commonName` MATCHES the catalog resolves
  *   `suggestedTaxonomyId`, with the raw fields left null.
- * - A confident candidate with NO catalog match (this application's own
- *   catalog is unseeded today, so this is common for any real species) now
- *   PRESERVES the model's raw `commonName`/`scientificNameGuess` instead of
- *   discarding it — the catalog being unseeded is not the model's fault,
- *   and the raw guess is still useful: see `domain/plant.ts`'s
- *   `confirmPlantIdentification`, which uses it to name the plant directly
- *   when there is no taxonomy row to link.
+ * - A confident candidate with no catalog match but a scientific-name guess
+ *   creates an explicitly `provider_sourced` reference. The existing human
+ *   confirmation boundary for real plants remains unchanged.
+ * - A candidate without a scientific-name guess preserves the raw common
+ *   name as the fallback; no stable taxon identity is fabricated from it.
  *
  * `AddPlantFromPhoto` needs no new branching either way, and a
  * photo-created plant's `taxonomyReferenceId` stays null exactly as before
@@ -47,6 +45,12 @@ export interface PhotoIdentificationSuggestion {
   readonly suggestedVarietyLabel: string | null;
   readonly suggestedLifecycleStage: LifecycleStage | null;
   readonly suggestedAcquisitionDate: string | null;
+  readonly identifiedCommonName: string | null;
+  readonly identifiedScientificName: string | null;
+  readonly identifiedFamilyName: string | null;
+  readonly identifiedGenusName: string | null;
+  readonly estimatedAgeMonthsMin: number | null;
+  readonly estimatedAgeMonthsMax: number | null;
 }
 
 const NO_SUGGESTION: PhotoIdentificationSuggestion = {
@@ -57,6 +61,12 @@ const NO_SUGGESTION: PhotoIdentificationSuggestion = {
   suggestedVarietyLabel: null,
   suggestedLifecycleStage: null,
   suggestedAcquisitionDate: null,
+  identifiedCommonName: null,
+  identifiedScientificName: null,
+  identifiedFamilyName: null,
+  identifiedGenusName: null,
+  estimatedAgeMonthsMin: null,
+  estimatedAgeMonthsMax: null,
 };
 
 /**
@@ -104,6 +114,37 @@ export async function identifyPlantFromPhoto(
   );
   const bestMatch = matches[0];
   if (bestMatch === undefined) {
+    if (result.candidate.scientificNameGuess !== null) {
+      const providerReference = await taxonomyReferences.resolveProviderSuggestion({
+        scientificName: result.candidate.scientificNameGuess,
+        commonName: result.candidate.commonName,
+        familyName: result.candidate.familyNameGuess ?? '',
+        genusName: result.candidate.genusNameGuess ?? '',
+      });
+      logger.info(
+        {
+          event: 'plant_species_ai.provider_reference_resolved',
+          confidenceScore: result.candidate.confidenceScore,
+        },
+        'Model candidate resolved to a provider-sourced taxonomy reference.',
+      );
+      return {
+        suggestedTaxonomyId: providerReference.id,
+        confidenceScore: result.candidate.confidenceScore,
+        suggestedCommonName: null,
+        suggestedScientificName: null,
+        suggestedVarietyLabel: result.candidate.varietyGuess,
+        suggestedLifecycleStage: toLifecycleStage(result.candidate.lifecycleStageGuess),
+        suggestedAcquisitionDate: result.candidate.acquisitionDateGuess,
+        identifiedCommonName: result.candidate.commonName,
+        identifiedScientificName: result.candidate.scientificNameGuess,
+        identifiedFamilyName: result.candidate.familyNameGuess,
+        identifiedGenusName: result.candidate.genusNameGuess,
+        estimatedAgeMonthsMin: result.candidate.estimatedAgeMonthsMin,
+        estimatedAgeMonthsMax: result.candidate.estimatedAgeMonthsMax,
+      };
+    }
+
     // P11-OBS-01: a real, pre-existing prohibited-content violation found
     // and fixed while instrumenting this pass — `commonName` is content
     // (the model's own guessed plant name text), not a privacy-safe
@@ -126,6 +167,12 @@ export async function identifyPlantFromPhoto(
       suggestedVarietyLabel: result.candidate.varietyGuess,
       suggestedLifecycleStage: toLifecycleStage(result.candidate.lifecycleStageGuess),
       suggestedAcquisitionDate: result.candidate.acquisitionDateGuess,
+      identifiedCommonName: result.candidate.commonName,
+      identifiedScientificName: result.candidate.scientificNameGuess,
+      identifiedFamilyName: result.candidate.familyNameGuess,
+      identifiedGenusName: result.candidate.genusNameGuess,
+      estimatedAgeMonthsMin: result.candidate.estimatedAgeMonthsMin,
+      estimatedAgeMonthsMax: result.candidate.estimatedAgeMonthsMax,
     };
   }
 
@@ -137,5 +184,11 @@ export async function identifyPlantFromPhoto(
     suggestedVarietyLabel: result.candidate.varietyGuess,
     suggestedLifecycleStage: toLifecycleStage(result.candidate.lifecycleStageGuess),
     suggestedAcquisitionDate: result.candidate.acquisitionDateGuess,
+    identifiedCommonName: result.candidate.commonName,
+    identifiedScientificName: result.candidate.scientificNameGuess ?? bestMatch.scientificName,
+    identifiedFamilyName: result.candidate.familyNameGuess ?? bestMatch.family,
+    identifiedGenusName: result.candidate.genusNameGuess ?? bestMatch.genus,
+    estimatedAgeMonthsMin: result.candidate.estimatedAgeMonthsMin,
+    estimatedAgeMonthsMax: result.candidate.estimatedAgeMonthsMax,
   };
 }

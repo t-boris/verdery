@@ -32,6 +32,7 @@ const CANDIDATE: PlantCandidate = {
   priceCurrency: null,
   purchaseSource: null,
   alternativeToCandidateId: null,
+  photoAnalysis: null,
   revision: 5,
   createdByProfileId: 'profile-1',
   createdAt: '2026-07-21T09:00:00Z',

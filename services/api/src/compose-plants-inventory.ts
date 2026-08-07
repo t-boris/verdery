@@ -212,6 +212,7 @@ export function composePlantsInventory(
     identifyPlantSpecies,
     taxonomyReferenceRepository,
     logger,
+    analyzePlantCondition,
   );
   const plantCandidatePhotoRepository = new KyselyPlantCandidatePhotoRepository(database.queries);
   const listCandidatePhotos = new ListCandidatePhotos(
@@ -228,6 +229,7 @@ export function composePlantsInventory(
     identifyPlantSpecies,
     taxonomyReferenceRepository,
     logger,
+    analyzePlantCondition,
   );
   const listCandidates = new ListCandidates(plantCandidateRepository, gardenAuthorization);
   const getCandidate = new GetCandidate(plantCandidateRepository, gardenAuthorization);

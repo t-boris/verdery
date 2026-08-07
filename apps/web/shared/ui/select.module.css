@@ -41,7 +41,7 @@
   border: solid var(--color-control-border);
   border-width: var(--field-input-border-width, var(--border-width));
   border-radius: var(--radius-md);
-  background-color: var(--field-input-background, var(--color-surface));
+  background-color: var(--field-input-background, var(--color-surface-sunken));
   background-image: var(--select-chevron);
   background-repeat: no-repeat;
   background-position: right var(--space-3) center;

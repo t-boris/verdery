@@ -37,8 +37,10 @@ const CONFIGURATION = { model: 'gemini-test-model', maxOutputTokens: 256 };
 
 /** The confident fields fixed for every test body, so each test only varies the acquisition-date pair unless stated otherwise. */
 const BASE_FIELDS =
-  '"varietyGuess": "", "lifecycleStageConfident": false, "lifecycleStageGuess": "seed",' +
-  ' "acquisitionDateConfident": false, "acquisitionDateGuess": ""';
+  '"familyNameGuess": "Solanaceae", "genusNameGuess": "Solanum", "varietyGuess": "",' +
+  ' "lifecycleStageConfident": false, "lifecycleStageGuess": "seed",' +
+  ' "acquisitionDateConfident": false, "acquisitionDateGuess": "",' +
+  ' "estimatedAgeMonthsMin": 2, "estimatedAgeMonthsMax": 4';
 
 function response(overrides: Partial<GenerateContentResponse>): GenerateContentResponse {
   return Object.assign(new GenerateContentResponse(), overrides);
@@ -69,12 +71,16 @@ describe('buildGenerateContentParameters', () => {
         'noConfidentCandidate',
         'commonName',
         'scientificNameGuess',
+        'familyNameGuess',
+        'genusNameGuess',
         'confidenceScore',
         'varietyGuess',
         'lifecycleStageConfident',
         'lifecycleStageGuess',
         'acquisitionDateConfident',
         'acquisitionDateGuess',
+        'estimatedAgeMonthsMin',
+        'estimatedAgeMonthsMax',
       ],
     });
   });
@@ -105,7 +111,8 @@ describe('buildGenerateContentParameters', () => {
     expect(instruction).toContain('varietyGuess');
     expect(instruction).toContain('lifecycleStageGuess');
     expect(instruction).toContain('acquisitionDateGuess');
-    expect(VERTEX_PLANT_SPECIES_PROMPT_TEMPLATE_VERSION).toBe(3);
+    expect(instruction).toContain('estimatedAgeMonthsMin');
+    expect(VERTEX_PLANT_SPECIES_PROMPT_TEMPLATE_VERSION).toBe(4);
   });
 });
 
@@ -113,9 +120,9 @@ describe('parseResponse', () => {
   it('parses a confident candidate, trimming names, with variety, a confident growth stage, and a confident acquisition-date guess', () => {
     const outcome = parseResponse(
       textResponse(
-        '{"noConfidentCandidate": false, "commonName": " Tomato ", "scientificNameGuess": " Solanum lycopersicum ", "confidenceScore": 0.9,' +
+        '{"noConfidentCandidate": false, "commonName": " Tomato ", "scientificNameGuess": " Solanum lycopersicum ", "familyNameGuess": " Solanaceae ", "genusNameGuess": " Solanum ", "confidenceScore": 0.9,' +
           ' "varietyGuess": " Cherry Tomato ", "lifecycleStageConfident": true, "lifecycleStageGuess": "flowering",' +
-          ' "acquisitionDateConfident": true, "acquisitionDateGuess": "2026-05-01"}',
+          ' "acquisitionDateConfident": true, "acquisitionDateGuess": "2026-05-01", "estimatedAgeMonthsMin": 2, "estimatedAgeMonthsMax": 4}',
       ),
     );
     expect(outcome).toEqual({
@@ -123,10 +130,14 @@ describe('parseResponse', () => {
       candidate: {
         commonName: 'Tomato',
         scientificNameGuess: 'Solanum lycopersicum',
+        familyNameGuess: 'Solanaceae',
+        genusNameGuess: 'Solanum',
         confidenceScore: 0.9,
         varietyGuess: 'Cherry Tomato',
         lifecycleStageGuess: 'flowering',
         acquisitionDateGuess: '2026-05-01',
+        estimatedAgeMonthsMin: 2,
+        estimatedAgeMonthsMax: 4,
       },
     });
   });
@@ -140,31 +151,21 @@ describe('parseResponse', () => {
     expect(outcome).toEqual({ kind: 'noConfidentCandidate' });
   });
 
-  it('treats a blank scientificNameGuess/varietyGuess as null, not an empty string', () => {
+  it('rejects a candidate without a complete scientific taxonomy', () => {
     const outcome = parseResponse(
       textResponse(
         `{"noConfidentCandidate": false, "commonName": "Basil", "scientificNameGuess": "", "confidenceScore": 0.6, ${BASE_FIELDS}}`,
       ),
     );
-    expect(outcome).toEqual({
-      kind: 'candidate',
-      candidate: {
-        commonName: 'Basil',
-        scientificNameGuess: null,
-        confidenceScore: 0.6,
-        varietyGuess: null,
-        lifecycleStageGuess: null,
-        acquisitionDateGuess: null,
-      },
-    });
+    expect(outcome).toEqual({ kind: 'noConfidentCandidate' });
   });
 
   it('treats lifecycleStageConfident false as null, regardless of what lifecycleStageGuess says', () => {
     const outcome = parseResponse(
       textResponse(
-        '{"noConfidentCandidate": false, "commonName": "Basil", "scientificNameGuess": "", "confidenceScore": 0.7,' +
+        '{"noConfidentCandidate": false, "commonName": "Basil", "scientificNameGuess": "Ocimum basilicum", "familyNameGuess": "Lamiaceae", "genusNameGuess": "Ocimum", "confidenceScore": 0.7,' +
           ' "varietyGuess": "", "lifecycleStageConfident": false, "lifecycleStageGuess": "flowering",' +
-          ' "acquisitionDateConfident": false, "acquisitionDateGuess": ""}',
+          ' "acquisitionDateConfident": false, "acquisitionDateGuess": "", "estimatedAgeMonthsMin": 1, "estimatedAgeMonthsMax": 3}',
       ),
     );
     expect(outcome).toMatchObject({ candidate: { lifecycleStageGuess: null } });
@@ -173,9 +174,9 @@ describe('parseResponse', () => {
   it('treats acquisitionDateConfident false as null, regardless of what acquisitionDateGuess says', () => {
     const outcome = parseResponse(
       textResponse(
-        '{"noConfidentCandidate": false, "commonName": "Basil", "scientificNameGuess": "", "confidenceScore": 0.7,' +
+        '{"noConfidentCandidate": false, "commonName": "Basil", "scientificNameGuess": "Ocimum basilicum", "familyNameGuess": "Lamiaceae", "genusNameGuess": "Ocimum", "confidenceScore": 0.7,' +
           ' "varietyGuess": "", "lifecycleStageConfident": false, "lifecycleStageGuess": "seed",' +
-          ' "acquisitionDateConfident": false, "acquisitionDateGuess": "2026-05-01"}',
+          ' "acquisitionDateConfident": false, "acquisitionDateGuess": "2026-05-01", "estimatedAgeMonthsMin": 1, "estimatedAgeMonthsMax": 3}',
       ),
     );
     expect(outcome).toMatchObject({ candidate: { acquisitionDateGuess: null } });
@@ -184,9 +185,9 @@ describe('parseResponse', () => {
   it('treats a confidently-reported but malformed acquisitionDateGuess as null rather than reaching the database', () => {
     const outcome = parseResponse(
       textResponse(
-        '{"noConfidentCandidate": false, "commonName": "Basil", "scientificNameGuess": "", "confidenceScore": 0.7,' +
+        '{"noConfidentCandidate": false, "commonName": "Basil", "scientificNameGuess": "Ocimum basilicum", "familyNameGuess": "Lamiaceae", "genusNameGuess": "Ocimum", "confidenceScore": 0.7,' +
           ' "varietyGuess": "", "lifecycleStageConfident": false, "lifecycleStageGuess": "seed",' +
-          ' "acquisitionDateConfident": true, "acquisitionDateGuess": "about two months ago"}',
+          ' "acquisitionDateConfident": true, "acquisitionDateGuess": "about two months ago", "estimatedAgeMonthsMin": 1, "estimatedAgeMonthsMax": 3}',
       ),
     );
     expect(outcome).toMatchObject({ candidate: { acquisitionDateGuess: null } });
@@ -260,10 +261,14 @@ describe('VertexAiPlantSpeciesIdentificationAdapter', () => {
       candidate: {
         commonName: 'Tomato',
         scientificNameGuess: 'Solanum lycopersicum',
+        familyNameGuess: 'Solanaceae',
+        genusNameGuess: 'Solanum',
         confidenceScore: 0.9,
         varietyGuess: null,
         lifecycleStageGuess: null,
         acquisitionDateGuess: null,
+        estimatedAgeMonthsMin: 2,
+        estimatedAgeMonthsMax: 4,
       },
     });
     expect(seen[0]?.model).toBe('gemini-test-model');

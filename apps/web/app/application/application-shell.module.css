@@ -1,243 +1,319 @@
-/*
- * Kern's application shell: a fixed header, a status footer, and between them
- * a row of a vertical section menu plus exactly one scrolling region.
- *
- * TWO NAVIGATION LEVELS, KEPT APART. The header carries only what is ABOVE a
- * garden — the wordmark, Gardens, Organizations, sign-out. A garden's own
- * sections (overview, today, seasonal plan, map, plants, candidates,
- * observations, tasks) are one level down and live in their own vertical
- * menu beside the content, appearing only once a route actually names a
- * garden. Putting both in one strip, as an earlier pass did, read as a single
- * flat set of ten peers and lost the containment the routes actually have.
- *
- * `--shell-header-size` is 48px, not the 46px the direction's mock uses. Tab
- * buttons fill the header's full height, so the header height IS the tab hit
- * area, and 46px is below the 44px minimum `e2e/responsive.spec.ts` asserts.
- * The guide names this trade-off and sanctions either fix; raising the header
- * is the one that keeps the tabs full-height.
- */
+/* Professional Field Console: portfolio navigation, garden workspace, and one work surface. */
 .shell {
   display: grid;
-  grid-template-rows: var(--shell-header-size) 1fr var(--shell-status-size);
+  grid-template-columns: var(--console-sidebar-size) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) var(--shell-status-size);
   block-size: 100dvh;
   overflow: hidden;
+  background-color: var(--color-canvas);
 }
 
-/* The middle row: section menu (when inside a garden) beside the content. */
-.workspace {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  min-block-size: 0;
-}
-
-/*
- * The garden's own sections. A vertical rail rather than a second horizontal
- * strip: it reads as subordinate to the header rather than as a peer of it,
- * it matches the map editor's own tool rail, and it leaves the full width to
- * the content it governs.
- */
-.sectionMenu {
+.sidebar {
+  grid-row: 1 / -1;
   display: flex;
   flex-direction: column;
-  inline-size: var(--pane-menu);
   min-block-size: 0;
-  overflow-y: auto;
-  border-inline-end: var(--border-width) solid var(--color-border);
-  background-color: var(--color-surface);
-  scrollbar-width: none;
+  color: var(--color-console-text);
+  background-color: var(--color-console);
+  border-inline-end: var(--border-width) solid var(--color-console-border);
 }
 
-.sectionMenu::-webkit-scrollbar {
-  display: none;
-}
-
-.sectionLink {
+.sidebarHeader {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  flex: none;
-  min-block-size: var(--control-min-size);
+  min-block-size: var(--console-header-size);
   padding-inline: var(--space-3);
-  border-block-end: var(--border-width) solid var(--color-border);
-  /* Reserved so the active rule never shifts the label. */
-  border-inline-start: 3px solid transparent;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  text-decoration: none;
-  white-space: nowrap;
-  transition:
-    background-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
-}
-
-.sectionLink:hover {
-  background-color: var(--color-surface-sunken);
-  color: var(--color-text);
-}
-
-.sectionLink:focus-visible {
-  outline: 2px solid var(--color-focus);
-  outline-offset: -2px;
-}
-
-/* Active carries a 3px rule, a wash, and weight — never colour alone. */
-.sectionLinkActive {
-  border-inline-start-color: var(--color-accent);
-  background-color: var(--color-accent-quiet);
-  color: var(--color-accent);
-  font-weight: var(--font-weight-semibold);
-}
-
-/*
- * Below the tablet breakpoint the rail collapses to icons. It stays vertical
- * and stays a separate level — turning it back into a horizontal strip would
- * reintroduce exactly the flattening this layout exists to avoid.
- */
-@media (max-width: 60rem) {
-  .sectionMenu {
-    inline-size: var(--control-min-size);
-  }
-
-  .sectionLink {
-    justify-content: center;
-    padding-inline: 0;
-  }
-
-  /*
-   * The label leaves the layout but stays in the accessibility tree, so an
-   * icon-only rail still announces "Today" rather than an unnamed link.
-   * These are `visually-hidden.module.css`'s declarations, inlined because
-   * `composes` is not allowed inside a media query.
-   */
-  .sectionLabel {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border: 0;
-  }
-}
-
-.header {
-  display: flex;
-  align-items: stretch;
-  min-inline-size: 0;
-  border-block-end: var(--border-width) solid var(--color-border);
-  background-color: var(--color-surface);
+  border-block-end: var(--border-width) solid var(--color-console-border);
 }
 
 .brand {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  flex: none;
+  min-inline-size: 0;
   gap: var(--space-2);
-  padding-inline: var(--space-3);
-  border-inline-end: var(--border-width) solid var(--color-border);
-  color: var(--color-text);
+  color: var(--color-console-text);
   font-weight: var(--font-weight-bold);
   letter-spacing: var(--letter-spacing-tight);
   text-decoration: none;
 }
 
 .brand:hover {
-  color: var(--color-accent);
+  color: var(--color-console-text);
+}
+
+.brandMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  flex: none;
+  border-radius: var(--radius-md);
+  background-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
+.brandName {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .version {
-  color: var(--color-text-muted);
+  margin-inline-start: auto;
+  color: var(--color-console-muted);
   font-family: var(--font-family-mono);
   font-size: var(--label-size);
   font-weight: var(--font-weight-medium);
   letter-spacing: 0;
 }
 
-/* The wordmark is dropped below the phone breakpoint; the mark alone still identifies the product and buys ~70px for the tabs. */
-@media (max-width: 30rem) {
-  .brandName {
-    display: none;
-  }
-
-  .version {
-    font-size: 0.625rem;
-  }
+.rootNav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-block-end: var(--border-width) solid var(--color-console-border);
 }
 
-/*
- * Root links and garden tabs share one scrolling strip. `min-inline-size: 0`
- * is what lets it shrink instead of pushing the header wider than the
- * viewport — without it the strip's content width becomes the header's
- * minimum and `expectNoHorizontalOverflow` fails at 360px.
- */
-.nav {
-  display: flex;
-  align-items: stretch;
-  flex: 1 1 auto;
-  min-inline-size: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.nav::-webkit-scrollbar {
-  display: none;
-}
-
-.tab {
+.rootLink {
   display: inline-flex;
   align-items: center;
-  flex: none;
-  gap: var(--space-2);
-  /* Full header height: the row IS the target, so it clears 44px by construction. */
+  justify-content: center;
   min-block-size: var(--control-min-size);
-  padding-inline: var(--space-3);
-  border-inline-end: var(--border-width) solid var(--color-border);
-  /* Reserved so the active state's 2px rule does not shift the label. */
-  border-block-end: 2px solid transparent;
-  color: var(--color-text-muted);
+  padding-inline: var(--space-2);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-console-muted);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   text-decoration: none;
   white-space: nowrap;
-  transition: color var(--duration-fast) var(--ease-out);
 }
 
-.tab:hover {
-  color: var(--color-text);
+.rootLink:hover {
+  background-color: var(--color-console-elevated);
+  color: var(--color-console-text);
 }
 
-/* The whole active indicator: a 2px rule in the signal colour, plus weight — never colour alone. */
-.tabActive {
-  border-block-end-color: var(--color-accent);
-  color: var(--color-accent);
+.rootLinkActive {
+  border-color: var(--color-console-border);
+  background-color: var(--color-console-elevated);
+  color: var(--color-console-text);
+}
+
+.workspaceContext {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-3) var(--space-3);
+}
+
+.workspaceEyebrow,
+.sectionGroupLabel {
+  color: var(--color-console-muted);
+  font-family: var(--font-family-mono);
+  font-size: var(--label-size);
   font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--label-letter-spacing);
+  text-transform: uppercase;
 }
 
-.headerEnd {
+.workspaceName {
+  color: var(--color-console-text);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+}
+
+.sectionMenu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-block-size: 0;
+  padding: 0 var(--space-2) var(--space-4);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-console-border) transparent;
+}
+
+.sectionGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sectionGroupLabel {
+  padding: var(--space-1) var(--space-2);
+}
+
+.sectionLink {
   display: flex;
   align-items: center;
-  flex: none;
   gap: var(--space-2);
-  padding-inline: var(--space-3);
-  border-inline-start: var(--border-width) solid var(--color-border);
+  min-block-size: var(--control-min-size);
+  padding-inline: var(--space-2);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-console-muted);
+  font-size: var(--font-size-sm);
+  text-decoration: none;
+  white-space: nowrap;
 }
 
-/*
- * The only scrolling region. `min-block-size: 0` is required for a grid child
- * to be allowed to shrink below its content size — without it this row grows
- * to fit its content and the whole shell scrolls, which is exactly what the
- * direction removes.
- */
+.sectionLink:hover {
+  background-color: var(--color-console-elevated);
+  color: var(--color-console-text);
+}
+
+.sectionLinkActive {
+  border-color: var(--color-console-border);
+  background-color: var(--color-console-selected);
+  color: var(--color-console-text);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.sidebarFooter {
+  margin-block-start: auto;
+  padding: var(--space-2);
+  border-block-start: var(--border-width) solid var(--color-console-border);
+}
+
+.sidebarFooter button {
+  inline-size: 100%;
+  justify-content: flex-start;
+  background-color: transparent;
+  border-color: var(--color-console-border);
+  color: var(--color-console-text);
+}
+
+.sidebarFooter button:hover {
+  background-color: var(--color-console-elevated);
+}
+
 .content {
+  min-inline-size: 0;
   min-block-size: 0;
-  overflow-y: auto;
-  padding: var(--space-4);
+  overflow: hidden;
+  background-color: var(--color-canvas);
 }
 
-@media (max-width: 40rem) {
+.shell > :global([role='status']) {
+  grid-column: 2;
+}
+
+@media (max-width: 48rem) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows:
+      var(--console-header-size) minmax(0, 1fr) var(--shell-status-size)
+      var(--console-mobile-nav-size);
+  }
+
+  .sidebar {
+    display: contents;
+  }
+
+  .sidebarHeader {
+    grid-row: 1;
+    padding-inline: var(--space-2);
+    background-color: var(--color-console);
+    border-block-end: var(--border-width) solid var(--color-console-border);
+  }
+
+  .brandName,
+  .version {
+    display: none;
+  }
+
+  .rootNav {
+    grid-row: 1;
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline: 3.5rem 3.5rem;
+    block-size: var(--console-header-size);
+    display: flex;
+    justify-content: center;
+    padding: var(--space-2);
+    border: 0;
+    pointer-events: none;
+  }
+
+  .rootLink {
+    min-block-size: 2rem;
+    pointer-events: auto;
+  }
+
+  .workspaceContext {
+    display: none;
+  }
+
+  .sectionMenu {
+    grid-row: 4;
+    flex-direction: row;
+    gap: 0;
+    padding: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    background-color: var(--color-console);
+    border-block-start: var(--border-width) solid var(--color-console-border);
+    scrollbar-width: none;
+  }
+
+  .sectionMenu::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sectionGroup {
+    display: contents;
+  }
+
+  .sectionGroupLabel {
+    display: none;
+  }
+
+  .sectionLink {
+    flex: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    min-inline-size: 4.5rem;
+    min-block-size: var(--console-mobile-nav-size);
+    padding: var(--space-1) var(--space-2);
+    border: 0;
+    border-radius: 0;
+    font-size: var(--font-size-xs);
+  }
+
+  .sectionLinkActive {
+    box-shadow: inset 0 3px 0 var(--color-accent);
+    background-color: var(--color-console-selected);
+  }
+
+  .sidebarFooter {
+    grid-row: 1;
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-end: 0;
+    padding: var(--space-2);
+    border: 0;
+  }
+
+  .sidebarFooter button {
+    inline-size: var(--control-min-size);
+    padding: 0;
+    justify-content: center;
+  }
+
+  .signOutLabel {
+    display: none;
+  }
+
   .content {
-    padding: var(--space-3);
+    grid-row: 2;
+  }
+
+  .shell > :global([role='status']) {
+    grid-row: 3;
+    grid-column: 1;
   }
 }

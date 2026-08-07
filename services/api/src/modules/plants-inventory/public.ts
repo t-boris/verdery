@@ -15,15 +15,11 @@
  *   construct this module's dependency graph, the same way it already does
  *   for gardens-mapping and media.
  *
- * Deliberately absent this pass: a `CreateTaxonomyReference` command. This
- * table needs at least a read path for `AddPlant`'s caller to pick a
- * `taxonomyReferenceId` from — `SearchTaxonomyReferences` is that path — but
- * seeding/growing the catalog itself is a separate, later concern: the
- * migration's own comment on `plants_inventory.taxonomy_reference` already
- * distinguishes system-catalog rows (seeded independently of any profile)
- * from user-defined ones, and standing up a write path for the latter
- * without a seeded system catalog to check it against would be premature.
- * Tests seed rows directly.
+ * There is no general `CreateTaxonomyReference` command. The only write path
+ * is the narrow photo-identification fallback that records a confident
+ * scientific-name guess as `provider_sourced` when no reviewed catalog row
+ * exists. It cannot create human-authored or system-catalog rows, and real
+ * plants retain their explicit identification-confirmation boundary.
  *
  * P4-CONTRACT-01 additionally lands this module's HTTP transport
  * (`registerPlantRoutes`, `PlantRoutesDependencies`) and one new read-only

@@ -1,36 +1,19 @@
-/*
- * A card is a BAND, not a box.
- *
- * `route-layout.module.css`'s own panel made this decision for the routes
- * that use it — "hairline top rule, no border, no radius, no shadow ...
- * consecutive panels read as one ruled column" — while every feature still
- * composing `<Card>` kept drawing a bordered, padded rectangle. The garden
- * overview showed both at once: ruled bands above, boxed cards below, in one
- * scroll. This aligns the primitive with the layout instead of leaving each
- * feature to notice.
- *
- * The heading follows the panel's too: the same small mono uppercase label,
- * which is what makes a band's subject readable without a box around it.
- */
 .card {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-4) 0;
-  border-block-start: var(--border-width) solid var(--color-border);
-}
-
-/* The first card in a stack needs no rule above it — the container's own edge is already there. */
-.card:first-child {
-  border-block-start: none;
-  padding-block-start: 0;
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-xs);
 }
 
 .title {
+  color: var(--color-text-muted);
   font-family: var(--font-family-mono);
   font-size: var(--label-size);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   letter-spacing: var(--label-letter-spacing);
   text-transform: uppercase;
-  color: var(--color-text-muted);
 }

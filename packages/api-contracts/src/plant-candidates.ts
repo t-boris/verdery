@@ -11,6 +11,8 @@ type Schemas = components['schemas'];
 
 export type PlantCandidateStatus = Schemas['PlantCandidateStatus'];
 export type PlantCandidatePriority = Schemas['PlantCandidatePriority'];
+export type CandidatePhotoConditionAnalysis = Schemas['CandidatePhotoConditionAnalysis'];
+export type CandidatePhotoAnalysis = Schemas['CandidatePhotoAnalysis'];
 export type PlantCandidate = Schemas['PlantCandidate'];
 export type PlantCandidateListResult = Schemas['PlantCandidateListResult'];
 export type AddCandidateRequest = Schemas['AddCandidateRequest'];

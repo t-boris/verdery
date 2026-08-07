@@ -15,10 +15,9 @@ import { RouteBody, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/publi
  *
  * On the shared route chrome (`RoutePage`/`RouteHeader`/`RoutePanel`) rather
  * than a stylesheet of its own. It was the last authenticated route still
- * carrying the pre-Kern layout, which is why the FIRST screen after signing
- * in opened with a 36px title and a boxed card while every garden route
- * behind it used a 22px strip and ruled bands — the same application in two
- * visual languages, with the older one facing every new arrival.
+ * carrying the legacy standalone layout. Keeping it on the shared Field
+ * Console chrome makes the first authenticated screen and every garden
+ * workspace read as one product.
  *
  * Source: implementation-plan.md work package P2-WEB-01, P9A-OWNER-02.
  */

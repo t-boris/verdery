@@ -4,17 +4,17 @@ import { classNames } from './class-names';
 import styles from './route-layout.module.css';
 
 /**
- * Kern's shared route chrome, so every garden section reads as the same
+ * Field Console's shared route chrome, so every garden section reads as the same
  * application rather than as eight independently styled pages.
  *
  * Plain presentational components with no client state, so a route stays a
  * server component: they take strings and children, never callbacks.
  *
  * The set is deliberately small — a page, a header, a scrolling body, and a
- * panel band. Anything a single route needs beyond that belongs in that
+ * bounded panel. Anything a single route needs beyond that belongs in that
  * route's own stylesheet; anything two routes need belongs here.
  *
- * Source: templates/kern-grid/IMPLEMENTATION.md, sections 2 and 4.
+ * Source: architecture/web-application-design.md, section 5.
  */
 export function RoutePage({ children }: { readonly children: ReactNode }) {
   return <div className={styles['page']}>{children}</div>;
@@ -55,7 +55,7 @@ export function RouteBody({ children }: { readonly children: ReactNode }) {
 
 export interface RoutePanelProps {
   readonly children: ReactNode;
-  /** Mono uppercase band heading. Omit where a heading would only repeat the route title. */
+  /** Mono uppercase panel heading. Omit where a heading would only repeat the route title. */
   readonly title?: string;
   /** Take the leftover height and scroll inside, for the panel holding the route's main list. */
   readonly fill?: boolean;
@@ -70,7 +70,7 @@ export function RoutePanel({ children, title, fill = false }: RoutePanelProps) {
   );
 }
 
-/** Main content beside a narrower secondary column, divided by the same hairline as everything else. */
+/** Main content beside a narrower bounded secondary column. */
 export function RouteSplit({ children }: { readonly children: ReactNode }) {
   return <div className={styles['split']}>{children}</div>;
 }

@@ -5,11 +5,9 @@
  * hard-code a colour or a spacing step, so a theme change is a change here and
  * nowhere else.
  *
- * The design language is "Kern": achromatic warm paper, one orange signal
- * colour, hairlines rather than heavy elevation, and two self-hosted families
- * (Archivo, IBM Plex Mono). Its original square geometry and its largest two
- * type steps were softened on 2026-08-04 — see the radii and type blocks
- * below for what changed and why. Light and dark palettes are chosen so
+ * The design language is "Field Console": dense operational surfaces, a
+ * charcoal navigation chassis, one orange interaction signal, and two
+ * self-hosted families (Archivo, IBM Plex Mono). Light and dark palettes are chosen so
  * that body text, muted text, and text on a filled control all clear the WCAG
  * AA contrast ratio, and so that state is never carried by colour alone —
  * `--color-positive` stays green precisely because the orange is the
@@ -86,6 +84,14 @@
 
   --color-focus: #b53d18;
 
+  /* Persistent console chrome stays charcoal in both content themes. */
+  --color-console: #171c18;
+  --color-console-elevated: #222923;
+  --color-console-selected: #2b332c;
+  --color-console-border: #3a443b;
+  --color-console-text: #f1f3ef;
+  --color-console-muted: #a7b0a7;
+
   /* Spacing scale. */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -99,14 +105,14 @@
   /*
    * Radii.
    *
-   * Kern set every rectangular radius to 0 and left a note that "a future
-   * direction can restore curvature here alone". This is that change, made on
+   * The previous direction set every rectangular radius to 0 and left a note that "a future
+   * direction can restore curvature here alone". Field Console makes that change, based on
    * the owner's own reading of the running product: square corners on every
    * input, button, panel, and card read as hard rather than precise, and the
    * effect compounds — a page is a dozen sharp rectangles, not one.
    *
    * The steps stay small on purpose. This is softening, not a pill-shaped
-   * interface: a control reads as a control at 6px, and the grid Kern is
+   * interface: a control reads as a control at 6px, and the operational grid is
    * built on survives it.
    */
   --radius-sm: 4px;
@@ -120,7 +126,7 @@
    * in `shared/ui/fonts.css` — no font is fetched from any origin, per the CSP
    * posture that `e2e/content-security-policy.spec.ts` enforces.
    *
-   * `--font-family-display` is retired as a SEPARATE face: Kern sets headings
+   * `--font-family-display` is retired as a SEPARATE face: Field Console sets headings
    * in Archivo 600/700, the same family as body copy. The token is kept
    * pointing at the sans stack rather than deleted, so the ~14 rules that
    * reference it (`card.module.css`'s title, the shell wordmarks, several
@@ -137,7 +143,7 @@
   /*
    * The whole scale came down, not only the headings.
    *
-   * Kern was drawn at 16px body, 1.6 line height, and a 36px page title. On
+   * The previous direction was drawn at 16px body, 1.6 line height, and a 36px page title. On
    * a laptop that is a reading typography applied to a working tool: a list
    * of eight gardens filled a screen, and every panel needed scrolling that
    * its content did not justify. The owner's own words for it were "giant
@@ -169,7 +175,7 @@
   --letter-spacing-tight: -0.02em;
   --letter-spacing-caps: 0.08em;
 
-  /* Kern's 10px mono uppercase label — one pair, so `<Label>` is the only place the three declarations live. */
+  /* Field Console's 10px mono uppercase label — one pair, so `<Label>` is the only place the three declarations live. */
   --label-size: 0.625rem;
   --label-letter-spacing: 0.09em;
 
@@ -214,11 +220,12 @@
   --control-min-size: 2rem;
 
   /*
-   * The Kern shell's two fixed rows. 48px rather than the direction's 46px:
-   * header-height tab buttons make the header the hit area, and 46px is under
-   * `--control-min-size` — see `app/application/application-shell.module.css`.
+   * Persistent Field Console chrome. The mobile navigation remains a full
+   * outdoor touch target while the desktop sidebar uses compact controls.
    */
-  --shell-header-size: 48px;
+  --console-sidebar-size: clamp(13.5rem, 16vw, 15.5rem);
+  --console-header-size: 3rem;
+  --console-mobile-nav-size: 3.5rem;
   --shell-status-size: 24px;
 
   /*
@@ -290,6 +297,12 @@
     --color-warning-quiet: #332a15;
     --color-warning-quiet-border: #4f4222;
     --color-focus: #f2622f;
+    --color-console: #0c100d;
+    --color-console-elevated: #161c17;
+    --color-console-selected: #232b24;
+    --color-console-border: #303a31;
+    --color-console-text: #f2f4ef;
+    --color-console-muted: #929c93;
     --shadow-xs: 0 1px 1px rgb(0 0 0 / 0.25);
     --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 3px -1px rgb(0 0 0 / 0.25);
     --shadow-md: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 28px -12px rgb(0 0 0 / 0.55);
@@ -322,6 +335,12 @@
   --color-warning-quiet: #332a15;
   --color-warning-quiet-border: #4f4222;
   --color-focus: #f2622f;
+  --color-console: #0c100d;
+  --color-console-elevated: #161c17;
+  --color-console-selected: #232b24;
+  --color-console-border: #303a31;
+  --color-console-text: #f2f4ef;
+  --color-console-muted: #929c93;
   --shadow-xs: 0 1px 1px rgb(0 0 0 / 0.25);
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 1px 3px -1px rgb(0 0 0 / 0.25);
   --shadow-md: 0 2px 4px rgb(0 0 0 / 0.3), 0 12px 28px -12px rgb(0 0 0 / 0.55);

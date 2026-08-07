@@ -1,29 +1,41 @@
-/*
- * The chrome every garden route shares under Kern: a fixed header strip, one
- * scrolling body, and panels separated by hairlines rather than boxed.
- *
- * This exists because the direction was first applied route by route, and the
- * map editor and plant library ended up carrying the language while the other
- * six kept the old stacked-card layout. One set of primitives is what makes
- * "the same design" a property of the shell rather than something each page
- * has to re-derive.
- */
+/* Shared Field Console route chrome: command header, work surface, and bounded panels. */
 .page {
   display: flex;
   flex-direction: column;
   block-size: 100%;
   min-block-size: 0;
+  background-color: var(--color-canvas);
 }
 
 .header {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2) var(--space-5);
   flex: none;
-  padding: var(--space-3) var(--space-4);
+  min-block-size: 4.25rem;
+  padding: var(--space-3) var(--space-5);
   border-block-end: var(--border-width) solid var(--color-border);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.header::before {
+  content: '';
+  position: absolute;
+  inset-block: var(--space-3);
+  inset-inline-start: 0;
+  inline-size: 3px;
+  background-color: var(--color-accent);
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-inline-size: 0;
 }
 
 .title {
@@ -32,94 +44,90 @@
   letter-spacing: var(--letter-spacing-tight);
 }
 
-/* Title and its description travel together; only `actions` sits opposite them. */
-.heading {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-inline-size: 0;
-}
-
 .description {
-  max-inline-size: 48rem;
+  max-inline-size: 52rem;
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
 
-/* The route's one scrolling region — the shell above it never scrolls. */
 .body {
   display: flex;
   flex-direction: column;
+  gap: var(--space-3);
   min-block-size: 0;
+  padding: var(--space-3);
   overflow-y: auto;
 }
 
-/*
- * A panel is a band, not a card: hairline top rule, no border, no radius, no
- * shadow. Consecutive panels therefore read as one ruled column, the same way
- * the map inspector's utility panels do.
- */
 .panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   flex: none;
   padding: var(--space-4);
-}
-
-.panel + .panel {
-  border-block-start: var(--border-width) solid var(--color-border);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-xs);
 }
 
 .panelTitle {
   margin: 0;
+  color: var(--color-text-muted);
   font-family: var(--font-family-mono);
   font-size: var(--label-size);
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--label-letter-spacing);
   text-transform: uppercase;
-  color: var(--color-text);
 }
 
-/*
- * A panel that should take the leftover height and scroll inside itself —
- * used where the panel holds the route's main list.
- */
 .panelFill {
   flex: 1;
   min-block-size: 0;
   overflow-y: auto;
 }
 
-/*
- * Two columns of bands, divided by the same hairline, for wider routes. The
- * secondary column shares the plant library's context width rather than the
- * narrower section-menu width: it holds real forms, and at menu width a date
- * input and a select both truncated their own values.
- */
 .split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--pane-context);
-  gap: var(--border-width);
+  gap: var(--space-3);
   flex: 1;
   min-block-size: 0;
-  background-color: var(--color-border);
+  padding: var(--space-3);
+  overflow: hidden;
 }
 
 .split > * {
   min-inline-size: 0;
   min-block-size: 0;
+  padding: 0;
   overflow-y: auto;
-  background-color: var(--color-surface);
+  background-color: transparent;
 }
 
 @media (max-width: 70rem) {
   .split {
     grid-template-columns: minmax(0, 1fr);
-    flex: none;
+    overflow-y: auto;
   }
 
   .split > * {
-    overflow-y: visible;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 40rem) {
+  .header {
+    min-block-size: 3.75rem;
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .body,
+  .split {
+    padding: var(--space-2);
+  }
+
+  .panel {
+    padding: var(--space-3);
   }
 }

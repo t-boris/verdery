@@ -3,7 +3,7 @@
 > Status: Draft 0.1; product direction requested by the owner. Provider selection, the
 > actual/candidate/health-suggestion glossary, and the existing-schema mapping are frozen by
 > [ADR-0016](decisions/ADR-0016-phase-11-plant-intelligence-domain-and-providers.md).  
-> Last updated: July 28, 2026
+> Last updated: August 6, 2026
 
 ## 1. Purpose
 
@@ -428,6 +428,19 @@ The first decision is:
 Users may then search the catalog, photograph a plant, select a recent image, or create an unknown
 entry. The flow requests only fields required for the selected kind and tracking granularity.
 Candidate placement is proposed; actual placement is accepted garden state.
+
+A confident candidate-photo identification always resolves to a stable taxonomy reference. It
+reuses a reviewed catalog identity when one exists; otherwise it creates an explicitly
+`provider_sourced` reference from the provider's scientific/common name, family, and genus. This
+prevents a successful identification from degrading into a renamed but still "unknown" candidate.
+Provider-sourced identity remains visibly unreviewed. Actual plants retain the existing human
+confirmation boundary before a suggested reference becomes accepted inventory state.
+
+The candidate stores and displays the complete latest structured photo-analysis snapshot: common
+and scientific names, family, genus, variety, confidence, visible growth stage, approximate age,
+estimated acquisition date, and the separate condition-analysis result. Condition output is
+presented as an unconfirmed suggestion with evidence, alternatives, safety class, requested views,
+and general care guidance; it is never presented as a diagnosis.
 
 ### 13.3 Detail Screen
 

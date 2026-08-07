@@ -33,11 +33,37 @@ import {
   usePlant,
   usePlantIdentification,
   useRecordObservationFromIdentification,
+  useTaxonomyReferenceSearch,
 } from './queries';
 
 export interface PlantDetailProps {
   readonly gardenId: string;
   readonly plantId: string;
+}
+
+function PlantTaxonomySummary({
+  gardenId,
+  taxonomyReferenceId,
+  displayName,
+}: {
+  readonly gardenId: string;
+  readonly taxonomyReferenceId: string;
+  readonly displayName: string;
+}) {
+  const { t } = useLocalization();
+  const search = useTaxonomyReferenceSearch(gardenId, displayName);
+  const reference = search.data?.items.find((item) => item.id === taxonomyReferenceId);
+
+  if (reference === undefined) {
+    return <span>{t('plants.taxonomyLinked')}</span>;
+  }
+
+  return (
+    <span>
+      <i>{reference.scientificName}</i>
+      {reference.commonName === null ? '' : ` · ${reference.commonName}`}
+    </span>
+  );
 }
 
 /** Scientific name, with the common name parenthesized when known — mirrors `add-plant-from-photo-panel.tsx`'s own (unexported) identical helper. */
@@ -154,7 +180,15 @@ export function PlantDetail({ gardenId, plantId }: PlantDetailProps) {
         {plant.quantity !== null && (
           <span>{t('plants.quantityDisplay', { quantity: plant.quantity })}</span>
         )}
-        {plant.taxonomyReferenceId === null && <span>{t('plants.taxonomyNone')}</span>}
+        {plant.taxonomyReferenceId === null ? (
+          <span>{t('plants.taxonomyNone')}</span>
+        ) : (
+          <PlantTaxonomySummary
+            gardenId={gardenId}
+            taxonomyReferenceId={plant.taxonomyReferenceId}
+            displayName={plant.displayName}
+          />
+        )}
       </div>
 
       <PlantPhotoGallery gardenId={gardenId} plantId={plant.id} />

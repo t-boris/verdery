@@ -56,7 +56,7 @@
   border: solid var(--color-control-border);
   border-width: var(--field-input-border-width, var(--border-width));
   border-radius: var(--radius-md);
-  background-color: var(--field-input-background, var(--color-surface));
+  background-color: var(--field-input-background, var(--color-surface-sunken));
   color: var(--color-text);
   font: inherit;
   transition:

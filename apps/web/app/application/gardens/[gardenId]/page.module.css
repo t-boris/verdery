@@ -7,25 +7,20 @@
 .essentials {
   display: grid;
   grid-template-columns: minmax(18rem, 0.75fr) minmax(30rem, 1.25fr);
-  border-block-end: var(--border-width) solid var(--color-border);
+  gap: var(--space-3);
 }
 
 .essentialPanel {
   min-inline-size: 0;
   padding: var(--space-4);
-}
-
-.essentialPanel + .essentialPanel {
-  border-inline-start: var(--border-width) solid var(--color-border);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-xs);
 }
 
 @media (max-width: 68rem) {
   .essentials {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .essentialPanel + .essentialPanel {
-    border-inline-start: 0;
-    border-block-start: var(--border-width) solid var(--color-border);
   }
 }

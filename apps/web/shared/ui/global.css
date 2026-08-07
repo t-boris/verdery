@@ -27,6 +27,14 @@ body {
    * interaction. Emptiness is now answered by hairlines and the grid instead.
    */
   background-color: var(--color-canvas);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--color-border) 28%, transparent) 1px, transparent 1px),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-border) 28%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 32px 32px;
   color: var(--color-text);
   font-family: var(--font-family-sans);
   font-size: var(--font-size-md);
@@ -47,7 +55,7 @@ h3 {
 }
 
 h1 {
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-2xl);
 }
 
 h2 {
@@ -102,18 +110,15 @@ p[role='status']::before {
   inline-size: 0.5rem;
   block-size: 0.5rem;
   flex: none;
+  border: 2px solid var(--color-text-muted);
+  border-block-start-color: var(--color-accent);
   border-radius: var(--radius-pill);
-  background-color: var(--color-accent);
-  animation: status-pulse 1.2s ease-in-out infinite;
+  animation: status-spin 900ms linear infinite;
 }
 
-@keyframes status-pulse {
-  0%,
-  100% {
-    opacity: 0.35;
-  }
-  50% {
-    opacity: 1;
+@keyframes status-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 

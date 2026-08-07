@@ -1,7 +1,5 @@
 /*
- * Kern's library route: a fluid context column beside the library pane,
- * separated — like every Kern boundary — by a 1px gap over the border colour
- * rather than by a border either side draws.
+ * Field Console library: a persistent intake column beside the inventory.
  *
  * The whole route fills the shell's scrolling region; the two panes scroll
  * independently, so reading the KPI column never scrolls the card grid away.
@@ -9,10 +7,11 @@
 .page {
   display: grid;
   grid-template-columns: var(--pane-context) minmax(0, 1fr);
-  gap: var(--border-width);
+  gap: var(--space-3);
   block-size: 100%;
   min-block-size: 0;
-  background-color: var(--color-border);
+  padding: var(--space-3);
+  background-color: var(--color-canvas);
 }
 
 .context {
@@ -20,7 +19,10 @@
   flex-direction: column;
   min-block-size: 0;
   overflow-y: auto;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
   background-color: var(--color-surface);
+  box-shadow: var(--shadow-xs);
 }
 
 .library {
@@ -29,7 +31,10 @@
   min-inline-size: 0;
   min-block-size: 0;
   overflow-y: auto;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
   background-color: var(--color-surface);
+  box-shadow: var(--shadow-xs);
 }
 
 /*
@@ -87,10 +92,22 @@
   .page {
     grid-template-columns: minmax(0, 1fr);
     block-size: auto;
+    overflow-y: auto;
   }
 
   .context,
   .library {
     overflow: visible;
+  }
+
+  .library {
+    order: -1;
+  }
+}
+
+@media (max-width: 40rem) {
+  .page {
+    gap: var(--space-2);
+    padding: var(--space-2);
   }
 }

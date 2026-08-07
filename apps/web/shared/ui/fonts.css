@@ -1,5 +1,5 @@
 /*
- * Self-hosted webfaces for the Kern direction: Archivo for everything set in
+ * Self-hosted webfaces for the Field Console direction: Archivo for everything set in
  * the sans stack, IBM Plex Mono for labels, ordinals, and status strings.
  *
  * Local files, never a font CDN — the Content Security Policy allows no
@@ -18,7 +18,7 @@
  * The error boundary needs its own import because it renders its own `<html>`
  * outside the root layout's tree.
  *
- * Source: templates/kern-grid/IMPLEMENTATION.md, section 1 ("Type").
+ * Source: architecture/web-application-design.md, section 5.
  */
 
 /* Variable, covering the full 400-700 range the weight tokens use. */

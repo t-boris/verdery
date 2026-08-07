@@ -11,6 +11,7 @@ import type {
 } from '../application/plant-candidate-repository.js';
 import type { GroupingKind } from '../domain/plant.js';
 import type {
+  CandidatePhotoAnalysis,
   CandidatePriority,
   CandidateStatus,
   PlantCandidate,
@@ -97,6 +98,7 @@ interface PlantCandidateRowLike {
   price_currency: string | null;
   purchase_source: string | null;
   alternative_to_candidate_id: string | null;
+  photo_analysis: unknown;
   revision: number;
   created_by_profile_id: string;
   created_at: Date;
@@ -121,6 +123,7 @@ function toCandidate(row: PlantCandidateRowLike): PlantCandidate {
     priceCurrency: row.price_currency,
     purchaseSource: row.purchase_source,
     alternativeToCandidateId: row.alternative_to_candidate_id,
+    photoAnalysis: row.photo_analysis as CandidatePhotoAnalysis | null,
     revision: row.revision,
     createdByProfileId: row.created_by_profile_id,
     createdAt: row.created_at,
@@ -162,6 +165,7 @@ export class KyselyPlantCandidateRepository implements PlantCandidateRepository 
           price_currency: candidate.priceCurrency,
           purchase_source: candidate.purchaseSource,
           alternative_to_candidate_id: candidate.alternativeToCandidateId,
+          photo_analysis: candidate.photoAnalysis,
           revision: candidate.revision,
           created_by_profile_id: candidate.createdByProfileId,
           created_at: candidate.createdAt,
@@ -194,6 +198,7 @@ export class KyselyPlantCandidateRepository implements PlantCandidateRepository 
           price_amount: candidate.priceAmount,
           price_currency: candidate.priceCurrency,
           purchase_source: candidate.purchaseSource,
+          photo_analysis: candidate.photoAnalysis,
           revision: candidate.revision,
           updated_at: candidate.updatedAt,
         })

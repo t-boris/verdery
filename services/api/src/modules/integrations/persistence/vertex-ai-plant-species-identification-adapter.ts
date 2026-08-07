@@ -41,7 +41,7 @@ import type {
 } from '../application/plant-species-identification-provider.js';
 
 /** Bumped whenever the instruction wording below changes — stamped on every stored suggestion, the `VERTEX_EXPLANATION_PROMPT_TEMPLATE_VERSION` precedent. */
-export const VERTEX_PLANT_SPECIES_PROMPT_TEMPLATE_VERSION = 3;
+export const VERTEX_PLANT_SPECIES_PROMPT_TEMPLATE_VERSION = 4;
 
 /**
  * `LifecycleStage`'s own values (`plants-inventory/domain/plant-lifecycle.ts`),
@@ -65,16 +65,14 @@ const SYSTEM_INSTRUCTION =
   'Rules:\n' +
   '- Look only at the plant visible in the attached image.\n' +
   '- If you recognize the plant with reasonable confidence, respond with its common name and, if' +
-  ' known, its scientific name.\n' +
+  ' known, its scientific name, botanical family, and genus.\n' +
   '- If you do not recognize the plant, or are not reasonably confident, set noConfidentCandidate' +
   ' to true and leave the name fields empty — do not guess.\n' +
   '- If you can also identify a specific variety or cultivar distinct from the species itself' +
   ' (e.g. "Cherry Tomato" rather than plain "Tomato"), report it in varietyGuess — leave it empty' +
   ' when you see nothing more specific than the species.\n' +
-  "- If the photo clearly shows the plant's growth stage, set lifecycleStageConfident to true and" +
-  ' lifecycleStageGuess to the single best match. Set lifecycleStageConfident to false — and do not' +
-  ' guess a stage — when the photo is unclear, or growth stage does not meaningfully apply to what' +
-  ' you see (e.g. a mature tree or shrub).\n' +
+  '- Choose the single best lifecycleStageGuess for the visible plant and set lifecycleStageConfident' +
+  ' to true. Use growing for an established tree or shrub that is not visibly flowering or fruiting.\n' +
   '- Never state or imply whether the plant is edible, toxic, medicinal, or safe to touch or' +
   ' ingest, and never mention chemicals, pesticides, fertilizers, or dosages, even if asked.\n' +
   '- If you can estimate, from visible maturity (stem/trunk thickness, leaf count, canopy size for' +
@@ -82,6 +80,9 @@ const SYSTEM_INSTRUCTION =
   ' acquisitionDateConfident to true and acquisitionDateGuess to that calendar date' +
   ' (YYYY-MM-DD, today minus your estimated age). Set acquisitionDateConfident to false — and do' +
   ' not guess a date — when you cannot ground the estimate in what the photo actually shows.\n' +
+  '- Always estimate a conservative visible-maturity age range in whole months. Put the lower bound' +
+  ' in estimatedAgeMonthsMin and the upper bound in estimatedAgeMonthsMax. The minimum must be at' +
+  ' least 0 and must not exceed the maximum. This is explicitly an approximate visual estimate.\n' +
   '- Respond with JSON only, matching the response schema exactly.';
 
 /** `YYYY-MM-DD` — the same calendar-date shape `plant.acquisition_date`'s own `date` column requires; anything else collapses to "no guess" in `parseResponse` rather than reaching the database. */
@@ -92,12 +93,16 @@ const candidateSchema = z
     noConfidentCandidate: z.boolean(),
     commonName: z.string().transform((value) => value.trim()),
     scientificNameGuess: z.string().transform((value) => value.trim()),
+    familyNameGuess: z.string().transform((value) => value.trim()),
+    genusNameGuess: z.string().transform((value) => value.trim()),
     confidenceScore: z.number().min(0).max(1),
     varietyGuess: z.string().transform((value) => value.trim()),
     lifecycleStageConfident: z.boolean(),
     lifecycleStageGuess: z.enum(LIFECYCLE_STAGE_GUESSES),
     acquisitionDateConfident: z.boolean(),
     acquisitionDateGuess: z.string().transform((value) => value.trim()),
+    estimatedAgeMonthsMin: z.number().int().min(0),
+    estimatedAgeMonthsMax: z.number().int().min(0),
   })
   .strict();
 
@@ -190,23 +195,31 @@ export function buildGenerateContentParameters(
           'noConfidentCandidate',
           'commonName',
           'scientificNameGuess',
+          'familyNameGuess',
+          'genusNameGuess',
           'confidenceScore',
           'varietyGuess',
           'lifecycleStageConfident',
           'lifecycleStageGuess',
           'acquisitionDateConfident',
           'acquisitionDateGuess',
+          'estimatedAgeMonthsMin',
+          'estimatedAgeMonthsMax',
         ],
         properties: {
           noConfidentCandidate: { type: Type.BOOLEAN },
           commonName: { type: Type.STRING },
           scientificNameGuess: { type: Type.STRING },
+          familyNameGuess: { type: Type.STRING },
+          genusNameGuess: { type: Type.STRING },
           confidenceScore: { type: Type.NUMBER },
           varietyGuess: { type: Type.STRING },
           lifecycleStageConfident: { type: Type.BOOLEAN },
           lifecycleStageGuess: { type: Type.STRING, enum: [...LIFECYCLE_STAGE_GUESSES] },
           acquisitionDateConfident: { type: Type.BOOLEAN },
           acquisitionDateGuess: { type: Type.STRING },
+          estimatedAgeMonthsMin: { type: Type.INTEGER },
+          estimatedAgeMonthsMax: { type: Type.INTEGER },
         },
       },
       safetySettings: [
@@ -256,7 +269,14 @@ export function parseResponse(
     return { kind: 'schemaInvalid', rawText: text };
   }
 
-  if (parsed.data.noConfidentCandidate || parsed.data.commonName.length === 0) {
+  if (
+    parsed.data.noConfidentCandidate ||
+    parsed.data.commonName.length === 0 ||
+    parsed.data.scientificNameGuess.length === 0 ||
+    parsed.data.familyNameGuess.length === 0 ||
+    parsed.data.genusNameGuess.length === 0 ||
+    parsed.data.estimatedAgeMonthsMin > parsed.data.estimatedAgeMonthsMax
+  ) {
     return { kind: 'noConfidentCandidate' };
   }
 
@@ -266,6 +286,8 @@ export function parseResponse(
       commonName: parsed.data.commonName,
       scientificNameGuess:
         parsed.data.scientificNameGuess.length > 0 ? parsed.data.scientificNameGuess : null,
+      familyNameGuess: parsed.data.familyNameGuess.length > 0 ? parsed.data.familyNameGuess : null,
+      genusNameGuess: parsed.data.genusNameGuess.length > 0 ? parsed.data.genusNameGuess : null,
       confidenceScore: parsed.data.confidenceScore,
       varietyGuess: parsed.data.varietyGuess.length > 0 ? parsed.data.varietyGuess : null,
       lifecycleStageGuess: parsed.data.lifecycleStageConfident
@@ -276,6 +298,8 @@ export function parseResponse(
         ACQUISITION_DATE_PATTERN.test(parsed.data.acquisitionDateGuess)
           ? parsed.data.acquisitionDateGuess
           : null,
+      estimatedAgeMonthsMin: parsed.data.estimatedAgeMonthsMin,
+      estimatedAgeMonthsMax: parsed.data.estimatedAgeMonthsMax,
     },
   };
 }

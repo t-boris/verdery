@@ -683,6 +683,10 @@ components:
       { $ref: './components/schemas/plant-candidates.yaml#/PlantCandidateStatus' }
     PlantCandidatePriority:
       { $ref: './components/schemas/plant-candidates.yaml#/PlantCandidatePriority' }
+    CandidatePhotoConditionAnalysis:
+      { $ref: './components/schemas/plant-candidates.yaml#/CandidatePhotoConditionAnalysis' }
+    CandidatePhotoAnalysis:
+      { $ref: './components/schemas/plant-candidates.yaml#/CandidatePhotoAnalysis' }
     PlantCandidate: { $ref: './components/schemas/plant-candidates.yaml#/PlantCandidate' }
     PlantCandidatePhoto: { $ref: './components/schemas/plant-candidates.yaml#/PlantCandidatePhoto' }
     PlantCandidatePhotoListResult:

@@ -148,6 +148,12 @@ export const englishMessages = {
   'shell.gardenNavLabel': 'Garden sections',
   'shell.overviewTab': 'Overview',
   'shell.mapTab': 'Map',
+  'shell.fieldConsole': 'Field console',
+  'shell.gardenWorkspace': 'Garden workspace',
+  'shell.operationsGroup': 'Operations',
+  'shell.planGroup': 'Plan and map',
+  'shell.recordsGroup': 'Records',
+  'shell.administrationGroup': 'Administration',
 
   'auth.orSeparator': 'or',
   'auth.signInTitle': 'Sign in to Verdery',

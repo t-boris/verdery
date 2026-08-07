@@ -9,6 +9,94 @@ PlantCandidatePriority:
   type: string
   enum: [low, medium, high]
 
+CandidatePhotoConditionAnalysis:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      kind,
+      label,
+      confidenceScore,
+      evidenceSummary,
+      alternativeExplanations,
+      safetyClass,
+      requestedAdditionalEvidence,
+      requestedViewPurposes,
+      careGuidance,
+    ]
+  properties:
+    kind:
+      type: string
+      enum: [stress, disease, pest, other]
+    label:
+      type: string
+    confidenceScore:
+      type: number
+      minimum: 0
+      maximum: 1
+    evidenceSummary:
+      type: string
+    alternativeExplanations:
+      type: array
+      items: { type: string }
+    safetyClass:
+      type: string
+      enum: [informational, monitor, expert_review_recommended]
+    requestedAdditionalEvidence:
+      type: boolean
+    requestedViewPurposes:
+      type: array
+      items: { type: string }
+    careGuidance:
+      type: string
+
+CandidatePhotoAnalysis:
+  type: object
+  additionalProperties: false
+  required:
+    [
+      commonName,
+      scientificName,
+      familyName,
+      genusName,
+      varietyLabel,
+      identificationConfidenceScore,
+      estimatedAgeMonthsMin,
+      estimatedAgeMonthsMax,
+      lifecycleStage,
+      estimatedAcquisitionDate,
+      condition,
+      analyzedAt,
+    ]
+  properties:
+    commonName: { type: string }
+    scientificName: { type: string }
+    familyName: { type: string }
+    genusName: { type: string }
+    varietyLabel: { type: [string, 'null'] }
+    identificationConfidenceScore:
+      type: number
+      minimum: 0
+      maximum: 1
+    estimatedAgeMonthsMin:
+      type: integer
+      minimum: 0
+    estimatedAgeMonthsMax:
+      type: integer
+      minimum: 0
+    lifecycleStage:
+      type: string
+      enum: [seed, seedling, transplanted, growing, flowering, fruiting, ready_to_harvest]
+    estimatedAcquisitionDate:
+      type: [string, 'null']
+      format: date
+    condition:
+      oneOf:
+        - $ref: '#/CandidatePhotoConditionAnalysis'
+        - type: 'null'
+    analyzedAt:
+      $ref: '../../components/schemas/shared.yaml#/Timestamp'
+
 PlantCandidate:
   type: object
   additionalProperties: false
@@ -30,6 +118,7 @@ PlantCandidate:
       priceCurrency,
       purchaseSource,
       alternativeToCandidateId,
+      photoAnalysis,
       revision,
       createdByProfileId,
       createdAt,
@@ -87,6 +176,11 @@ PlantCandidate:
         - $ref: '../../components/schemas/shared.yaml#/Uuid'
         - type: 'null'
       description: A single, deliberately narrow self-reference — not a full alternatives-set model.
+    photoAnalysis:
+      description: Complete structured result of the latest primary-photo analysis, or null for a manually created candidate.
+      oneOf:
+        - $ref: '#/CandidatePhotoAnalysis'
+        - type: 'null'
     revision:
       $ref: '../../components/schemas/shared.yaml#/Revision'
     createdByProfileId:

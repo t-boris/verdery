@@ -17,7 +17,7 @@
   flex: none;
   margin: 0;
   padding: 0 var(--space-3);
-  block-size: var(--shell-header-size);
+  block-size: var(--console-header-size);
   display: flex;
   align-items: center;
   border-block-end: var(--border-width) solid var(--color-border);

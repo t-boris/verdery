@@ -7,18 +7,17 @@ import type { IdempotencyStore } from '../../../platform/idempotency/idempotency
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type { GardenAuthorization } from '../../gardens-mapping/public.js';
-import type { IdentifyPlantSpecies } from '../../integrations/public.js';
+import type { AnalyzePlantCondition, IdentifyPlantSpecies } from '../../integrations/public.js';
 import { pickAnalysisSource } from '../../media/public.js';
-import { updateCandidateDetails } from '../domain/plant-candidate.js';
+import { applyCandidatePhotoAnalysis } from '../domain/plant-candidate.js';
 import { applyCandidateRevisionGuardedUpdate } from './apply-candidate-revision-guarded-update.js';
 import {
-  candidateIdentificationNoMatchError,
   candidateIdentificationNoPhotoError,
   candidateIdentificationSourceNotReadyError,
   invalidCandidateMediaReferenceError,
 } from './candidate-errors.js';
 import { toCandidateResource, type CandidateResource } from './candidate-view.js';
-import { identifyPlantFromPhoto } from './identify-plant-from-photo.js';
+import { analyzeCandidatePhoto } from './analyze-candidate-photo.js';
 import type { PlantCandidateRepository } from './plant-candidate-repository.js';
 import type { PlantsInventoryUnitOfWork } from './plants-inventory-unit-of-work.js';
 import { requireCandidateAndAuthorize } from './require-candidate-and-authorize.js';
@@ -37,6 +36,7 @@ export class IdentifyCandidateFromPhoto {
     private readonly identifyPlantSpecies: IdentifyPlantSpecies,
     private readonly taxonomyReferences: TaxonomyReferenceRepository,
     private readonly logger: FastifyBaseLogger,
+    private readonly analyzePlantCondition: AnalyzePlantCondition,
   ) {}
 
   async execute(
@@ -84,48 +84,27 @@ export class IdentifyCandidateFromPhoto {
           throw candidateIdentificationSourceNotReadyError();
         }
 
-        const suggestion = await identifyPlantFromPhoto(
+        const now = this.clock.now();
+        const { analysis, taxonomyReferenceId } = await analyzeCandidatePhoto(
           this.identifyPlantSpecies,
+          this.analyzePlantCondition,
           this.taxonomyReferences,
           analysisSource,
           this.logger,
+          now,
         );
-        if (suggestion.confidenceScore <= 0) {
-          throw candidateIdentificationNoMatchError();
-        }
-
-        const matchedReference =
-          suggestion.suggestedTaxonomyId === null
-            ? null
-            : await this.taxonomyReferences.findById(suggestion.suggestedTaxonomyId);
-        const displayName =
-          matchedReference?.commonName ??
-          matchedReference?.scientificName ??
-          suggestion.suggestedCommonName;
-        if (displayName === null) {
-          throw candidateIdentificationNoMatchError();
-        }
 
         const updated = await applyCandidateRevisionGuardedUpdate(
           context.candidates,
           candidateId,
           expectedRevision,
-          (candidate) =>
-            updateCandidateDetails(
-              candidate,
-              {
-                displayName,
-                taxonomyReferenceId: suggestion.suggestedTaxonomyId,
-                varietyLabel: suggestion.suggestedVarietyLabel,
-              },
-              this.clock.now(),
-            ),
+          (candidate) => applyCandidatePhotoAnalysis(candidate, analysis, taxonomyReferenceId, now),
         );
 
         this.logger.info(
           {
             event: 'plants.candidate_identification_retried',
-            hasCatalogMatch: suggestion.suggestedTaxonomyId !== null,
+            hasCatalogMatch: true,
           },
           'Existing candidate identified from its primary photo.',
         );
