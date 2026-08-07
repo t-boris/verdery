@@ -416,6 +416,15 @@ first, because otherwise it opens behind whichever tab happened to be showing.
 Dropping the request when a sign-in was needed would make the button work only
 when it was least needed.
 
+**The Control Center control is a separate process, so it opens a URL.** A
+`ControlWidget` runs in its own extension with its own memory and cannot reach
+the application's composition root at all. It opens `verdery://capture`, handled
+by `handleIncomingURL` like any other deep link — the same channel a staked QR
+label uses, and it needs no App Group, no shared container and no second copy of
+any state. The extension links no package product: pulling `AppComposition` in
+would put a database migrator, a sync engine and a Firebase SDK into a process
+that launches every time somebody opens Control Center.
+
 `AppIntentBridge` is the one piece of global state an intent can reach: an
 intent is constructed by the system and cannot be handed the composition root
 the way every screen is. It is one setter, written once at launch, holding one

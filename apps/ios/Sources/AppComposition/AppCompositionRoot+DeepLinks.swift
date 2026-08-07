@@ -39,6 +39,16 @@ extension AppCompositionRoot {
             return true
         }
 
+        // "Photograph a plant", asked for from outside the application: the
+        // Control Center control opens this URL rather than reaching into the
+        // application's state, because a control runs in its own process and
+        // has nothing to reach into. A URL is the one channel that already
+        // crosses that boundary, and it needs no App Group to do it.
+        if url.scheme == PlantDeepLink.scheme, url.host == "capture" {
+            requestCapture()
+            return true
+        }
+
         // A plant label, scanned off a stake with the system camera. Recorded
         // rather than acted on here, for the same reason an invitation token
         // is: the shell decides when a destination can be shown, and it may

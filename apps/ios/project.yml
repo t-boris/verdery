@@ -60,6 +60,11 @@ targets:
     dependencies:
       - package: VerderyPackage
         product: AppComposition
+      # The Control Center control ships inside the app bundle. Embedding it
+      # here is what makes it appear in the controls gallery at all — an
+      # extension that is built but not embedded is an extension nobody can add.
+      - target: VerderyControls
+        embed: true
     info:
       path: Generated/Info.plist
       properties:
@@ -248,3 +253,36 @@ targets:
         Release:
           API_ORIGIN: "https://verdery-api-dev-t6amsr5o6a-uc.a.run.app"
           WEB_ORIGIN: "https://verdery-web-dev-t6amsr5o6a-uc.a.run.app"
+
+  # The Control Center / Lock Screen control. A separate target because an
+  # extension is a separate binary in a separate process — which is also why it
+  # opens a `verdery://` URL rather than reaching into the application: it has
+  # nothing to reach into, and a URL crosses that boundary without an App Group.
+  #
+  # It links no package product. The control has one job — open the app at its
+  # capture surface — and pulling `AppComposition` in would put a database
+  # migrator, a sync engine and a Firebase SDK into a process that launches
+  # every time somebody opens Control Center.
+  VerderyControls:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: Sources/VerderyControls
+    info:
+      path: Generated/VerderyControls-Info.plist
+      properties:
+        CFBundleDisplayName: Verdery
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.verdery.app.controls
+        DEVELOPMENT_TEAM: 3M68DG8S7N
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        # Widget extensions are not applications and must not carry a launch
+        # screen or a main storyboard; Xcode rejects an archive that does.
+        SKIP_INSTALL: YES
