@@ -233,6 +233,16 @@ as it was. This process contributes only its interval loops and its already-veri
 | `DELETION_SWEEP_URL`                             | yes      | —                   | The API's internal deletion-sweep endpoint (P8-DELETE-01)             |
 | `DELETION_SWEEP_INTERVAL_MS`                     | no       | `3600000`           | How often the deletion sweep is triggered                             |
 
+Every sweep runs once about 15 seconds after this process starts, and then on its interval. The
+interval alone was not enough: it puts a sweep's first run one whole interval after startup, and
+this process restarts on every deployment, so a sweep whose interval is longer than the gap
+between deployments never ran at all. That was measured, not predicted — the six-hourly
+taxon-enrichment sweep executed zero times across a day with twelve worker restarts, taking the
+seasonal-timing proposal phase that runs inside it down with it. The 15-second settle keeps the
+first triggers clear of the worker's own startup and of the tail of a rollout; a first run that
+fails is still only retried on the interval, so a long-interval sweep that fails at start waits a
+long time.
+
 The recommendation-evaluation sweep ticks far more often than the hourly sweeps around it, and
 that is deliberate rather than an oversight: it is the only sweep whose latency a gardener feels —
 between adding a plant and seeing its first task. It is affordable at this cadence because the
