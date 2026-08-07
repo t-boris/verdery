@@ -70,6 +70,7 @@ struct PlantGatewayTests {
             quantity: nil,
             gardenAreaMapObjectId: nil,
             placementMapObjectId: nil,
+            lifecycleStage: .seedling,
             idempotencyKey: "idem-1"
         )
 
@@ -87,6 +88,10 @@ struct PlantGatewayTests {
         // "not applicable" should look like on the wire.
         #expect(body["quantity"] == nil)
         #expect(body["taxonomyReferenceId"] == nil)
+        // A supplied stage IS sent — it decides which automatic care rules
+        // can see the plant, so silently dropping it would silently withhold
+        // weather-driven care.
+        #expect(body["lifecycleStage"] as? String == "seedling")
 
         #expect(plant.id == "plant-1")
         #expect(plant.groupingKind == .individual)

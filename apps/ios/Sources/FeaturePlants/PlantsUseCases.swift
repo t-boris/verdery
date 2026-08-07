@@ -64,7 +64,8 @@ public struct AddPlant: Sendable {
         groupingKind: PlantGroupingKind,
         quantity: Int? = nil,
         gardenAreaMapObjectId: String? = nil,
-        placementMapObjectId: String? = nil
+        placementMapObjectId: String? = nil,
+        lifecycleStage: PlantLifecycleStage = .planned
     ) async throws -> Plant {
         let trimmedName = try validatedDisplayName(displayName)
         let plantId = generatePlantId()
@@ -87,10 +88,13 @@ public struct AddPlant: Sendable {
                 acquisitionDateType: acquisitionDateType,
                 groupingKind: groupingKind,
                 quantity: quantity,
-                // Matches `createPlant`'s own server-side defaults exactly
-                // (`plants-inventory/domain/plant.ts`): every new plant
-                // starts `lifecycleStage: 'planned'`, `status: 'active'`.
-                lifecycleStage: .planned,
+                // `status` matches `createPlant`'s own server-side default
+                // exactly (`plants-inventory/domain/plant.ts`). `lifecycleStage`
+                // is now the caller's, defaulted to the same `planned` the
+                // server defaults to when it is omitted — the local projection
+                // must predict what the server will store, and the server
+                // stores what was sent.
+                lifecycleStage: lifecycleStage,
                 status: .active,
                 conditionNote: nil,
                 careGuidanceNote: nil,
@@ -120,7 +124,8 @@ public struct AddPlant: Sendable {
                             acquisitionDate: acquisitionDate,
                             acquisitionDateType: acquisitionDateType,
                             groupingKind: groupingKind,
-                            quantity: quantity
+                            quantity: quantity,
+                            lifecycleStage: lifecycleStage
                         )
                     )
                 ),

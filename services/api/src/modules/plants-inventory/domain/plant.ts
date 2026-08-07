@@ -163,6 +163,24 @@ export function createPlant(
   rawQuantity: number | null | undefined,
   createdByProfileId: Uuid,
   now: Date,
+  /**
+   * Where the plant already is in its growth cycle at the moment it is
+   * recorded. Optional, and `'planned'` when omitted — the stage every
+   * plant used to start in unconditionally.
+   *
+   * That unconditional default was a real gap in the care loop, not a
+   * harmless convenience: `'planned'` is in no weather rule's active-growth
+   * list and in no frost-sensitive list, so a plant already growing in the
+   * ground was invisible to `watering.dry-spell-check` and
+   * `weather.frost-watch` until somebody remembered to transition it by
+   * hand. Someone adding a plant they just put in the soil should not have
+   * to perform a second, separate act to make the engine see it.
+   *
+   * Appended after `now` deliberately: this parameter list is already long
+   * and positional, and an optional trailing parameter leaves every
+   * existing call site — including the sync command path — untouched.
+   */
+  lifecycleStage: LifecycleStage = 'planned',
 ): Plant {
   return {
     id,
@@ -178,7 +196,7 @@ export function createPlant(
     acquisitionDateType,
     groupingKind,
     quantity: validateQuantityForGroupingKind(groupingKind, rawQuantity),
-    lifecycleStage: 'planned',
+    lifecycleStage,
     status: 'active',
     conditionNote: null,
     careGuidanceNote: null,

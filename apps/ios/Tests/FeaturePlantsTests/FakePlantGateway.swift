@@ -63,6 +63,7 @@ final class FakePlantGateway: PlantGateway, @unchecked Sendable {
         quantity: Int?,
         gardenAreaMapObjectId: String?,
         placementMapObjectId: String?,
+        lifecycleStage: PlantLifecycleStage?,
         idempotencyKey: String
     ) async throws -> Plant {
         let plant = Plant(
@@ -110,6 +111,7 @@ final class FakePlantGateway: PlantGateway, @unchecked Sendable {
             quantity: nil,
             gardenAreaMapObjectId: gardenAreaMapObjectId,
             placementMapObjectId: placementMapObjectId,
+            lifecycleStage: nil,
             idempotencyKey: idempotencyKey
         )
     }

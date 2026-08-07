@@ -158,6 +158,12 @@ struct PlantIdentificationTransport: Codable {
     }
 }
 
+/// `lifecycleStage` is omittable rather than required, matching the
+/// contract: the server defaults it to `planned`. It is worth sending for a
+/// plant already in the ground, because the stage decides which automatic
+/// care rules can see the plant at all — the watering check reads actively
+/// growing stages and the frost watch reads frost-sensitive ones, and
+/// neither list contains `planned`.
 struct AddPlantRequestTransport: Encodable {
     let gardenAreaMapObjectId: String?
     let placementMapObjectId: String?
@@ -168,6 +174,7 @@ struct AddPlantRequestTransport: Encodable {
     let acquisitionDateType: PlantAcquisitionDateType?
     let groupingKind: PlantGroupingKind
     let quantity: Int?
+    let lifecycleStage: PlantLifecycleStage?
 }
 
 struct AddPlantFromPhotoRequestTransport: Encodable {

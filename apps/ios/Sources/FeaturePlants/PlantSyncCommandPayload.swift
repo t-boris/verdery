@@ -118,6 +118,11 @@ struct AddPlantRequestPayload: Encodable {
     let acquisitionDateType: PlantAcquisitionDateType?
     let groupingKind: PlantGroupingKind
     let quantity: Int?
+    /// Omittable, defaulted to `planned` server-side. Sent for a plant
+    /// already in the ground, because the stage decides which automatic care
+    /// rules can see it — neither weather rule's stage list contains
+    /// `planned`.
+    let lifecycleStage: PlantLifecycleStage?
 }
 
 /// Mirrors `packages/api-contracts/openapi.yaml`'s `UpdatePlantDetailsRequest`

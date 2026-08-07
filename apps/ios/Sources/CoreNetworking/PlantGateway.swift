@@ -22,6 +22,7 @@ public protocol PlantGateway: Sendable {
         quantity: Int?,
         gardenAreaMapObjectId: String?,
         placementMapObjectId: String?,
+        lifecycleStage: PlantLifecycleStage?,
         idempotencyKey: String
     ) async throws -> Plant
 
@@ -199,6 +200,7 @@ public struct URLSessionPlantGateway: PlantGateway {
         quantity: Int?,
         gardenAreaMapObjectId: String?,
         placementMapObjectId: String?,
+        lifecycleStage: PlantLifecycleStage?,
         idempotencyKey: String
     ) async throws -> Plant {
         let result: PlantTransport = try await transport.send(
@@ -213,7 +215,8 @@ public struct URLSessionPlantGateway: PlantGateway {
                 acquisitionDate: acquisitionDate,
                 acquisitionDateType: acquisitionDateType,
                 groupingKind: groupingKind,
-                quantity: quantity
+                quantity: quantity,
+                lifecycleStage: lifecycleStage
             ),
             headers: [APIConfiguration.idempotencyKeyHeader: idempotencyKey],
             acceptedStatusCodes: [201]

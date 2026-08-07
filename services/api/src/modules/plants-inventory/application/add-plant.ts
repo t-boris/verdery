@@ -4,6 +4,7 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type { GardenAuthorization } from '../../gardens-mapping/public.js';
 import type { AcquisitionDateType, GroupingKind, PlantPlacement } from '../domain/plant.js';
+import type { LifecycleStage } from '../domain/plant-lifecycle.js';
 import { createPlant } from '../domain/plant.js';
 import { toPlantResource, type PlantResource } from './plant-view.js';
 import type { PlantsInventoryUnitOfWork } from './plants-inventory-unit-of-work.js';
@@ -32,6 +33,12 @@ export interface AddPlantInput {
   readonly acquisitionDateType?: AcquisitionDateType | null;
   readonly groupingKind: GroupingKind;
   readonly quantity?: number | null;
+  /**
+   * Where the plant already is in its growth cycle. Omitted means
+   * `'planned'` — see `createPlant`'s own parameter doc for why that default
+   * used to make a newly added plant invisible to both weather rules.
+   */
+  readonly lifecycleStage?: LifecycleStage;
 }
 
 function normalizedPlacement(input: AddPlantInput): PlantPlacement {
@@ -87,6 +94,7 @@ export class AddPlant {
           input.quantity,
           profileId,
           now,
+          input.lifecycleStage,
         );
 
         await context.plants.insert(plant);

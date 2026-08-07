@@ -6324,6 +6324,17 @@ export interface components {
             groupingKind: components["schemas"]["PlantGroupingKind"];
             /** @description Required and greater than zero unless `groupingKind` is `individual`, which must leave this unset. */
             quantity?: number | null;
+            /**
+             * @description Where the plant already is in its growth cycle when it is recorded.
+             *     Defaults to `planned` when omitted.
+             *
+             *     Worth setting for a plant that is already in the ground, because the
+             *     stage decides which automatic care rules can see it at all — the
+             *     watering check reads actively growing stages and the frost watch
+             *     reads frost-sensitive ones, and neither includes `planned`. A plant
+             *     left at the default is invisible to both until it is transitioned.
+             */
+            lifecycleStage?: components["schemas"]["PlantLifecycleStage"];
         };
         /** @description Mirrors `AddPlantFromPhotoInput`. Source: plants-inventory/application/add-plant-from-photo.ts. */
         AddPlantFromPhotoRequest: {

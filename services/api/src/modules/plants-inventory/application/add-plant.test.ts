@@ -98,6 +98,49 @@ describe('AddPlant', () => {
     ]);
   });
 
+  it('records the lifecycle stage the caller supplies, so a plant already in the ground is visible to the weather rules immediately', async () => {
+    const fakes = createPlantsInventoryFakes();
+    const addPlant = new AddPlant(
+      fakes.idempotency,
+      new FakePlantsInventoryUnitOfWork(fakes),
+      authorizationGranting(OWNER_MEMBERSHIP),
+      fixedClock(NOW),
+    );
+
+    const result = await addPlant.execute(
+      GARDEN_ID,
+      PROFILE_ID,
+      { displayName: 'Tomato', groupingKind: 'individual', lifecycleStage: 'growing' },
+      '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a1e',
+    );
+
+    // `growing` is in `watering.dry-spell-check`'s active-growth list;
+    // `planned`, the old unconditional default, is in no weather rule's
+    // list at all, so this is the difference between a new plant receiving
+    // weather-driven care and silently receiving none.
+    expect(result.lifecycleStage).toBe('growing');
+    expect(fakes.revisionJournal.entries[0]?.lifecycleStage).toBe('growing');
+  });
+
+  it('still defaults to planned when no stage is supplied, so every existing caller is unaffected', async () => {
+    const fakes = createPlantsInventoryFakes();
+    const addPlant = new AddPlant(
+      fakes.idempotency,
+      new FakePlantsInventoryUnitOfWork(fakes),
+      authorizationGranting(OWNER_MEMBERSHIP),
+      fixedClock(NOW),
+    );
+
+    const result = await addPlant.execute(
+      GARDEN_ID,
+      PROFILE_ID,
+      { displayName: 'Tomato', groupingKind: 'individual' },
+      '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a2e',
+    );
+
+    expect(result.lifecycleStage).toBe('planned');
+  });
+
   it('accepts a placement referencing an active map object in this garden', async () => {
     const fakes = createPlantsInventoryFakes(new Map([[MAP_OBJECT_ID, activeMapObjectSummary()]]));
     const addPlant = new AddPlant(

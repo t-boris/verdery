@@ -161,6 +161,13 @@ export function parseAddPlantRequest(body: unknown): AddPlantInput {
   );
   const groupingKind = requireEnum(record['groupingKind'], GROUPING_KINDS, '/groupingKind');
   const quantity = optionalNullableInteger(record['quantity'], '/quantity', 1);
+  // Absent means the domain's own `'planned'` default; unlike the nullable
+  // fields above there is no `null` spelling, because "no stage" is not a
+  // state a plant can be in.
+  const lifecycleStage =
+    record['lifecycleStage'] === undefined
+      ? undefined
+      : requireEnum(record['lifecycleStage'], LIFECYCLE_STAGES, '/lifecycleStage');
 
   return {
     ...(gardenAreaMapObjectId === undefined ? {} : { gardenAreaMapObjectId }),
@@ -172,6 +179,7 @@ export function parseAddPlantRequest(body: unknown): AddPlantInput {
     ...(acquisitionDateType === undefined ? {} : { acquisitionDateType }),
     groupingKind,
     ...(quantity === undefined ? {} : { quantity }),
+    ...(lifecycleStage === undefined ? {} : { lifecycleStage }),
   };
 }
 

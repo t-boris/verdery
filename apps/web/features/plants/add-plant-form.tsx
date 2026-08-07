@@ -1,7 +1,11 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { AddPlantRequest, PlantGroupingKind } from '@verdery/api-contracts';
+import type {
+  AddPlantRequest,
+  PlantGroupingKind,
+  PlantLifecycleStage,
+} from '@verdery/api-contracts';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -27,8 +31,10 @@ import {
 import {
   PLANT_ACQUISITION_DATE_TYPES,
   PLANT_GROUPING_KINDS,
+  PLANT_LIFECYCLE_STAGES,
   acquisitionDateTypeLabel,
   groupingKindLabel,
+  lifecycleStageLabel,
 } from './labels';
 import { useGardenMapObjects } from './map-object-queries';
 import { useAddPlant } from './queries';
@@ -47,6 +53,16 @@ const addPlantSchema = z
       .union([z.enum(['planted', 'sown', 'acquired']), z.literal(NONE_VALUE)])
       .optional(),
     groupingKind: z.enum(['individual', 'row', 'group']),
+    lifecycleStage: z.enum([
+      'planned',
+      'seed',
+      'seedling',
+      'transplanted',
+      'growing',
+      'flowering',
+      'fruiting',
+      'ready_to_harvest',
+    ]),
     quantity: z.string().trim().optional(),
     gardenAreaMapObjectId: z.string().trim().optional(),
     placementMapObjectId: z.string().trim().optional(),
@@ -67,7 +83,16 @@ const addPlantSchema = z
 
 type AddPlantValues = z.infer<typeof addPlantSchema>;
 
-const DEFAULT_VALUES: AddPlantValues = { displayName: '', groupingKind: 'individual' };
+const DEFAULT_VALUES: AddPlantValues = {
+  displayName: '',
+  groupingKind: 'individual',
+  // `planned` is the server's own default, so sending it changes nothing —
+  // but the field is shown up front rather than hidden behind a disclosure,
+  // because the stage decides which automatic rules can see the plant at
+  // all, and a plant already in the ground left at `planned` is invisible
+  // to both weather rules.
+  lifecycleStage: 'planned',
+};
 
 interface AddPlantDraftPayload extends AddPlantValues {
   readonly taxonomyReferenceId: string | null;
@@ -79,7 +104,7 @@ interface AddPlantDraftPayload extends AddPlantValues {
  * not be blindly reapplied under — see `core/drafts/local-draft-store.ts`'s
  * doc comment for the full convention.
  */
-const ADD_PLANT_DRAFT_SCHEMA_VERSION = 1;
+const ADD_PLANT_DRAFT_SCHEMA_VERSION = 2;
 
 /**
  * Creates a plant instance, row, or group, then hands off to the plant's own
@@ -192,6 +217,7 @@ export function AddPlantForm({
     const input: AddPlantRequest = {
       displayName: values.displayName,
       groupingKind: values.groupingKind,
+      lifecycleStage: values.lifecycleStage,
       ...(taxonomyReferenceId === null ? {} : { taxonomyReferenceId }),
       ...(values.varietyLabel === undefined || values.varietyLabel === ''
         ? {}
@@ -246,6 +272,32 @@ export function AddPlantForm({
         >
           <PlusIcon />
         </Button>
+      </div>
+
+      {/*
+       * Always visible, never behind a disclosure like the parts below.
+       * The stage is what decides whether the automatic care rules can see
+       * this plant at all: the watering check reads actively growing
+       * stages, the frost watch reads frost-sensitive ones, and neither
+       * includes `planned`. A plant put in the ground today and left at the
+       * default silently receives no weather-driven care until somebody
+       * transitions it by hand — which is exactly the gap this field
+       * closes.
+       */}
+      <div className={styles['choiceField']}>
+        <span>{t('plants.lifecycleStageLabel')}</span>
+        <div className={styles['choices']}>
+          {PLANT_LIFECYCLE_STAGES.map((stage: PlantLifecycleStage) => (
+            <button
+              key={stage}
+              type="button"
+              aria-pressed={currentValues.lifecycleStage === stage}
+              onClick={() => setValue('lifecycleStage', stage, { shouldDirty: true })}
+            >
+              {t(lifecycleStageLabel(stage))}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className={styles['quickActions']}>
