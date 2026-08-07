@@ -44,6 +44,20 @@ extension MapEditorViewModel {
         await load()
     }
 
+    /// Applying accepted aerial proposals, through the same ordinary path.
+    public func acceptAerialTracing(_ proposals: [AerialTracingProposal]) async {
+        for proposal in proposals {
+            guard let category = CreatableMapObjectCategory(rawValue: proposal.category.rawValue)
+            else { continue }
+            await submitPlatShape(
+                category: category,
+                geometry: proposal.geometry,
+                label: proposal.label.isEmpty ? nil : proposal.label
+            )
+        }
+        await load()
+    }
+
     private func submitPlatShape(
         category: CreatableMapObjectCategory,
         geometry: Geometry,

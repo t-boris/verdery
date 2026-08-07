@@ -110,6 +110,9 @@ struct GardenTabView: View {
                                         gardenId: route.gardenId,
                                         planMediaId: planMediaId
                                     )
+                                },
+                                makeAerialTracingModel: {
+                                    composition.makeAerialTracingViewModel(gardenId: route.gardenId)
                                 }
                             )
                         }
@@ -236,6 +239,9 @@ struct GardenTabView: View {
                                 gardenId: gardenId,
                                 planMediaId: planMediaId
                             )
+                        },
+                        makeAerialTracingModel: {
+                            composition.makeAerialTracingViewModel(gardenId: gardenId)
                         }
                     )
                         // The one screen allowed to rotate: a garden canvas is

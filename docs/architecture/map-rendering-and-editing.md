@@ -360,6 +360,54 @@ all selected objects atomically. Vertex editing remains a separate, single-geome
 - Render snapshots are immutable and `Sendable`.
 - Metal is introduced only when representative profiling shows Canvas/Core Graphics cannot meet the frame budget.
 
+### 14.y Plat Reading and Aerial Tracing (iOS)
+
+Both surfaces produce **proposals and nothing else**, and both go through the
+same ordinary `createObject` path a finger-drawn bed takes when a person accepts
+something — same authorization, same revision guard, same audit trail, same
+offline outbox. There is deliberately no code path that writes a proposal
+directly, because that path is what ADR-0018 exists to prevent.
+
+**The plat review screen's job is to make the reading checkable, not
+believable.** The area the sheet prints and the area the calls walk sit side by
+side, converted to the same unit, with a sentence about whether they agree — two
+numbers next to each other invite a reader to do arithmetic the screen already
+did. The closure error is a number in metres rather than a verdict. Each
+boundary call is printed the way the sheet prints it, so comparing a line
+against the paper compares the same characters. The one side whose direction was
+recovered from the figure's own closing says which side, and by how much its
+printed length disagrees with the closing line's.
+
+Pre-selection is arithmetic and is unit-tested as arithmetic
+(`CoreDomain.PlatReadingReview`):
+
+- The boundary is ticked only when the traverse **closes** and the walked area
+  agrees with the printed one within 15%. Closure alone can be satisfied by the
+  right shape in the wrong place; area alone by a shape that happens to enclose
+  the right amount of ground.
+- The 15% is loose by survey standards on purpose: a plat's stated area is often
+  rounded and sometimes excludes an easement the boundary includes. It is a
+  check against a _misread_ boundary, not against a surveyor's rounding.
+- A missing stated area is not agreement. An absent check is not a passed one.
+- **Nothing is offered at all when the traverse fails.** Every object's position
+  rides the same page fit as the boundary, so a lot that cannot be trusted makes
+  the deck inside it untrustworthy in exactly the same way.
+- The address is offered as a location only when the boundary is trustworthy: a
+  plat states no coordinates, so the location comes from geocoding that address,
+  and geocoding an address off a misread sheet places the garden confidently in
+  the wrong town.
+
+A page that is not a plat answers `isPlat: false` — a real answer, and the
+drawing remains usable as a backdrop to trace over.
+
+**Aerial tracing keeps the same posture and adds one distinction.** A shape the
+photograph showed (`visible`) is pre-selected; a shape inferred from context
+(`inferred`) is offered and never ticked. Accepting a hedge nobody photographed,
+because a box was already checked, is how a garden acquires a fence that is not
+there. The provider's disclaimer is rendered verbatim rather than summarised —
+paraphrasing it would be this application making that claim instead of quoting
+it.
+
 ### 14.x Basemap Camera and Georeference Authoring (iOS)
 
 **The backdrop follows the canvas.** An earlier iOS pass pinned a fixed

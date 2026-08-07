@@ -45,6 +45,17 @@ extension MapEditorView {
                 .accessibilityIdentifier("map.editor.basemap")
             }
 
+            // Only where there is geography to read one against: an aerial
+            // photograph of nowhere cannot be found.
+            if makeAerialTracingModel != nil, model.georeference != nil {
+                Button {
+                    isAerialTracingPresented = true
+                } label: {
+                    Label(model.strings(.aerialOpen), systemImage: "photo.badge.checkmark")
+                }
+                .accessibilityIdentifier("map.editor.aerialTracing")
+            }
+
             if makeGeoreferenceModel != nil {
                 Button {
                     isGeoreferencePresented = true

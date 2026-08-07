@@ -27,6 +27,15 @@ extension AppCompositionRoot {
         )
     }
 
+    /// What an aerial photograph appears to show. Proposals only.
+    public func makeAerialTracingViewModel(gardenId: String) -> AerialTracingViewModel {
+        AerialTracingViewModel(
+            gardenId: gardenId,
+            trace: TraceFromAerial(gateway: planReadingGateway),
+            strings: localizedStrings
+        )
+    }
+
     public func makeGeoreferenceViewModel(
         gardenId: String,
         existing: GardenGeoreference?

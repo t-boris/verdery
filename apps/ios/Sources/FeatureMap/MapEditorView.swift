@@ -19,6 +19,7 @@ public struct MapEditorView: View {
     /// Which uploaded plan is being read, if any. An identifier rather than a
     /// boolean, because the sheet needs to know which drawing.
     @State var readingPlanMediaId: PlanReadingRequest?
+    @State var isAerialTracingPresented = false
     /// Honours the system Reduce Transparency setting; see ``scaleIndicator``.
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     /// The scale pill's own padding, scaled with the reader's text size so
@@ -38,15 +39,20 @@ public struct MapEditorView: View {
     let makeGeoreferenceModel: ((GardenGeoreference?) -> GeoreferenceViewModel)?
     /// Building the plat reader for one uploaded plan.
     let makePlatReadingModel: ((String) -> PlatReadingViewModel)?
+    /// Building the aerial tracer. Absent where no geography gateway is wired,
+    /// in which case the button is not drawn rather than drawn dead.
+    let makeAerialTracingModel: (() -> AerialTracingViewModel)?
 
     public init(
         model: MapEditorViewModel,
         makeGeoreferenceModel: ((GardenGeoreference?) -> GeoreferenceViewModel)? = nil,
-        makePlatReadingModel: ((String) -> PlatReadingViewModel)? = nil
+        makePlatReadingModel: ((String) -> PlatReadingViewModel)? = nil,
+        makeAerialTracingModel: (() -> AerialTracingViewModel)? = nil
     ) {
         _model = State(wrappedValue: model)
         self.makeGeoreferenceModel = makeGeoreferenceModel
         self.makePlatReadingModel = makePlatReadingModel
+        self.makeAerialTracingModel = makeAerialTracingModel
     }
 
     public var body: some View {
@@ -63,6 +69,18 @@ public struct MapEditorView: View {
                             Task { await model.acceptPlatReading(acceptance) }
                         },
                         close: { readingPlanMediaId = nil }
+                    )
+                }
+            }
+            .sheet(isPresented: $isAerialTracingPresented) {
+                if let makeAerialTracingModel {
+                    AerialTracingView(
+                        model: makeAerialTracingModel(),
+                        accept: { proposals in
+                            isAerialTracingPresented = false
+                            Task { await model.acceptAerialTracing(proposals) }
+                        },
+                        close: { isAerialTracingPresented = false }
                     )
                 }
             }
