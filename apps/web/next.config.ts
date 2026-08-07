@@ -2,6 +2,8 @@ import type { NextConfig } from 'next';
 
 import { STATIC_SECURITY_HEADERS } from './shared/security/security-headers';
 
+const deploymentId = process.env['VERDERY_DEPLOYMENT_ID'];
+
 /**
  * The Content Security Policy is NO LONGER SET HERE (P8-SEC-02).
  *
@@ -21,6 +23,12 @@ import { STATIC_SECURITY_HEADERS } from './shared/security/security-headers';
  */
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Every immutable web image carries the Git commit that produced it. Next
+  // includes this identifier in navigation requests and responses, so a tab
+  // that remained open across a Cloud Run revision change detects deployment
+  // skew and performs a full navigation instead of mixing old route modules
+  // with the new server's asset set.
+  ...(deploymentId === undefined || deploymentId === '' ? {} : { deploymentId }),
   // `standalone` emits a self-contained server (server.js + traced
   // node_modules) — the canonical Next.js container deployment, and the only
   // output mode that does not need the whole pnpm workspace at runtime.

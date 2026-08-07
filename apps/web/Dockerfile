@@ -32,6 +32,8 @@ COPY packages/geometry-contracts packages/geometry-contracts
 COPY apps/web apps/web
 
 ARG NEXT_PUBLIC_API_ORIGIN
+# Unique immutable web revision identifier used by Next.js skew protection.
+ARG VERDERY_DEPLOYMENT_ID
 # Server-side only (not NEXT_PUBLIC_): the /v1 rewrite target compiled into
 # the routes manifest at build — see next.config.ts's own comment.
 ARG API_PROXY_ORIGIN

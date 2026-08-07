@@ -240,6 +240,11 @@ all geometry is pixels in one SwiftUI `Canvas`; the view model handles an armed 
 selection hit test. Object selection and dragging are restored when creation ends or the select tool
 becomes active.
 
+On web, an object drag uses a temporary Konva group offset only while the command is in flight. The
+server response already returns geometry with the translation applied, so the temporary offset is
+cleared after both successful and rejected commands. Keeping it would render the same translation
+twice and make later drag deltas accumulate movement that the person did not perform.
+
 ## 9. Undo and Redo
 
 Undo and redo are local editor-session capabilities operating on committed local commands that have not been invalidated by a remote revision.

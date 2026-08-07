@@ -21,17 +21,36 @@ export interface ObjectShapeProps {
    * Called once, on drag end, with the translation already converted to
    * local metres — never per frame, matching "Pointer or touch movement does
    * not produce a server mutation per frame" (design principle 2).
-   * `resetPosition` snaps the dragged node back to its last confirmed
-   * position; the caller invokes it if the resulting `moveObject` command
-   * fails, so a rejected move does not leave the shape visually
-   * out of sync with the server.
    */
-  readonly onMoveEnd: (
-    objectId: string,
-    dxMetres: number,
-    dyMetres: number,
-    resetPosition: () => void,
-  ) => void;
+  readonly onMoveEnd: (objectId: string, dxMetres: number, dyMetres: number) => Promise<void>;
+}
+
+interface TemporaryDragNode {
+  x(): number;
+  y(): number;
+  position(position: { readonly x: number; readonly y: number }): void;
+  getLayer(): { batchDraw(): void } | null;
+}
+
+/**
+ * Commits the screen-space drag once, then always removes Konva's temporary
+ * group offset. The authoritative geometry returned by the server already
+ * contains the translation; retaining the group offset would apply the same
+ * move again visually and make every later drag accumulate the old delta.
+ */
+export async function commitObjectDrag(
+  node: TemporaryDragNode,
+  recordId: string,
+  camera: MapCamera,
+  onMoveEnd: ObjectShapeProps['onMoveEnd'],
+): Promise<void> {
+  const { dx, dy } = screenDeltaToLocalDelta(node.x(), node.y(), camera);
+  try {
+    await onMoveEnd(recordId, dx, dy);
+  } finally {
+    node.position({ x: 0, y: 0 });
+    node.getLayer()?.batchDraw();
+  }
 }
 
 /**
@@ -52,12 +71,7 @@ export function ObjectShape({
   onMoveEnd,
 }: ObjectShapeProps) {
   const handleDragEnd = (event: Konva.KonvaEventObject<DragEvent>) => {
-    const node = event.target;
-    const { dx, dy } = screenDeltaToLocalDelta(node.x(), node.y(), camera);
-    onMoveEnd(record.id, dx, dy, () => {
-      node.position({ x: 0, y: 0 });
-      node.getLayer()?.batchDraw();
-    });
+    void commitObjectDrag(event.target, record.id, camera, onMoveEnd);
   };
 
   return (

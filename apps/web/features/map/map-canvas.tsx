@@ -477,17 +477,11 @@ export function MapCanvas({
                       }
                       store.select(objectId);
                     }}
-                    onMoveEnd={(objectId, dx, dy, resetPosition) => {
+                    onMoveEnd={async (objectId, dx, dy) => {
                       const selectedIds = store.state.multiSelectedObjectIds;
-                      const move =
-                        selectedIds.includes(objectId) && selectedIds.length > 1
-                          ? actions.moveObjects(selectedIds, dx, dy)
-                          : actions.moveObject(objectId, dx, dy);
-                      void move.then((result) => {
-                        if (result === null) {
-                          resetPosition();
-                        }
-                      });
+                      await (selectedIds.includes(objectId) && selectedIds.length > 1
+                        ? actions.moveObjects(selectedIds, dx, dy)
+                        : actions.moveObject(objectId, dx, dy));
                     }}
                   />
                 );

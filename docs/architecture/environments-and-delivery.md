@@ -161,6 +161,11 @@ The required target CI set is below. The current implemented subset and explicit
 
 Firebase App Hosting deploys the pinned supported Next.js application. Configuration is versioned through Firebase and repository files where supported.
 
+The current development workflow builds an immutable standalone Next.js image and deploys it to
+Cloud Run. Each image embeds its source commit as the Next.js deployment identifier. Navigation
+requests and responses therefore expose deployment skew, allowing Next.js to replace an open tab's
+old route graph with the current revision instead of combining modules from different builds.
+
 Preview environments must not share production sessions, secrets, or CORS trust. Public preview URLs do not receive production APIs by default.
 
 ## 11. Backend Deployment
