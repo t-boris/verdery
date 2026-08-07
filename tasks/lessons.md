@@ -457,7 +457,7 @@ no test drives a sheet's dismissal.
 
 **Why it was nearly invisible**: the diff was three lines that all looked like
 plausible code, in a file with three near-identical blocks. Reading the patch
-without reading the *original* would not have caught it.
+without reading the _original_ would not have caught it.
 
 **Rules for next time**:
 
