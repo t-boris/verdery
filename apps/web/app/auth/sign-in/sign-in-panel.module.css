@@ -7,16 +7,18 @@
 /*
  * The one screen where a button IS the width of its container.
  *
- * `shared/ui/button.module.css` sets `align-self: start` on purpose, so a
- * submit never becomes a full-width slab inside an ordinary column form —
- * see its own comment. An authentication card is the exception that rule
- * needs: three actions stacked with nothing beside them, whose ragged
- * content widths ("Continue with Apple" against "Send me a sign-in link")
- * read as a misaligned column rather than as compact controls.
+ * `shared/ui/button.module.css` gives buttons a fit-content inline size so a
+ * submit never becomes a full-width slab inside an ordinary command column.
+ * An authentication card is the exception: three actions stacked with
+ * nothing beside them, whose ragged content widths ("Continue with Apple"
+ * against "Send me a sign-in link") read as a misaligned column rather than
+ * as compact controls. The explicit width below intentionally overrides the
+ * primitive's fit-content width.
  */
 .panel > button,
 .emailForm > button {
   align-self: stretch;
+  inline-size: 100%;
 }
 
 /*
