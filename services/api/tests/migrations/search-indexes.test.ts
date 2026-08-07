@@ -169,8 +169,15 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         WHERE similarity(common_name, $1) > 0.25`,
       ['tomatoe'],
     );
-    expect(trigramMatch.rows.map((r) => r.id)).toEqual([taxonomyId]);
-    expect(trigramMatch.rows[0]?.score).toBeGreaterThan(0.25);
+    // Contains, not equals: the seeded catalogue
+    // (`1789300000000_seasonal-timing-seed.sql`) legitimately holds its own
+    // Tomato, so "exactly one match" was only ever true of an empty
+    // catalogue and is no longer a property of the system. What this test
+    // is about is that the misspelling is tolerated at all.
+    expect(trigramMatch.rows.map((r) => r.id)).toContain(taxonomyId);
+    expect(trigramMatch.rows.find((row) => row.id === taxonomyId)?.score ?? 0).toBeGreaterThan(
+      0.25,
+    );
   });
 
   it('finds a misspelled plant display name that a plain ILIKE substring match would miss', async () => {

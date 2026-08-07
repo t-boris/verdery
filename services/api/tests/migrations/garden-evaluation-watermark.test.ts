@@ -13,6 +13,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { readdir } from 'node:fs/promises';
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { runner } from 'node-pg-migrate';
 import pg from 'pg';
@@ -22,6 +23,7 @@ import { startPostgresTestContainer } from '../support/postgres-container.js';
 
 const SUITE_NAME = 'garden evaluation watermark migration';
 const MIGRATIONS_DIRECTORY = new URL('../../migrations', import.meta.url).pathname;
+const THIS_MIGRATION = '1789200000000_garden-evaluation-watermark.sql';
 
 const dockerAvailable = await isDockerAvailable();
 if (!dockerAvailable) {
@@ -119,11 +121,20 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
   });
 
   it('drops cleanly on the down migration', async () => {
+    // Rolls back every migration from the newest down to this one
+    // INCLUSIVE, computed from the directory rather than hardcoded: a
+    // `count: 1` would silently start testing whichever migration happens
+    // to be last, which is exactly what broke when a later one landed.
+    const migrations = (await readdir(MIGRATIONS_DIRECTORY)).filter((name) =>
+      name.endsWith('.sql'),
+    );
+    const stepsBack = migrations.filter((name) => name.localeCompare(THIS_MIGRATION) >= 0).length;
+
     await runner({
       databaseUrl: container.getConnectionUri(),
       dir: MIGRATIONS_DIRECTORY,
       direction: 'down',
-      count: 1,
+      count: stepsBack,
       migrationsTable: 'pgmigrations',
       log: () => undefined,
     });
