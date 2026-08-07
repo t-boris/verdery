@@ -42,6 +42,8 @@ struct GardenTabView: View {
     private let onSwitchGarden: () -> Void
 
     @State private var isSettingsPresented = false
+    /// The account sheet, raised from the console strip's avatar.
+    @State private var isAccountPresented = false
     /// Whether the Plants tab's own candidates section is pushed — see the
     /// Plants `Tab`'s own `.navigationDestination(isPresented:)` below.
     @State private var isCandidatesPresented = false
@@ -223,14 +225,16 @@ struct GardenTabView: View {
         .safeAreaInset(edge: .bottom) {
             ConsoleStatusStrip(
                 gardenName: gardenName,
-                // The same glyph the garden toolbar button below uses, so the
-                // two read as one thing while both exist.
                 gardenSymbol: "tree.fill",
                 status: composition.syncStatusCenter.consoleStatus(strings: strings),
-                openGardens: onSwitchGarden,
-                openStatus: { isSettingsPresented = true }
+                accountInitials: composition.accountInitials,
+                accountLabel: strings(.profileTitle),
+                openGardens: { isSettingsPresented = true },
+                openStatus: { isSettingsPresented = true },
+                openAccount: { isAccountPresented = true }
             )
         }
+        .accountSheet(composition: composition, isPresented: $isAccountPresented)
         .sheet(isPresented: $isSettingsPresented) {
             GardenSettingsSheet(
                 composition: composition,
@@ -246,27 +250,13 @@ struct GardenTabView: View {
     /// One tab: its own `NavigationStack`, so each surface keeps its own
     /// history and switching tabs never discards where the reader was.
     ///
-    /// The garden button is applied here rather than per screen, so settings
-    /// are one tap away from all five surfaces instead of only from whichever
-    /// one happened to own them. The account button sits beside it for the
-    /// same reason: the leading slot answers "who and where am I", and an
-    /// account is not the property of any one tab.
+    /// The garden and account buttons used to be applied here, repeated on
+    /// all five tabs. They now live in the console status strip, which answers
+    /// "who and where am I" for the whole shell at once — so each screen's
+    /// navigation bar is free for that screen's own title and actions.
     private func stack<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         NavigationStack {
             content()
-                .accountToolbar(composition: composition)
-                .toolbar {
-                    ToolbarItem(placement: .navigation) {
-                        Button {
-                            isSettingsPresented = true
-                        } label: {
-                            Label(gardenName, systemImage: "tree.fill")
-                                .labelStyle(.titleAndIcon)
-                                .font(Typography.detail)
-                        }
-                        .accessibilityIdentifier("shell.gardenMenu")
-                    }
-                }
         }
     }
 }

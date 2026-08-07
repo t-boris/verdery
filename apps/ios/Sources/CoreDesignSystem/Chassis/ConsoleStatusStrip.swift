@@ -19,23 +19,33 @@ public struct ConsoleStatusStrip: View {
     private let gardenName: String
     private let gardenSymbol: String
     private let status: ConsoleStatus
+    private let accountInitials: String
+    private let accountLabel: String
     private let openGardens: () -> Void
     private let openStatus: () -> Void
+    private let openAccount: () -> Void
 
     @ScaledSize(Metrics.statusStripHeight, relativeTo: .caption2) private var stripHeight
+    @ScaledSize(Metrics.space5, relativeTo: .caption2) private var avatarSize
 
     public init(
         gardenName: String,
         gardenSymbol: String,
         status: ConsoleStatus,
+        accountInitials: String,
+        accountLabel: String,
         openGardens: @escaping () -> Void,
-        openStatus: @escaping () -> Void
+        openStatus: @escaping () -> Void,
+        openAccount: @escaping () -> Void
     ) {
         self.gardenName = gardenName
         self.gardenSymbol = gardenSymbol
         self.status = status
+        self.accountInitials = accountInitials
+        self.accountLabel = accountLabel
         self.openGardens = openGardens
         self.openStatus = openStatus
+        self.openAccount = openAccount
     }
 
     public var body: some View {
@@ -60,6 +70,22 @@ public struct ConsoleStatusStrip: View {
             Spacer(minLength: Metrics.space2)
 
             statusReadout
+
+            // "Who am I" belongs beside "where am I", which is what took both
+            // of these out of every tab's navigation bar.
+            Button(action: openAccount) {
+                Text(accountInitials)
+                    .font(FieldConsoleType.label.font)
+                    .foregroundStyle(Palette.consoleText)
+                    .frame(width: avatarSize, height: avatarSize)
+                    .background(Circle().fill(Palette.consoleSelected))
+                    .overlay(
+                        Circle().strokeBorder(Palette.consoleBorder, lineWidth: Metrics.hairline)
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(accountLabel)
+            .accessibilityIdentifier("console.status.account")
         }
         .padding(.horizontal, Metrics.space3)
         .frame(minHeight: stripHeight)

@@ -81,7 +81,42 @@ struct AccountToolbarModifier: ViewModifier {
 
 extension View {
     /// Adds the account button and its sheet to a shell's navigation bar.
+    ///
+    /// Still used by the gardens list, which has no console chassis under it —
+    /// there is no garden yet, so there is no status to report. Inside a
+    /// garden the avatar lives in the strip instead; see ``accountSheet``.
     func accountToolbar(composition: AppCompositionRoot) -> some View {
         modifier(AccountToolbarModifier(composition: composition))
+    }
+
+    /// The same sheet, without the button — for the shell that raises it from
+    /// the console strip's avatar rather than from a toolbar slot.
+    func accountSheet(
+        composition: AppCompositionRoot,
+        isPresented: Binding<Bool>
+    ) -> some View {
+        sheet(isPresented: isPresented) {
+            NavigationStack {
+                ProfileView(model: composition.makeProfileViewModel())
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button(composition.localizedStrings(.plantsClose)) {
+                                isPresented.wrappedValue = false
+                            }
+                        }
+                    }
+            }
+        }
+    }
+}
+
+extension AppCompositionRoot {
+    /// The one or two letters the console strip shows in place of a photograph.
+    public var accountInitials: String {
+        AccountInitials.from(
+            displayName: sessionObserver.currentAccount?.displayName,
+            emailAddress: sessionObserver.currentAccount?.emailAddress,
+            locale: locale
+        )
     }
 }
