@@ -59,6 +59,11 @@ Normalized weather data records:
 - Provider.
 - Temperature, precipitation, wind, humidity, and approved derived values.
 - Units and conversion provenance.
+- The accumulation interval a precipitation figure covers, when the provider documents one. Null
+  where it does not, and null is never read as an assumed hour or day: rows without a recorded
+  interval take part in no sum. Open-Meteo reports both an hourly `current.precipitation` and a
+  daily `precipitation_sum`, so recording the interval is what keeps a weekly total from counting
+  the current hour twice.
 - Confidence or provider quality where supplied.
 - License and redistribution constraints.
 

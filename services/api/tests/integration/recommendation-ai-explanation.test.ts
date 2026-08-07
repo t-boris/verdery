@@ -31,6 +31,7 @@ import {
 } from '../../src/modules/integrations/application/integrations-test-doubles.js';
 import {
   GenerateAiExplanation,
+  GetGardenPrecipitation,
   GetGardenWeather,
   KyselyProviderQuotaRepository,
   KyselyWeatherRecordRepository,
@@ -161,6 +162,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       unitOfWork,
       catalog,
       new GetGardenWeather(new KyselyWeatherRecordRepository(db), FRESHNESS, clock),
+      new GetGardenPrecipitation(new KyselyWeatherRecordRepository(db)),
       new KyselyGeoreferenceRepository(db),
       clock,
     );

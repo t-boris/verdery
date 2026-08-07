@@ -59,6 +59,11 @@ function ruleContentHash(definition: RuleDefinition): string {
 
 const PINNED_CONTENT_HASHES: Record<string, string> = {
   'watering.dry-spell-check@1': '99a7407134405aae6d90487b03dc7f572c94b158a618602571867e26c14d63cc',
+  // v2 decides on accumulated rainfall instead of one latest reading. v1's
+  // own hash above is unchanged by that work, which is the guarantee this
+  // map exists to give: new content ships as a new version, never as an
+  // edit to a shipped one.
+  'watering.dry-spell-check@2': 'e6b38b4e6e673c5e0400991eae286535867dddd4f45a3f6e02be6d6dd1f88f56',
   'observation.routine-check-reminder@1':
     '82a6c832311b9704d78d293eb16b93e6331e7a29353b73ffef21f07de4c8d96f',
   'lifecycle.harvest-readiness-check@1':
@@ -86,9 +91,10 @@ const EXPECTED_AWAITING_REVIEW_BY: Record<string, string> = {
 describe('launch rule catalog', () => {
   const catalog = createLaunchRuleCatalog();
 
-  it('ships exactly the seven launch rules, all at version 1 and all active', () => {
+  it('ships every version ever released, and evaluates only the highest of each key', () => {
     expect(catalog.allVersions().map((rule) => `${rule.ruleKey}@${String(rule.version)}`)).toEqual([
       'watering.dry-spell-check@1',
+      'watering.dry-spell-check@2',
       'observation.routine-check-reminder@1',
       'lifecycle.harvest-readiness-check@1',
       'weather.frost-watch@1',
@@ -96,7 +102,19 @@ describe('launch rule catalog', () => {
       'succession.replanting-reminder@1',
       'rotation.crop-rotation-caution@1',
     ]);
-    expect(catalog.activeRules()).toEqual(catalog.allVersions());
+
+    // v1 is retained but superseded: a stored candidate it produced must
+    // still be able to render its own explanation, and an evaluation must
+    // not run two versions of one rule against the same garden.
+    expect(catalog.activeRules().map((rule) => `${rule.ruleKey}@${String(rule.version)}`)).toEqual([
+      'watering.dry-spell-check@2',
+      'observation.routine-check-reminder@1',
+      'lifecycle.harvest-readiness-check@1',
+      'weather.frost-watch@1',
+      'seasonal.sowing-window-check@1',
+      'succession.replanting-reminder@1',
+      'rotation.crop-rotation-caution@1',
+    ]);
   });
 
   it('carries only generatable safety tiers — restricted is unrepresentable and absent', () => {
@@ -119,6 +137,7 @@ describe('launch rule catalog', () => {
 
   it('declares no excluded content category (enforced again by catalog validation)', () => {
     expect(catalog.allVersions().map((rule) => rule.careCategory)).toEqual([
+      'watering',
       'watering',
       'observation',
       'harvest',

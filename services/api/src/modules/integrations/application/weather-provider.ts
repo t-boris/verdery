@@ -41,6 +41,16 @@ export interface NormalizedWeatherReading {
   readonly kind: WeatherRecordKind;
   readonly effectiveAt: Date;
   readonly measurements: WeatherMeasurements;
+  /**
+   * What `measurements.precipitationMm` is a sum over, in seconds, when the
+   * adapter's provider documents it — `null` when it does not.
+   *
+   * An adapter that reports precipitation over more than one period (an
+   * hourly figure and a daily total, say) MUST distinguish them here, or
+   * accumulating rainfall over a window double counts the shorter period
+   * inside the longer one. See `WeatherRecord.precipitationIntervalSeconds`.
+   */
+  readonly precipitationIntervalSeconds: number | null;
   readonly sourceUnits: WeatherSourceUnits;
   readonly quality: WeatherProviderQuality;
 }

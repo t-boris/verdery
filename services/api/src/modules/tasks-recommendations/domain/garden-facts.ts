@@ -170,6 +170,117 @@ export interface OpenTaskFact {
   readonly originRuleKey: string | null;
 }
 
+/**
+ * One CLOSED task whose work provably addressed a given rule and target —
+ * section 4's "Recent ... tasks" input, the half that was missing.
+ *
+ * `openTasks` above only ever carried `planned`/`suggested` rows, so
+ * completing a watering task removed the very thing that was suppressing
+ * its own recommendation, and the recurrence clock still ran from the
+ * candidate's creation rather than from the moment the work was actually
+ * done. Watering on Friday and being asked again on Saturday is the
+ * observable consequence; the engine had no way to know the garden had
+ * been watered at all.
+ *
+ * `originRuleKey` is what makes the linkage PROVABLE, exactly as it does
+ * for `OpenTaskFact`: it comes from `task.origin_recommendation_id` joined
+ * through `rule_version`. A manual task carries `null` and never suppresses
+ * anything — a free-text title cannot be shown to mean "I watered this",
+ * and guessing would silently withhold care.
+ */
+export interface CompletedTaskFact {
+  readonly taskId: Uuid;
+  readonly target: RecommendationTarget;
+  readonly originRuleKey: string | null;
+  readonly completedAt: Date;
+}
+
+/**
+ * Elapsed rainfall over a bounded recent window, summed within ONE
+ * accumulation interval — the fact a watering decision actually needs.
+ *
+ * A single latest reading cannot answer "does this need water": it reports
+ * one provider-defined period, which for Open-Meteo's `current` block is
+ * the preceding hour. An hour without rain says nothing about a week of
+ * drought, and an hour of rain says nothing about whether the soil is wet.
+ * Accumulation is the difference between guessing and knowing.
+ *
+ * `null` on `GardenFacts` when the garden has no elapsed daily totals at
+ * all — no provider, no coordinates, or nothing fetched yet. A rule reads
+ * `null` as "unknown", never as "no rain fell": those lead to opposite
+ * actions, and inventing the second from the first is precisely the
+ * invented-value mistake.
+ */
+export interface PrecipitationWindowFact {
+  /** How far back gathering reached, in whole days from `evaluatedAt`. A rule may summarize a shorter window but never a longer one. */
+  readonly windowDays: number;
+  /**
+   * One entry per elapsed accumulation period, oldest first — raw provider
+   * totals, with no threshold applied.
+   *
+   * Deliberately not pre-summed: what counts as meaningful rain and how many
+   * days a decision needs are horticultural judgements, and those live in
+   * versioned reviewed rules, not in fact gathering. Rules summarize this
+   * with `summarizePrecipitationSince`.
+   */
+  readonly dailyTotals: readonly DailyPrecipitationFact[];
+}
+
+/** One elapsed day's rainfall total, exactly as the provider reported it. */
+export interface DailyPrecipitationFact {
+  readonly effectiveAt: Date;
+  readonly precipitationMm: number;
+}
+
+/** What a rule gets back from summarizing a sub-window of `PrecipitationWindowFact.dailyTotals`. */
+export interface PrecipitationSummary {
+  readonly totalMm: number;
+  /**
+   * How many daily totals the sub-window actually contains. Two days of
+   * history is not evidence of a five-day dry spell, so a rule that needs a
+   * full window checks this rather than reading a small total as drought.
+   */
+  readonly daysCovered: number;
+  /** The most recent day whose own total reached `meaningfulRainMm`, or `null` when none did. */
+  readonly lastWetDayAt: Date | null;
+}
+
+/**
+ * Sums the rainfall a rule's own window covers, applying the rule's own
+ * meaningful-rain threshold.
+ *
+ * Pure and total: an empty sub-window returns a zero total with
+ * `daysCovered: 0`, which a rule must read as "nothing measured", never as
+ * "no rain fell". The two lead to opposite actions and the difference is
+ * exactly what `daysCovered` exists to carry.
+ */
+export function summarizePrecipitationSince(
+  fact: PrecipitationWindowFact,
+  since: Date,
+  meaningfulRainMm: number,
+): PrecipitationSummary {
+  let totalMm = 0;
+  let daysCovered = 0;
+  let lastWetDayAt: Date | null = null;
+  for (const day of fact.dailyTotals) {
+    if (day.effectiveAt.getTime() < since.getTime()) {
+      continue;
+    }
+    totalMm += day.precipitationMm;
+    daysCovered += 1;
+    if (
+      day.precipitationMm >= meaningfulRainMm &&
+      (lastWetDayAt === null || day.effectiveAt.getTime() > lastWetDayAt.getTime())
+    ) {
+      lastWetDayAt = day.effectiveAt;
+    }
+  }
+  // Rounded to a tenth of a millimetre: summing floating-point provider
+  // values otherwise produces figures like 4.300000000000001 in an
+  // explanation a person reads.
+  return { totalMm: Math.round(totalMm * 10) / 10, daysCovered, lastWetDayAt };
+}
+
 /** The measurements a weather-dependent rule may consult — each nullable, mirroring `integrations`' own normalized record ("Missing facts remain missing" applies to provider data too). */
 export interface WeatherMeasurementFacts {
   readonly temperatureCelsius: number | null;
@@ -206,8 +317,21 @@ export interface GardenFacts {
   readonly plants: readonly PlantFact[];
   readonly observations: readonly ObservationFact[];
   readonly openTasks: readonly OpenTaskFact[];
+  /**
+   * Tasks CLOSED as done within a bounded recent window — see
+   * `CompletedTaskFact`. Consumed by the engine's recurrence phase, which
+   * measures a rule's spacing from the moment the work was actually done
+   * rather than only from when it was last suggested.
+   */
+  readonly completedTasks: readonly CompletedTaskFact[];
   readonly weatherObservation: WeatherFact;
   readonly weatherForecast: WeatherFact;
+  /**
+   * Elapsed rainfall over the engine's own accumulation window — see
+   * `PrecipitationWindowFact`. `null` when the garden has no elapsed daily
+   * totals at all, which a rule must read as "unknown", never as "dry".
+   */
+  readonly recentPrecipitation: PrecipitationWindowFact | null;
   /**
    * P9D-SEASON-DATA-01: derived from the garden's current georeference
    * (`GeoreferenceRepository.findCurrentForGarden`), never guessed — `null`
@@ -281,6 +405,30 @@ export function sameRecommendationTarget(
     a.gardenAreaMapObjectId === b.gardenAreaMapObjectId &&
     a.plantId === b.plantId
   );
+}
+
+/**
+ * The most recently completed task provably addressing this rule and
+ * target, or `null` when none is in the gathered window. Manual tasks are
+ * excluded by construction: their `originRuleKey` is `null` and can match no
+ * rule key, so they can never suppress care they cannot be shown to have
+ * delivered.
+ */
+export function latestCompletedForRuleAndTarget(
+  completedTasks: readonly CompletedTaskFact[],
+  ruleKey: string,
+  target: RecommendationTarget,
+): CompletedTaskFact | null {
+  let latest: CompletedTaskFact | null = null;
+  for (const task of completedTasks) {
+    if (task.originRuleKey !== ruleKey || !sameRecommendationTarget(task.target, target)) {
+      continue;
+    }
+    if (latest === null || task.completedAt.getTime() > latest.completedAt.getTime()) {
+      latest = task;
+    }
+  }
+  return latest;
 }
 
 /** The most recent observation fact for one plant, or `null` when the plant has never been observed — a derived fact, not an invented one. */

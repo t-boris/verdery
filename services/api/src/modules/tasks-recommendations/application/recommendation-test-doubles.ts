@@ -15,12 +15,13 @@ import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type { Georeference, GeoreferenceReader } from '../../gardens-mapping/public.js';
-import { GetGardenWeather } from '../../integrations/public.js';
+import { GetGardenPrecipitation, GetGardenWeather } from '../../integrations/public.js';
 import type {
   AiExplanationLocale,
   WeatherFreshnessPolicy,
   WeatherRecord,
   WeatherRecordKind,
+  PrecipitationEntry,
   WeatherRecordRepository,
 } from '../../integrations/public.js';
 import type {
@@ -417,6 +418,35 @@ export class FakeWeatherRecordRepository implements WeatherRecordRepository {
       .sort((a, b) => b.fetchedAt.getTime() - a.fetchedAt.getTime());
     return Promise.resolve(matching[0] ?? null);
   }
+
+  listElapsedPrecipitation(
+    gardenId: Uuid,
+    intervalSeconds: number,
+    since: Date,
+  ): Promise<readonly PrecipitationEntry[]> {
+    const entries = this.records
+      .filter(
+        (record) =>
+          record.gardenId === gardenId &&
+          record.kind === 'observation' &&
+          record.precipitationIntervalSeconds === intervalSeconds &&
+          record.measurements.precipitationMm !== null &&
+          record.effectiveAt.getTime() >= since.getTime(),
+      )
+      .sort((a, b) => a.effectiveAt.getTime() - b.effectiveAt.getTime())
+      .map((record) => ({
+        effectiveAt: record.effectiveAt,
+        precipitationMm: record.measurements.precipitationMm ?? 0,
+      }));
+    return Promise.resolve(entries);
+  }
+}
+
+/** A real `GetGardenPrecipitation` over the same in-memory record store — the identical "real concrete class over a fake port" construction. */
+export function getGardenPrecipitationOver(
+  records: readonly WeatherRecord[] = [],
+): GetGardenPrecipitation {
+  return new GetGardenPrecipitation(new FakeWeatherRecordRepository(records));
 }
 
 /** A real `GetGardenWeather` over the in-memory record store — the "real concrete class over a fake port" construction. */

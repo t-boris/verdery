@@ -22,6 +22,7 @@ import type {
   RuleSkipReason,
   SuppressionReason,
   TaxonomyFact,
+  PrecipitationWindowFact,
   WeatherFact,
 } from '../../src/modules/tasks-recommendations/public.js';
 import type {
@@ -91,8 +92,10 @@ export function gardenFacts(overrides: Partial<GardenFacts> = {}): GardenFacts {
     plants: [],
     observations: [],
     openTasks: [],
+    completedTasks: [],
     weatherObservation: { availability: 'missing' },
     weatherForecast: { availability: 'missing' },
+    recentPrecipitation: null,
     hemisphere: null,
     taxonomyFacts: [],
     priorBedOccupants: [],
@@ -198,17 +201,46 @@ export function weatherObservationFact(
   };
 }
 
-/** All launch rules are version 1, so the decision helpers below fix it. */
+/**
+ * Elapsed daily rainfall history for the accumulation `watering
+ * .dry-spell-check` v2 decides on. `dailyMm` is oldest-last: entry `0` is
+ * yesterday, entry `1` the day before, and so on, which is how a reviewer
+ * reads "the last N days" out loud.
+ */
+export function precipitationWindow(dailyMm: readonly number[]): PrecipitationWindowFact {
+  return {
+    windowDays: 14,
+    dailyTotals: dailyMm.map((precipitationMm, index) => ({
+      effectiveAt: new Date(FIXTURE_NOW.getTime() - (index + 1) * 24 * HOUR_MS),
+      precipitationMm,
+    })),
+  };
+}
+
+/** Seven elapsed days with no rain at all — the plainest dry spell. */
+export function rainlessWeek(): PrecipitationWindowFact {
+  return precipitationWindow([0, 0, 0, 0, 0, 0, 0]);
+}
+
+/**
+ * Every launch rule is at version 1 EXCEPT `watering.dry-spell-check`,
+ * which ships v2 as well; v2 is what an evaluation runs. The helpers below
+ * default to 1 and take an explicit version for the exception, so a fixture
+ * states the version it means rather than inheriting a stale assumption.
+ */
+export const ACTIVE_WATERING_RULE_VERSION = 2;
+
 export function fireDecision(
   ruleKey: string,
   plantId: string,
   priorityScore: number,
   supersedesCandidateId: string | null = null,
+  ruleVersion = 1,
 ): RuleDecision {
   return {
     kind: 'fire',
     ruleKey,
-    ruleVersion: 1,
+    ruleVersion,
     target: plantTarget(plantId),
     priorityScore,
     supersedesCandidateId,
@@ -219,18 +251,23 @@ export function notEligibleDecision(
   ruleKey: string,
   plantId: string,
   reasonCode: string,
+  ruleVersion = 1,
 ): RuleDecision {
   return {
     kind: 'targetNotEligible',
     ruleKey,
-    ruleVersion: 1,
+    ruleVersion,
     target: plantTarget(plantId),
     reasonCode,
   };
 }
 
-export function ruleSkippedDecision(ruleKey: string, reason: RuleSkipReason): RuleDecision {
-  return { kind: 'ruleSkipped', ruleKey, ruleVersion: 1, reason };
+export function ruleSkippedDecision(
+  ruleKey: string,
+  reason: RuleSkipReason,
+  ruleVersion = 1,
+): RuleDecision {
+  return { kind: 'ruleSkipped', ruleKey, ruleVersion, reason };
 }
 
 /**
@@ -274,11 +311,12 @@ export function suppressedDecision(
   ruleKey: string,
   plantId: string,
   reason: SuppressionReason,
+  ruleVersion = 1,
 ): RuleDecision {
   return {
     kind: 'targetSuppressed',
     ruleKey,
-    ruleVersion: 1,
+    ruleVersion,
     target: plantTarget(plantId),
     reason,
   };

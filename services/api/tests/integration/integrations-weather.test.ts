@@ -161,6 +161,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
             windSpeedMps: 2.4,
             humidityPercent: null,
           },
+          precipitationIntervalSeconds: null,
           sourceUnits: {
             temperature: 'fahrenheit',
             precipitation: null,
@@ -251,6 +252,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       providerKey: 'fake-provider-a',
       kind: 'observation' as const,
       location: { latitude: 52.1, longitude: 4.3 },
+      precipitationIntervalSeconds: null,
       sourceUnits: {
         temperature: 'celsius',
         precipitation: 'millimetre',

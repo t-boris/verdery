@@ -25,6 +25,8 @@ export interface WeatherRecordRow {
   precipitation_mm: number | null;
   wind_speed_mps: number | null;
   humidity_percent: number | null;
+  /** What `precipitation_mm` is a sum over. Null on rows written before the interval was recorded — never assume one. */
+  precipitation_interval_seconds: number | null;
   unit_system: Generated<string>;
   source_units: unknown;
   provider_confidence: number | null;

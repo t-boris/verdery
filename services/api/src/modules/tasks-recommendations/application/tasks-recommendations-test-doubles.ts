@@ -139,6 +139,19 @@ export class FakeTaskRepository implements TaskRepository {
     );
     return Promise.resolve(matches);
   }
+
+  listCompletedSince(gardenId: Uuid, since: Date): Promise<Task[]> {
+    const matches = [...this.tasks.values()]
+      .filter(
+        (task) =>
+          task.gardenId === gardenId &&
+          task.status === 'completed' &&
+          task.completedAt !== null &&
+          task.completedAt.getTime() >= since.getTime(),
+      )
+      .sort((a, b) => (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0));
+    return Promise.resolve(matches);
+  }
 }
 
 export class FakeTaskAttachmentRepository implements TaskAttachmentRepository {

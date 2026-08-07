@@ -149,10 +149,14 @@ export type {
 } from './domain/recommendation-feedback.js';
 
 export type {
+  CompletedTaskFact,
+  DailyPrecipitationFact,
   GardenFacts,
   ObservationFact,
   OpenTaskFact,
   PlantFact,
+  PrecipitationSummary,
+  PrecipitationWindowFact,
   PriorBedOccupantFact,
   PriorCandidateFact,
   PriorRecommendationState,
@@ -161,8 +165,10 @@ export type {
   WeatherMeasurementFacts,
 } from './domain/garden-facts.js';
 export {
+  latestCompletedForRuleAndTarget,
   latestObservationForPlant,
   priorBedOccupantFor,
+  summarizePrecipitationSince,
   sameRecommendationTarget,
   taxonomyFactFor,
 } from './domain/garden-facts.js';

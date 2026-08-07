@@ -3,7 +3,7 @@
 The single authoritative document a human horticultural reviewer reviews against and signs.
 It consolidates, in one place: the safety-tier model and where it is enforced, the excluded
 content categories and where each exclusion is enforced, the constraint rules for
-elevated-risk generation, the per-rule review ledger for all seven launch rules, the review
+elevated-risk generation, the per-rule review ledger for every shipped rule version, the review
 procedure, and the sign-off protocol.
 
 **Review status: AWAITING horticultural review.** No agent or engineer can perform a
@@ -170,33 +170,52 @@ every rejection falls back to the always-served deterministic text.
 
 ## 5. Launch rule ledger
 
-All seven rules: `reviewStatus: 'awaiting_horticultural_review'` — the original four under
+Seven rule KEYS, eight shipped VERSIONS: `watering.dry-spell-check` ships v1 and v2, and only
+v2 is evaluated (see 5.1). Every version carries
+`reviewStatus: 'awaiting_horticultural_review'` — the original four keys under
 `awaitingReviewBy: 'P7-SAFE-01'`, the three P9D-SEASON-RULES-01 seasonal rules under
 `awaitingReviewBy: 'P9D-SEASON-RULES-01'` (`RuleReviewMetadata`'s own widened
 `awaitingReviewBy` literal union, `domain/rule-definition.ts`) — carried in each rule's own
 `review` metadata and asserted by `launch-rule-catalog.test.ts` until a named reviewer
 replaces it. Rule sources live in
 `services/api/src/modules/tasks-recommendations/domain/rules/`; fixtures in
-`services/api/tests/rule-fixtures/` (44 scenarios total — 23 for the original four rules,
-21 for the three seasonal rules — each with per-scenario horticultural `reviewNotes`; the
-cross-rule file exercises the original four rules together, and each seasonal rule's own
-fixture file necessarily also pins the other two seasonal rules' decisions for the same
-facts, since the full seven-rule catalog runs on every fixture).
+`services/api/tests/rule-fixtures/` (46 scenarios total — 23 for the original four rules,
+21 for the three seasonal rules, 2 for the completed-work suppression — each with
+per-scenario horticultural `reviewNotes`; the cross-rule file exercises the original four
+rules together, and each seasonal rule's own fixture file necessarily also pins the other two
+seasonal rules' decisions for the same facts, since the full catalog runs on every fixture).
 
-### 5.1 `watering.dry-spell-check` v1 — ordinary care
+**Completed work is now an engine input.** A task provably originating from a rule and target,
+completed less than one recurrence interval ago, suppresses that rule for that target. Before
+this existed, completing a task removed the open task that had been suppressing its own
+recommendation and the clock still ran from when the work was last SUGGESTED — so watering a
+plant on Friday earned the same recommendation on Saturday. Equivalence is proved through
+`task.origin_recommendation_id`; a manual task carries none and suppresses nothing, because a
+free-text title cannot be shown to mean "I watered this".
 
-| Field            | Value                                                                                                                                                                 |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tier / category  | `ordinary_care` / `watering`; urgency `normal`                                                                                                                        |
-| Recommends       | "Check whether this plant needs watering" — a check, never an amount or schedule                                                                                      |
-| Trigger          | Latest weather observation ≥ 24 °C (`hotDayCelsius`) with ≤ 0.5 mm precipitation (`drySpellPrecipitationMmMax`); both measurements must be present, else a typed skip |
-| Eligible plants  | Active, in an active-growth stage: seedling, transplanted, growing, flowering, fruiting                                                                               |
-| Timing           | 48 h validity window, 72 h recurrence interval                                                                                                                        |
-| Weather posture  | `useLabeledStale` — fires on stale data with confidence 20 → 8 and the `stale` label in evidence and factor basis                                                     |
-| Priority         | 80 fresh (68 stale): urgency 20 + weather 25 + plant impact 15 + confidence 20/8                                                                                      |
-| Fixtures         | `watering-dry-spell-check.fixtures.ts`, 5 scenarios: fresh fire, labeled stale fire, cool-day skip, missing-measurement skip, dormant-plant not-eligible              |
-| Review questions | Are 24 °C / 0.5 mm sensible dry-spell thresholds? Should a cool dry day ever prompt a check? Is excluding dormant plants correct?                                     |
-| Status           | **Awaiting horticultural review**                                                                                                                                     |
+### 5.1 `watering.dry-spell-check` v2 — ordinary care
+
+**Supersedes v1.** v1 decided on a SINGLE latest precipitation figure, which for the selected
+provider is the preceding hour. An hour of calm is not a dry spell and an hour of rain does not
+water a garden, so v1 could recommend a watering check in the hour after a thunderstorm and stay
+silent through a genuinely parched week. v2 decides on rainfall ACCUMULATED over elapsed days.
+v1 remains in the catalog, unevaluated but renderable, so candidates it produced still explain
+themselves.
+
+| Field            | Value                                                                                                                                                                                                                              |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tier / category  | `ordinary_care` / `watering`; urgency `normal`                                                                                                                                                                                     |
+| Recommends       | "Check whether this plant needs watering" — a check plus a stated shortfall in millimetres, never an amount to apply or a schedule                                                                                                 |
+| Trigger          | Rainfall summed over the last 7 elapsed days (`dryWindowDays`) below half (`deficitFraction`) of a 25 mm reference weekly supply (`referenceWeeklySupplyMm`), AND the latest reading ≥ 20 °C (`warmDayCelsius`)                    |
+| Refuses to fire  | No rainfall history at all (unknown is never read as dry); fewer than 4 measured days (`minimumDaysCovered`) — a short window is not evidence of drought; no temperature measurement                                               |
+| Eligible plants  | Active, in an active-growth stage: seedling, transplanted, growing, flowering, fruiting                                                                                                                                            |
+| Timing           | 48 h validity window, 72 h recurrence interval — and the interval is measured from a COMPLETED watering task when one exists, so watering the plant silences its own check                                                         |
+| Weather posture  | `useLabeledStale` — the temperature reading may be aged, with confidence 20 → 8; the rainfall history is elapsed days and does not stale the same way                                                                              |
+| Priority         | 85 fresh (73 stale): urgency 20 + weather 30 (20 when the shortfall is milder) + plant impact 15 + confidence 20/8                                                                                                                 |
+| Fixtures         | `watering-dry-spell-check.fixtures.ts`, 5 scenarios: rainless-week fire, labeled stale fire, adequate-rainfall skip, no-history skip, dormant-plant not-eligible; plus `completed-care.fixtures.ts` for the completion suppression |
+| Review questions | Is 25 mm a defensible reference weekly supply, and is half of it the right line for "short of water"? Is 7 days the right window and 4 the right minimum history? Is 20 °C right? Is 72 h the right quiet period after a watering? |
+| Not claimed      | The rule reports rainfall short of a reference supply. It does NOT model soil moisture — this system stores no soil facts, and the wording must not imply one                                                                      |
+| Status           | **Awaiting horticultural review**                                                                                                                                                                                                  |
 
 ### 5.2 `observation.routine-check-reminder` v1 — ordinary care
 

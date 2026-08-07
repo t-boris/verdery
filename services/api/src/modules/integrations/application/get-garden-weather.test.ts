@@ -26,6 +26,7 @@ function storedRecord(overrides: Partial<WeatherRecord> = {}): WeatherRecord {
       fetchedAt: FETCHED_AT,
       location: { latitude: 52.1, longitude: 4.3 },
       measurements: reading.measurements,
+      precipitationIntervalSeconds: null,
       sourceUnits: reading.sourceUnits,
       quality: reading.quality,
       rawLicenseNote: 'test license',

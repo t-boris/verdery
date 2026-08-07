@@ -9,6 +9,7 @@
 
 import type { RuleFixture } from './fixture-support.js';
 import {
+  ACTIVE_WATERING_RULE_VERSION,
   DAY_MS,
   FIXTURE_NOW,
   HOUR_MS,
@@ -27,6 +28,7 @@ import {
   notEligibleDecision,
   plantFact,
   plantTarget,
+  rainlessWeek,
   priorCandidate,
   ruleSkippedDecision,
   suppressedDecision,
@@ -73,10 +75,11 @@ export const crossRuleFixtures: readonly RuleFixture[] = [
     })(),
     expected: {
       decisions: [
-        ruleSkippedDecision('watering.dry-spell-check', {
-          kind: 'weatherMissing',
-          requiredKind: 'observation',
-        }),
+        ruleSkippedDecision(
+          'watering.dry-spell-check',
+          { kind: 'weatherMissing', requiredKind: 'observation' },
+          ACTIVE_WATERING_RULE_VERSION,
+        ),
         suppressedDecision('observation.routine-check-reminder', PLANT_A_ID, {
           kind: 'liveCandidateExists',
           candidateId: PRIOR_CANDIDATE_A_ID,
@@ -117,6 +120,7 @@ export const crossRuleFixtures: readonly RuleFixture[] = [
         { taskId: TASK_B_ID, target: plantTarget(PLANT_B_ID), originRuleKey: null },
       ],
       weatherObservation: weatherObservationFact(),
+      recentPrecipitation: rainlessWeek(),
     }),
     prior: noPrior(),
     expected: {
@@ -125,8 +129,15 @@ export const crossRuleFixtures: readonly RuleFixture[] = [
           'watering.dry-spell-check',
           PLANT_A_ID,
           'plant.lifecycle_stage_not_active_growth',
+          ACTIVE_WATERING_RULE_VERSION,
         ),
-        fireDecision('watering.dry-spell-check', PLANT_B_ID, 65),
+        fireDecision(
+          'watering.dry-spell-check',
+          PLANT_B_ID,
+          70,
+          null,
+          ACTIVE_WATERING_RULE_VERSION,
+        ),
         notEligibleDecision(
           'observation.routine-check-reminder',
           PLANT_A_ID,
@@ -155,7 +166,7 @@ export const crossRuleFixtures: readonly RuleFixture[] = [
       plannedCandidates: [
         {
           ruleKey: 'watering.dry-spell-check',
-          ruleVersion: 1,
+          ruleVersion: ACTIVE_WATERING_RULE_VERSION,
           safetyTier: 'ordinary_care',
           careCategory: 'watering',
           target: plantTarget(PLANT_B_ID),
@@ -169,12 +180,14 @@ export const crossRuleFixtures: readonly RuleFixture[] = [
               sourceTaskId: null,
               sourcePlantId: null,
               sourceWeatherRecordId: WEATHER_OBSERVATION_ID,
-              factKey: 'weather.dry_spell_observation',
+              factKey: 'weather.accumulated_rainfall',
               factValue: {
+                windowDays: 7,
+                totalMm: 0,
+                daysCovered: 7,
+                lastWetDayAt: null,
                 temperatureCelsius: 27,
-                precipitationMm: 0,
                 freshness: 'fresh',
-                effectiveAt: '2026-07-25T08:30:00.000Z',
               },
             },
             {
@@ -195,21 +208,26 @@ export const crossRuleFixtures: readonly RuleFixture[] = [
             },
             {
               kind: 'weather_opportunity_or_risk',
-              contribution: 25,
-              basis: { temperatureCelsius: 27, precipitationMm: 0 },
+              contribution: 30,
+              basis: { totalMm: 0, thresholdMm: 12.5, shortfallMm: 25 },
             },
             { kind: 'plant_impact', contribution: 15, basis: { lifecycleStage: 'growing' } },
-            { kind: 'confidence', contribution: 20, basis: { weatherFreshness: 'fresh' } },
+            {
+              kind: 'confidence',
+              contribution: 20,
+              basis: { weatherFreshness: 'fresh', daysCovered: 7 },
+            },
             {
               kind: 'task_overlap',
               contribution: -15,
               basis: { openTaskIds: [TASK_B_ID] },
             },
           ],
-          priorityScore: 65,
+          priorityScore: 70,
           explanation:
-            'Recent weather at this garden was warm (27 °C) with almost no rain (0 mm). Basil ' +
-            'pot is in its growing stage, so check whether it needs watering.',
+            'This garden has had 0 mm of rain over the last 7 days — about 25 mm less than ' +
+            'the window usually supplies — and the latest reading is 27 °C. Basil pot is in ' +
+            'its growing stage, so check whether it needs watering.',
           supersedesCandidateId: null,
           supersedesLiveCandidate: null,
         },
@@ -234,6 +252,7 @@ export const crossRuleFixtures: readonly RuleFixture[] = [
       ],
       weatherObservation: weatherObservationFact(),
       weatherForecast: weatherForecastFact(),
+      recentPrecipitation: rainlessWeek(),
     }),
     prior: noPrior(),
     expectedPriorityOrder: [
@@ -243,7 +262,13 @@ export const crossRuleFixtures: readonly RuleFixture[] = [
     ],
     expected: {
       decisions: [
-        fireDecision('watering.dry-spell-check', PLANT_A_ID, 80),
+        fireDecision(
+          'watering.dry-spell-check',
+          PLANT_A_ID,
+          85,
+          null,
+          ACTIVE_WATERING_RULE_VERSION,
+        ),
         fireDecision('observation.routine-check-reminder', PLANT_A_ID, 40),
         notEligibleDecision(
           'lifecycle.harvest-readiness-check',
@@ -256,7 +281,7 @@ export const crossRuleFixtures: readonly RuleFixture[] = [
       plannedCandidates: [
         {
           ruleKey: 'watering.dry-spell-check',
-          ruleVersion: 1,
+          ruleVersion: ACTIVE_WATERING_RULE_VERSION,
           safetyTier: 'ordinary_care',
           careCategory: 'watering',
           target: plantTarget(PLANT_A_ID),
@@ -270,12 +295,14 @@ export const crossRuleFixtures: readonly RuleFixture[] = [
               sourceTaskId: null,
               sourcePlantId: null,
               sourceWeatherRecordId: WEATHER_OBSERVATION_ID,
-              factKey: 'weather.dry_spell_observation',
+              factKey: 'weather.accumulated_rainfall',
               factValue: {
+                windowDays: 7,
+                totalMm: 0,
+                daysCovered: 7,
+                lastWetDayAt: null,
                 temperatureCelsius: 27,
-                precipitationMm: 0,
                 freshness: 'fresh',
-                effectiveAt: '2026-07-25T08:30:00.000Z',
               },
             },
             {
@@ -296,16 +323,21 @@ export const crossRuleFixtures: readonly RuleFixture[] = [
             },
             {
               kind: 'weather_opportunity_or_risk',
-              contribution: 25,
-              basis: { temperatureCelsius: 27, precipitationMm: 0 },
+              contribution: 30,
+              basis: { totalMm: 0, thresholdMm: 12.5, shortfallMm: 25 },
             },
             { kind: 'plant_impact', contribution: 15, basis: { lifecycleStage: 'flowering' } },
-            { kind: 'confidence', contribution: 20, basis: { weatherFreshness: 'fresh' } },
+            {
+              kind: 'confidence',
+              contribution: 20,
+              basis: { weatherFreshness: 'fresh', daysCovered: 7 },
+            },
           ],
-          priorityScore: 80,
+          priorityScore: 85,
           explanation:
-            'Recent weather at this garden was warm (27 °C) with almost no rain (0 mm). ' +
-            'Strawberry patch is in its flowering stage, so check whether it needs watering.',
+            'This garden has had 0 mm of rain over the last 7 days — about 25 mm less than ' +
+            'the window usually supplies — and the latest reading is 27 °C. Strawberry patch ' +
+            'is in its flowering stage, so check whether it needs watering.',
           supersedesCandidateId: null,
           supersedesLiveCandidate: null,
         },

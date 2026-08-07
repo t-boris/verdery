@@ -12,6 +12,7 @@
 import type { PlannedCandidate } from '../../src/modules/tasks-recommendations/public.js';
 import type { RuleFixture } from './fixture-support.js';
 import {
+  ACTIVE_WATERING_RULE_VERSION,
   DAY_MS,
   FIXTURE_NOW,
   PLANT_A_ID,
@@ -32,10 +33,11 @@ import {
 } from './fixture-support.js';
 
 const ORIGINAL_FOUR_RULES_QUIET = [
-  ruleSkippedDecision('watering.dry-spell-check', {
-    kind: 'weatherMissing',
-    requiredKind: 'observation',
-  }),
+  ruleSkippedDecision(
+    'watering.dry-spell-check',
+    { kind: 'weatherMissing', requiredKind: 'observation' },
+    ACTIVE_WATERING_RULE_VERSION,
+  ),
   notEligibleDecision('observation.routine-check-reminder', PLANT_A_ID, 'plant.recently_observed'),
   notEligibleDecision(
     'lifecycle.harvest-readiness-check',

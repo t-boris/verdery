@@ -96,11 +96,17 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import { generateUuidV7 } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import type { GeoreferenceReader } from '../../gardens-mapping/public.js';
-import type { GetGardenWeather, GetGardenWeatherResult } from '../../integrations/public.js';
+import type {
+  GetGardenPrecipitation,
+  GetGardenWeather,
+  GetGardenWeatherResult,
+  PrecipitationEntry,
+} from '../../integrations/public.js';
 import type {
   PlantFact,
   GardenFacts,
   Hemisphere,
+  PrecipitationWindowFact,
   PriorCandidateFact,
   WeatherFact,
 } from '../domain/garden-facts.js';
@@ -130,6 +136,32 @@ import type {
 
 /** Page size for the in-transaction plant scan — a paging mechanic, not a tuning knob. */
 const PLANT_PAGE_SIZE = 200;
+
+/**
+ * How far back completed work and elapsed rainfall are gathered.
+ *
+ * Fourteen days is not a rule parameter — it is the ceiling that makes the
+ * gathered window big enough for every rule that reads it. The longest
+ * recurrence interval any launch rule declares is 30 days
+ * (`rotation.crop-rotation-caution`), but recurrence for THAT rule is
+ * governed by candidate history rather than completions, and the two facts
+ * this window feeds — a watering completion and a week of rainfall — are
+ * both far shorter-lived. A wider window would return rows no rule can use;
+ * a narrower one would silently truncate the rainfall total.
+ */
+const CARE_HISTORY_WINDOW_DAYS = 14;
+
+/**
+ * The accumulation interval the rainfall window sums within: whole days.
+ *
+ * A provider may report the same rainfall over several periods at once, and
+ * adding an hourly figure to the daily total that contains it counts that
+ * hour twice. Daily totals are the complete, non-overlapping series, so they
+ * are the series summed. See `WeatherRecordRepository.listElapsedPrecipitation`.
+ */
+const DAILY_ACCUMULATION_INTERVAL_SECONDS = 24 * 60 * 60;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface EvaluateGardenRecommendationsInput {
   readonly gardenId: Uuid;
@@ -195,6 +227,8 @@ export class EvaluateGardenRecommendations {
     private readonly unitOfWork: TasksRecommendationsUnitOfWork,
     private readonly catalog: RuleCatalog,
     private readonly getGardenWeather: GetGardenWeather,
+    /** Elapsed rainfall over the care-history window — see `toPrecipitationWindowFact`. Read before the transaction for the same reason weather is: append-only fetch facts a transaction cannot make more consistent. */
+    private readonly getGardenPrecipitation: GetGardenPrecipitation,
     private readonly georeferenceRepository: GeoreferenceReader,
     private readonly clock: Clock,
   ) {}
@@ -212,6 +246,16 @@ export class EvaluateGardenRecommendations {
     const georeference = await this.georeferenceRepository.findCurrentForGarden(gardenId);
     const hemisphere: Hemisphere | null = deriveHemisphere(georeference?.geographicAnchor ?? null);
 
+    const precipitationSince = new Date(
+      this.clock.now().getTime() - CARE_HISTORY_WINDOW_DAYS * DAY_MS,
+    );
+    const precipitationEntries = await this.getGardenPrecipitation.execute({
+      gardenId,
+      since: precipitationSince,
+      intervalSeconds: DAILY_ACCUMULATION_INTERVAL_SECONDS,
+    });
+    const recentPrecipitation = toPrecipitationWindowFact(precipitationEntries);
+
     return this.unitOfWork.run(async (context) => {
       await context.recommendationCandidates.lockGardenForEvaluation(gardenId);
       const evaluatedAt = this.clock.now();
@@ -224,6 +268,7 @@ export class EvaluateGardenRecommendations {
         weatherObservation,
         weatherForecast,
         hemisphere,
+        recentPrecipitation,
       );
 
       const liveStored = await context.recommendationCandidates.listLiveForGarden(gardenId);
@@ -389,6 +434,33 @@ export class EvaluateGardenRecommendations {
   }
 }
 
+/**
+ * Turns raw elapsed period totals into the window fact rules read.
+ *
+ * `null` for an empty series, and that distinction carries weight: no
+ * measurements means UNKNOWN rainfall, not zero rainfall, and the two lead
+ * to opposite actions. A rule reading `null` skips rather than declaring a
+ * drought nobody measured.
+ *
+ * No threshold and no summing here — what counts as meaningful rain, and
+ * over how many days, are horticultural judgements belonging to versioned
+ * reviewed rules. This function only reshapes measurements.
+ */
+function toPrecipitationWindowFact(
+  entries: readonly PrecipitationEntry[],
+): PrecipitationWindowFact | null {
+  if (entries.length === 0) {
+    return null;
+  }
+  return {
+    windowDays: CARE_HISTORY_WINDOW_DAYS,
+    dailyTotals: entries.map((entry) => ({
+      effectiveAt: entry.effectiveAt,
+      precipitationMm: entry.precipitationMm,
+    })),
+  };
+}
+
 /** Reads the garden's plants (all pages, id-ordered for deterministic engine input), observations, open tasks with their origin rule keys resolved, and the P9D-SEASON-RULES-01 taxonomy/bed-occupancy facts those plants' own taxa and placements justify. */
 async function gatherGardenFacts(
   context: TasksRecommendationsTransactionContext,
@@ -397,6 +469,7 @@ async function gatherGardenFacts(
   weatherObservation: WeatherFact,
   weatherForecast: WeatherFact,
   hemisphere: Hemisphere | null,
+  recentPrecipitation: PrecipitationWindowFact | null,
 ): Promise<GardenFacts> {
   const plants: PlantFact[] = [];
   let cursor: string | null = null;
@@ -441,6 +514,36 @@ async function gatherGardenFacts(
     originCandidates.map((stored) => [stored.candidate.id, stored.ruleKey]),
   );
 
+  // Work actually done, provably attributable to a rule and target through
+  // the same `origin_recommendation_id` linkage open-task suppression uses.
+  const historySince = new Date(evaluatedAt.getTime() - CARE_HISTORY_WINDOW_DAYS * DAY_MS);
+  const completedRows = await context.tasks.listCompletedSince(gardenId, historySince);
+  const completedOriginIds = completedRows
+    .map((task) => task.originRecommendationId)
+    .filter((id): id is Uuid => id !== null);
+  const completedOriginCandidates =
+    await context.recommendationCandidates.findWithRuleByIds(completedOriginIds);
+  const completedRuleKeyByCandidateId = new Map(
+    completedOriginCandidates.map((stored) => [stored.candidate.id, stored.ruleKey]),
+  );
+  const completedTasks = completedRows
+    // `completedAt` is non-null for exactly this status; a row without one
+    // records no moment of completion and cannot time anything.
+    .filter((task) => task.completedAt !== null)
+    .map((task) => ({
+      taskId: task.id,
+      target: {
+        kind: task.targetKind,
+        gardenAreaMapObjectId: task.targetGardenAreaMapObjectId,
+        plantId: task.targetPlantId,
+      },
+      originRuleKey:
+        task.originRecommendationId === null
+          ? null
+          : (completedRuleKeyByCandidateId.get(task.originRecommendationId) ?? null),
+      completedAt: task.completedAt as Date,
+    }));
+
   const taxonomyFacts = await gatherTaxonomyFacts(context, plants, hemisphere);
   const priorBedOccupants = await gatherPriorBedOccupants(
     context,
@@ -466,8 +569,10 @@ async function gatherGardenFacts(
           ? null
           : (ruleKeyByCandidateId.get(task.originRecommendationId) ?? null),
     })),
+    completedTasks,
     weatherObservation,
     weatherForecast,
+    recentPrecipitation,
     hemisphere,
     taxonomyFacts,
     priorBedOccupants,

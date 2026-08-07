@@ -33,6 +33,7 @@ import {
   EnrichTaxonProfile,
   GBIF_PROVIDER_KEY,
   GenerateAiExplanation,
+  GetGardenPrecipitation,
   GetGardenWeather,
   GetGardenWeatherView,
   IdentifyPlantSpecies,
@@ -107,6 +108,8 @@ export const PLANT_CONDITION_AI_PROVIDER_KEY = 'vertex-ai-plant-condition';
 export interface IntegrationsComposition {
   /** Consumed by tasks-recommendations' `EvaluateGardenRecommendations` — the cross-module use-case injection precedent. */
   readonly getGardenWeather: GetGardenWeather;
+  /** Consumed by tasks-recommendations' `EvaluateGardenRecommendations` for its rainfall-accumulation fact — the same cross-module use-case injection precedent. */
+  readonly getGardenPrecipitation: GetGardenPrecipitation;
   /** Consumed by tasks-recommendations' `EmbellishRecommendationExplanations` (P7-AI-01) — same precedent. Typed `noProviderConfigured` whenever the adapter is null. */
   readonly generateAiExplanation: GenerateAiExplanation;
   /** ADR-0015: consumed by plants-inventory's `AddPlantFromPhoto` — the same cross-module use-case injection precedent. Typed `noProviderConfigured` whenever the adapter is null (every environment today, pending the manual spot-check and provider-terms verification ADR-0015 names). */
@@ -242,6 +245,7 @@ export function composeIntegrations(
   );
 
   const getGardenWeather = new GetGardenWeather(weatherRecords, freshnessPolicy, clock);
+  const getGardenPrecipitation = new GetGardenPrecipitation(weatherRecords);
 
   // The client-facing read over that same use case. `activeProviderKey` is
   // passed so the response can report `noProviderConfigured` as a typed
@@ -423,6 +427,7 @@ export function composeIntegrations(
 
   return {
     getGardenWeather,
+    getGardenPrecipitation,
     generateAiExplanation,
     identifyPlantSpecies,
     analyzePlantCondition,

@@ -9519,3 +9519,6 @@ of seven rules could never fire and a new plant produced nothing for fourteen da
       an AI-drafted proposal into the review queue, inert and unreadable by the
       engine until a named reviewer accepts or corrects it. `ai_proposed_reviewed`
       already exists in the domain's authoring vocabulary for exactly this.
+- [ ] **13. Richer weather visualisation on the web.** Charts, icons and a
+      7-day rainfall bar with the watering threshold marked — the accumulation work
+      in step 9 is what makes the chart possible and honest.

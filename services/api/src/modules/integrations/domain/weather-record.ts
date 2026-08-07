@@ -90,6 +90,18 @@ export interface WeatherRecord {
   readonly fetchedAt: Date;
   readonly location: WeatherLocation;
   readonly measurements: WeatherMeasurements;
+  /**
+   * The period `measurements.precipitationMm` accumulates over, in seconds,
+   * when the provider documents one — `null` otherwise, including on every
+   * row written before this was recorded.
+   *
+   * `null` does NOT mean "an hour" or "a day". Two rows of different
+   * intervals cannot be added together, so the accumulation reader selects a
+   * single interval class and a row with no recorded interval takes part in
+   * no sum at all. Inventing an interval here would misstate provider data
+   * — the same reason the field exists rather than being assumed.
+   */
+  readonly precipitationIntervalSeconds: number | null;
   readonly sourceUnits: WeatherSourceUnits;
   readonly quality: WeatherProviderQuality;
   /** License and redistribution constraints snapshot, from the registry entry that produced the row. */
@@ -240,11 +252,44 @@ export interface CreateWeatherRecordInput {
   readonly fetchedAt: Date;
   readonly location: WeatherLocation;
   readonly measurements: WeatherMeasurements;
+  /** See `WeatherRecord.precipitationIntervalSeconds`. Adapters pass the interval their provider documents, or `null`. */
+  readonly precipitationIntervalSeconds: number | null;
   readonly sourceUnits: WeatherSourceUnits;
   readonly quality: WeatherProviderQuality;
   readonly rawLicenseNote: string;
   readonly attributionText: string | null;
   readonly now: Date;
+}
+
+/**
+ * Mirrors `weather_record_precipitation_interval_check`: an interval may be
+ * recorded only where there is a precipitation figure for it to describe,
+ * and it must be a positive whole number of seconds. An interval attached to
+ * an absent measurement is a defect in an adapter, not a tolerable oddity —
+ * it would make a row claim to summarize a period over nothing.
+ */
+export function validatePrecipitationInterval(
+  intervalSeconds: number | null,
+  measurements: WeatherMeasurements,
+): number | null {
+  if (intervalSeconds === null) {
+    return null;
+  }
+  if (!Number.isInteger(intervalSeconds) || intervalSeconds <= 0) {
+    throw invalid(
+      'precipitationIntervalSeconds must be a positive whole number of seconds.',
+      'integrations.weather_record.precipitation_interval.invalid',
+      '/precipitationIntervalSeconds',
+    );
+  }
+  if (measurements.precipitationMm === null) {
+    throw invalid(
+      'precipitationIntervalSeconds requires a precipitation measurement to describe.',
+      'integrations.weather_record.precipitation_interval.without_measurement',
+      '/precipitationIntervalSeconds',
+    );
+  }
+  return intervalSeconds;
 }
 
 /**
@@ -287,6 +332,10 @@ export function createWeatherRecord(input: CreateWeatherRecordInput): WeatherRec
     fetchedAt: input.fetchedAt,
     location: validateWeatherLocation(input.location),
     measurements: input.measurements,
+    precipitationIntervalSeconds: validatePrecipitationInterval(
+      input.precipitationIntervalSeconds,
+      input.measurements,
+    ),
     sourceUnits: input.sourceUnits,
     quality: validateWeatherQuality(input.quality),
     licenseNote,

@@ -1,14 +1,25 @@
 /**
- * Fixtures for `watering.dry-spell-check` v1 — see README.md for how to
- * review. Covers: firing on a fresh warm dry reading, the labeled
- * reduced-confidence firing on a STALE reading, the below-threshold skip,
- * the missing-measurement skip (nothing invented), and the
+ * Fixtures for `watering.dry-spell-check` **v2** — see README.md for how to
+ * review.
+ *
+ * v2 decides on rainfall ACCUMULATED across elapsed days rather than on one
+ * latest precipitation figure, which for the selected provider is the
+ * preceding hour. An hour of calm is not a dry spell, and an hour of rain
+ * does not water a garden; the accumulation is the question a gardener
+ * actually asks. v1 remains shipped and renderable but is no longer
+ * evaluated, so these fixtures describe v2.
+ *
+ * Covers: firing on a warm reading over a rainless week, the labeled
+ * reduced-confidence firing on a STALE reading, the adequate-rainfall skip,
+ * the too-little-history skip (a short window is not evidence of drought),
+ * the no-history-at-all skip (unknown is never read as dry), and the
  * dormant-plant eligibility miss.
  */
 
 import type { PlannedCandidate } from '../../src/modules/tasks-recommendations/public.js';
 import type { RuleFixture } from './fixture-support.js';
 import {
+  ACTIVE_WATERING_RULE_VERSION,
   FIXTURE_NOW,
   HOUR_MS,
   PLANT_A_ID,
@@ -20,15 +31,17 @@ import {
   notEligibleDecision,
   plantFact,
   plantTarget,
+  precipitationWindow,
+  rainlessWeek,
   ruleSkippedDecision,
   weatherObservationFact,
 } from './fixture-support.js';
 
-/** The expected candidate for PLANT_A in the standard 27 °C / 0 mm reading, parameterized by freshness only. */
+/** The expected candidate for PLANT_A in the standard 27 °C reading over a rainless week, parameterized by freshness only. */
 function wateringCandidate(freshness: 'fresh' | 'stale'): PlannedCandidate {
   return {
     ruleKey: 'watering.dry-spell-check',
-    ruleVersion: 1,
+    ruleVersion: ACTIVE_WATERING_RULE_VERSION,
     safetyTier: 'ordinary_care',
     careCategory: 'watering',
     target: plantTarget(PLANT_A_ID),
@@ -42,12 +55,14 @@ function wateringCandidate(freshness: 'fresh' | 'stale'): PlannedCandidate {
         sourceTaskId: null,
         sourcePlantId: null,
         sourceWeatherRecordId: WEATHER_OBSERVATION_ID,
-        factKey: 'weather.dry_spell_observation',
+        factKey: 'weather.accumulated_rainfall',
         factValue: {
+          windowDays: 7,
+          totalMm: 0,
+          daysCovered: 7,
+          lastWetDayAt: null,
           temperatureCelsius: 27,
-          precipitationMm: 0,
           freshness,
-          effectiveAt: '2026-07-25T08:30:00.000Z',
         },
       },
       {
@@ -68,20 +83,21 @@ function wateringCandidate(freshness: 'fresh' | 'stale'): PlannedCandidate {
       },
       {
         kind: 'weather_opportunity_or_risk',
-        contribution: 25,
-        basis: { temperatureCelsius: 27, precipitationMm: 0 },
+        contribution: 30,
+        basis: { totalMm: 0, thresholdMm: 12.5, shortfallMm: 25 },
       },
       { kind: 'plant_impact', contribution: 15, basis: { lifecycleStage: 'growing' } },
       {
         kind: 'confidence',
         contribution: freshness === 'fresh' ? 20 : 8,
-        basis: { weatherFreshness: freshness },
+        basis: { weatherFreshness: freshness, daysCovered: 7 },
       },
     ],
-    priorityScore: freshness === 'fresh' ? 80 : 68,
+    priorityScore: freshness === 'fresh' ? 85 : 73,
     explanation:
-      'Recent weather at this garden was warm (27 °C) with almost no rain (0 mm). Cherry ' +
-      'tomato is in its growing stage, so check whether it needs watering.',
+      'This garden has had 0 mm of rain over the last 7 days — about 25 mm less than the ' +
+      'window usually supplies — and the latest reading is 27 °C. Cherry tomato is in its ' +
+      'growing stage, so check whether it needs watering.',
     supersedesCandidateId: null,
     supersedesLiveCandidate: null,
   };
@@ -99,11 +115,18 @@ export const wateringDrySpellCheckFixtures: readonly RuleFixture[] = [
     facts: gardenFacts({
       plants: [plantFact({ plantId: PLANT_A_ID })],
       weatherObservation: weatherObservationFact(),
+      recentPrecipitation: rainlessWeek(),
     }),
     prior: noPrior(),
     expected: {
       decisions: [
-        fireDecision('watering.dry-spell-check', PLANT_A_ID, 80),
+        fireDecision(
+          'watering.dry-spell-check',
+          PLANT_A_ID,
+          85,
+          null,
+          ACTIVE_WATERING_RULE_VERSION,
+        ),
         notEligibleDecision(
           'observation.routine-check-reminder',
           PLANT_A_ID,
@@ -134,11 +157,18 @@ export const wateringDrySpellCheckFixtures: readonly RuleFixture[] = [
     facts: gardenFacts({
       plants: [plantFact({ plantId: PLANT_A_ID })],
       weatherObservation: weatherObservationFact({ freshness: 'stale' }),
+      recentPrecipitation: rainlessWeek(),
     }),
     prior: noPrior(),
     expected: {
       decisions: [
-        fireDecision('watering.dry-spell-check', PLANT_A_ID, 68),
+        fireDecision(
+          'watering.dry-spell-check',
+          PLANT_A_ID,
+          73,
+          null,
+          ACTIVE_WATERING_RULE_VERSION,
+        ),
         notEligibleDecision(
           'observation.routine-check-reminder',
           PLANT_A_ID,
@@ -159,29 +189,28 @@ export const wateringDrySpellCheckFixtures: readonly RuleFixture[] = [
     },
   },
   {
-    name: 'skips when the weather does not indicate a warm dry spell',
+    name: 'skips when the week supplied enough rain, however dry the last hour was',
     reviewNotes:
-      'An 18 °C reading with 0 mm precipitation is below the hot-day threshold, so the whole ' +
-      'rule skips with a typed reason and no candidate exists. Review: should a cool dry day ' +
-      'ever prompt a watering check?',
+      'A rainless CURRENT reading, but 20 mm fell across the week — above the 12.5 mm ' +
+      'deficit threshold. v1 would have fired here purely because the latest hourly figure ' +
+      'was 0 mm; v2 does not, which is the whole point of the version. Review: is half the ' +
+      'reference weekly supply the right line to call a garden short of water?',
     facts: gardenFacts({
       plants: [plantFact({ plantId: PLANT_A_ID })],
-      weatherObservation: weatherObservationFact({
-        measurements: {
-          temperatureCelsius: 18,
-          precipitationMm: 0,
-          windSpeedMps: null,
-          humidityPercent: null,
-        },
-      }),
+      weatherObservation: weatherObservationFact(),
+      recentPrecipitation: precipitationWindow([0, 0, 12, 0, 8, 0, 0]),
     }),
     prior: noPrior(),
     expected: {
       decisions: [
-        ruleSkippedDecision('watering.dry-spell-check', {
-          kind: 'factMissing',
-          detail: 'Current weather does not indicate a warm dry spell.',
-        }),
+        ruleSkippedDecision(
+          'watering.dry-spell-check',
+          {
+            kind: 'factMissing',
+            detail: 'Recent rainfall is close enough to what this window normally supplies.',
+          },
+          ACTIVE_WATERING_RULE_VERSION,
+        ),
         notEligibleDecision(
           'observation.routine-check-reminder',
           PLANT_A_ID,
@@ -202,31 +231,29 @@ export const wateringDrySpellCheckFixtures: readonly RuleFixture[] = [
     },
   },
   {
-    name: 'skips when a needed measurement is absent — the missing fact is never invented',
+    name: 'skips when the garden has no measured rainfall history — unknown is never read as dry',
     reviewNotes:
-      'The weather record exists and is fresh and warm, but its precipitation measurement is ' +
-      'null (the provider did not report one). The rule needs both measurements, so it skips ' +
-      'with a typed missing-fact reason. Nothing substitutes a guessed precipitation value — ' +
-      'the phase exit criterion in fixture form.',
+      'A fresh, warm weather reading, but this garden has no elapsed daily rainfall at all ' +
+      '(no provider, no coordinates, or nothing fetched yet). The rule refuses to call that a ' +
+      'dry spell. This is the phase exit criterion in fixture form: an absent measurement is ' +
+      'never substituted with zero, because "no rain fell" and "we did not measure" lead to ' +
+      'opposite actions.',
     facts: gardenFacts({
       plants: [plantFact({ plantId: PLANT_A_ID })],
-      weatherObservation: weatherObservationFact({
-        measurements: {
-          temperatureCelsius: 27,
-          precipitationMm: null,
-          windSpeedMps: null,
-          humidityPercent: null,
-        },
-      }),
+      weatherObservation: weatherObservationFact(),
+      recentPrecipitation: null,
     }),
     prior: noPrior(),
     expected: {
       decisions: [
-        ruleSkippedDecision('watering.dry-spell-check', {
-          kind: 'factMissing',
-          detail:
-            'The latest weather observation lacks a temperature or precipitation measurement.',
-        }),
+        ruleSkippedDecision(
+          'watering.dry-spell-check',
+          {
+            kind: 'factMissing',
+            detail: 'This garden has no measured rainfall history to accumulate.',
+          },
+          ACTIVE_WATERING_RULE_VERSION,
+        ),
         notEligibleDecision(
           'observation.routine-check-reminder',
           PLANT_A_ID,
@@ -255,11 +282,17 @@ export const wateringDrySpellCheckFixtures: readonly RuleFixture[] = [
     facts: gardenFacts({
       plants: [plantFact({ plantId: PLANT_A_ID, status: 'dormant' })],
       weatherObservation: weatherObservationFact(),
+      recentPrecipitation: rainlessWeek(),
     }),
     prior: noPrior(),
     expected: {
       decisions: [
-        notEligibleDecision('watering.dry-spell-check', PLANT_A_ID, 'plant.status_not_active'),
+        notEligibleDecision(
+          'watering.dry-spell-check',
+          PLANT_A_ID,
+          'plant.status_not_active',
+          ACTIVE_WATERING_RULE_VERSION,
+        ),
         notEligibleDecision(
           'observation.routine-check-reminder',
           PLANT_A_ID,

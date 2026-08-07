@@ -257,6 +257,10 @@ describe('OpenMeteoWeatherAdapter.fetchWeather normalization', () => {
       },
       // No confidence exists on any Open-Meteo tier; it is never synthesized.
       quality: { confidence: null, label: 'model_analysis' },
+      // The `current` block's precipitation is documented as the preceding
+      // hour. Recording that interval is what lets a weekly rainfall total
+      // sum daily rows without also counting this hour inside one of them.
+      precipitationIntervalSeconds: 3600,
     });
   });
 

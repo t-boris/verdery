@@ -23,6 +23,7 @@ import '../../src/platform/database/pg-date-parser.js';
 import { KyselyGeoreferenceRepository } from '../../src/modules/gardens-mapping/persistence/kysely-georeference-repository.js';
 import { SteppingClock } from '../../src/modules/integrations/application/integrations-test-doubles.js';
 import {
+  GetGardenPrecipitation,
   GetGardenWeather,
   KyselyWeatherRecordRepository,
 } from '../../src/modules/integrations/public.js';
@@ -155,6 +156,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       unitOfWork,
       createLaunchRuleCatalog(),
       new GetGardenWeather(new KyselyWeatherRecordRepository(db), FRESHNESS, clock),
+      new GetGardenPrecipitation(new KyselyWeatherRecordRepository(db)),
       new KyselyGeoreferenceRepository(db),
       clock,
     );
@@ -298,6 +300,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
           windSpeedMps: null,
           humidityPercent: null,
         },
+        precipitationIntervalSeconds: null,
         sourceUnits: {
           temperature: 'celsius',
           precipitation: 'millimetre',
@@ -318,6 +321,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
           windSpeedMps: null,
           humidityPercent: null,
         },
+        precipitationIntervalSeconds: null,
         sourceUnits: {
           temperature: 'celsius',
           precipitation: null,

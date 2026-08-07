@@ -105,6 +105,18 @@ export const OPEN_METEO_FORECAST_QUALITY_LABEL = 'model_forecast';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * What each block's precipitation figure accumulates over, per Open-Meteo's
+ * own documentation: `current.precipitation` is the preceding hour, and
+ * `daily.precipitation_sum` is the whole day.
+ *
+ * Recorded per row so accumulated rainfall can be summed over one interval
+ * class. Adding the two together would count the current hour twice — once
+ * on its own and once inside the day that contains it.
+ */
+export const OPEN_METEO_CURRENT_PRECIPITATION_INTERVAL_SECONDS = 60 * 60;
+export const OPEN_METEO_DAILY_PRECIPITATION_INTERVAL_SECONDS = 24 * 60 * 60;
+
 /** Open-Meteo never supplies a confidence value on any tier — the field stays null. */
 function qualityFor(kind: WeatherRecordKind): WeatherProviderQuality {
   return {
@@ -266,6 +278,7 @@ function toReading(
   kind: WeatherRecordKind,
   effectiveAt: Date,
   picks: MeasurementPicks,
+  precipitationIntervalSeconds: number | null,
 ): NormalizedWeatherReading | null {
   const measurements: WeatherMeasurements = {
     temperatureCelsius: picks.temperature?.value ?? null,
@@ -283,7 +296,17 @@ function toReading(
   if (!anyPresent) {
     return null;
   }
-  return { kind, effectiveAt, measurements, sourceUnits, quality: qualityFor(kind) };
+  return {
+    kind,
+    effectiveAt,
+    measurements,
+    // Only meaningful where a precipitation figure survived unit checking;
+    // the domain refuses an interval describing an absent measurement.
+    precipitationIntervalSeconds:
+      measurements.precipitationMm === null ? null : precipitationIntervalSeconds,
+    sourceUnits,
+    quality: qualityFor(kind),
+  };
 }
 
 function readCurrent(
@@ -301,12 +324,22 @@ function readCurrent(
   if (effectiveAt.getTime() > now.getTime()) {
     return null;
   }
-  return toReading('observation', effectiveAt, {
-    temperature: pickCurrent(current, units, 'temperature_2m', EXPECTED_UNIT_LABELS.temperature),
-    precipitation: pickCurrent(current, units, 'precipitation', EXPECTED_UNIT_LABELS.precipitation),
-    windSpeed: pickCurrent(current, units, 'wind_speed_10m', EXPECTED_UNIT_LABELS.windSpeed),
-    humidity: pickCurrent(current, units, 'relative_humidity_2m', EXPECTED_UNIT_LABELS.humidity),
-  });
+  return toReading(
+    'observation',
+    effectiveAt,
+    {
+      temperature: pickCurrent(current, units, 'temperature_2m', EXPECTED_UNIT_LABELS.temperature),
+      precipitation: pickCurrent(
+        current,
+        units,
+        'precipitation',
+        EXPECTED_UNIT_LABELS.precipitation,
+      ),
+      windSpeed: pickCurrent(current, units, 'wind_speed_10m', EXPECTED_UNIT_LABELS.windSpeed),
+      humidity: pickCurrent(current, units, 'relative_humidity_2m', EXPECTED_UNIT_LABELS.humidity),
+    },
+    OPEN_METEO_CURRENT_PRECIPITATION_INTERVAL_SECONDS,
+  );
 }
 
 function readDaily(
@@ -330,15 +363,20 @@ function readDaily(
     // observed, so it stays a forecast.
     const kind: WeatherRecordKind =
       effectiveAt.getTime() + DAY_MS <= now.getTime() ? 'observation' : 'forecast';
-    const reading = toReading(kind, effectiveAt, {
-      precipitation: pickDaily(
-        daily,
-        units,
-        'precipitation_sum',
-        EXPECTED_UNIT_LABELS.precipitation,
-        index,
-      ),
-    });
+    const reading = toReading(
+      kind,
+      effectiveAt,
+      {
+        precipitation: pickDaily(
+          daily,
+          units,
+          'precipitation_sum',
+          EXPECTED_UNIT_LABELS.precipitation,
+          index,
+        ),
+      },
+      OPEN_METEO_DAILY_PRECIPITATION_INTERVAL_SECONDS,
+    );
     if (reading !== null) {
       readings.push(reading);
     }

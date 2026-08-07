@@ -21,4 +21,15 @@ export interface TaskRepository {
    * file. `statusFilter: null` means "every status."
    */
   listForGarden(gardenId: Uuid, statusFilter: readonly TaskStatus[] | null): Promise<Task[]>;
+
+  /**
+   * Tasks in the garden CLOSED as `completed` at or after `since`, newest
+   * first — the engine's "work actually done" input.
+   *
+   * Bounded by a cutoff rather than reusing `listForGarden(['completed'])`
+   * on purpose: a garden accumulates completed tasks forever, and the
+   * evaluation sweep runs this once per garden per pass. The engine only
+   * ever needs the recent tail, so the query only ever returns it.
+   */
+  listCompletedSince(gardenId: Uuid, since: Date): Promise<Task[]>;
 }

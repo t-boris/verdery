@@ -20,7 +20,10 @@ import type {
   WeatherRecordKind,
   WeatherSourceUnits,
 } from '../domain/weather-record.js';
-import type { WeatherRecordRepository } from '../application/weather-record-repository.js';
+import type {
+  PrecipitationEntry,
+  WeatherRecordRepository,
+} from '../application/weather-record-repository.js';
 import type { WeatherRecordRow } from './schema.js';
 
 function parseSourceUnits(raw: unknown, recordId: string): WeatherSourceUnits {
@@ -64,6 +67,7 @@ function toWeatherRecord(row: Selectable<WeatherRecordRow>): WeatherRecord {
       windSpeedMps: row.wind_speed_mps,
       humidityPercent: row.humidity_percent,
     },
+    precipitationIntervalSeconds: row.precipitation_interval_seconds,
     sourceUnits: parseSourceUnits(row.source_units, row.id),
     quality: { confidence: row.provider_confidence, label: row.provider_quality_label },
     licenseNote: row.license_note,
@@ -95,6 +99,7 @@ export class KyselyWeatherRecordRepository implements WeatherRecordRepository {
           precipitation_mm: record.measurements.precipitationMm,
           wind_speed_mps: record.measurements.windSpeedMps,
           humidity_percent: record.measurements.humidityPercent,
+          precipitation_interval_seconds: record.precipitationIntervalSeconds,
           source_units: JSON.stringify(record.sourceUnits),
           provider_confidence: record.quality.confidence,
           provider_quality_label: record.quality.label,
@@ -119,5 +124,31 @@ export class KyselyWeatherRecordRepository implements WeatherRecordRepository {
       .executeTakeFirst();
 
     return row === undefined ? null : toWeatherRecord(row);
+  }
+
+  async listElapsedPrecipitation(
+    gardenId: Uuid,
+    intervalSeconds: number,
+    since: Date,
+  ): Promise<readonly PrecipitationEntry[]> {
+    const rows = await this.db
+      .selectFrom('integrations.weather_record')
+      .select(['effective_at', 'precipitation_mm'])
+      .where('garden_id', '=', gardenId)
+      // Elapsed only — a forecast total is a prediction, and summing it into
+      // rainfall that has fallen would claim water the soil never received.
+      .where('record_kind', '=', 'observation')
+      .where('precipitation_interval_seconds', '=', intervalSeconds)
+      .where('precipitation_mm', 'is not', null)
+      .where('effective_at', '>=', since)
+      .orderBy('effective_at', 'asc')
+      .execute();
+
+    return rows.map((row) => ({
+      effectiveAt: row.effective_at,
+      // The `is not null` predicate above already excluded the null case;
+      // this narrows the column's nullable type without a cast.
+      precipitationMm: row.precipitation_mm ?? 0,
+    }));
   }
 }

@@ -26,6 +26,7 @@ function validInput(overrides: Partial<CreateWeatherRecordInput> = {}): CreateWe
       windSpeedMps: 3.1,
       humidityPercent: 64,
     },
+    precipitationIntervalSeconds: null,
     sourceUnits: {
       temperature: 'celsius',
       precipitation: 'millimetre',
@@ -64,6 +65,7 @@ describe('createWeatherRecord', () => {
           windSpeedMps: null,
           humidityPercent: null,
         },
+        precipitationIntervalSeconds: null,
         sourceUnits: {
           temperature: 'fahrenheit',
           precipitation: null,
@@ -86,6 +88,7 @@ describe('createWeatherRecord', () => {
             windSpeedMps: null,
             humidityPercent: null,
           },
+          precipitationIntervalSeconds: null,
           sourceUnits: { temperature: null, precipitation: null, windSpeed: null, humidity: null },
         }),
       ),
@@ -96,6 +99,7 @@ describe('createWeatherRecord', () => {
     expect(() =>
       createWeatherRecord(
         validInput({
+          precipitationIntervalSeconds: null,
           sourceUnits: {
             temperature: null,
             precipitation: 'millimetre',
@@ -115,6 +119,7 @@ describe('createWeatherRecord', () => {
             windSpeedMps: null,
             humidityPercent: null,
           },
+          precipitationIntervalSeconds: null,
           sourceUnits: {
             temperature: 'celsius',
             precipitation: 'millimetre',

@@ -23,6 +23,7 @@ import { KyselyGeoreferenceRepository } from './modules/gardens-mapping/public.j
 import type {
   AiExplanationLocale,
   GenerateAiExplanation,
+  GetGardenPrecipitation,
   GetGardenWeather,
 } from './modules/integrations/public.js';
 import type { GetObservation } from './modules/observations-history/public.js';
@@ -97,6 +98,7 @@ export function composeTasksRecommendations(
   gardenAuthorization: GardenAuthorization,
   getObservation: GetObservation,
   getGardenWeather: GetGardenWeather,
+  getGardenPrecipitation: GetGardenPrecipitation,
   generateAiExplanation: GenerateAiExplanation,
   aiExplanationEnabled: boolean,
   cloudTasksInvocationVerifier: CloudTasksInvocationVerifier,
@@ -170,6 +172,7 @@ export function composeTasksRecommendations(
     unitOfWork,
     catalog,
     getGardenWeather,
+    getGardenPrecipitation,
     georeferenceRepository,
     clock,
   );

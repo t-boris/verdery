@@ -214,6 +214,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         windSpeedMps: null,
         humidityPercent: null,
       },
+      precipitationIntervalSeconds: null,
       sourceUnits: {
         temperature: 'celsius',
         precipitation: null,

@@ -34,11 +34,22 @@
  *       persists — is SUPERSEDED: the new candidate carries
  *       `supersedesCandidateId` backward (section 6's own direction) and
  *       the prior transitions to `superseded`.
- * 4. RECURRENCE TIMING (engine-owned): when no live candidate exists, the
- *    most recent candidate for the same (rule key, target) — typically a
- *    resolved one — suppresses regeneration until the rule's
- *    `recurrenceIntervalMs` has elapsed since its creation, so a completed
- *    or rejected recommendation is not immediately re-nagged. Supersession
+ * 4. RECURRENCE TIMING (engine-owned): when no live candidate exists, two
+ *    clocks can suppress regeneration, and the FIRST is about work actually
+ *    performed. A task provably from this rule and target (through
+ *    `origin_recommendation_id`, the same linkage open-task suppression
+ *    uses) that was COMPLETED less than one `recurrenceIntervalMs` ago
+ *    suppresses with `recentlyCompleted`. This matters because completing a
+ *    task removes it from `openTasks` — the very fact that had been
+ *    suppressing the candidate — so without this branch watering a plant on
+ *    Friday earned the same recommendation again on Saturday. A candidate's
+ *    creation time records when work was last SUGGESTED; only a completion
+ *    records when it was DONE.
+ *
+ *    Failing that, the most recent candidate for the same (rule key,
+ *    target) — typically a resolved one — suppresses regeneration until the
+ *    rule's `recurrenceIntervalMs` has elapsed since its creation, so a
+ *    completed or rejected recommendation is not immediately re-nagged. Supersession
  *    of a stale live candidate is deliberately exempt: replacing is not
  *    repeating. A POSTPONED prior (P7-BE-01) is the one special case:
  *    postponement is the user saying "later", so the suppression boundary
@@ -76,7 +87,7 @@ import type {
   PriorRecommendationState,
   WeatherFact,
 } from './garden-facts.js';
-import { sameRecommendationTarget } from './garden-facts.js';
+import { latestCompletedForRuleAndTarget, sameRecommendationTarget } from './garden-facts.js';
 import type { RecommendationTarget, RecommendationUrgency } from './recommendation-candidate.js';
 import { aggregatePriorityContributions } from './recommendation-priority.js';
 import type {
@@ -108,6 +119,16 @@ export type SuppressionReason =
       readonly kind: 'withinRecurrenceInterval';
       readonly priorCandidateId: Uuid;
       readonly priorCreatedAt: Date;
+    }
+  | {
+      /**
+       * A task provably from this rule and target was COMPLETED less than
+       * one recurrence interval ago — the work is done and the clock runs
+       * from when it was done, not from when it was last suggested.
+       */
+      readonly kind: 'recentlyCompleted';
+      readonly taskId: Uuid;
+      readonly completedAt: Date;
     }
   | {
       /** The latest prior is `postponed` and its re-surfacing boundary (the user's `postponedUntil`, or the recurrence fallback when none was named) has not passed — see this file's header, phase 4. */
@@ -350,6 +371,38 @@ export function evaluateGardenRules(
         };
       } else {
         // 4. Recurrence timing, only when nothing is being replaced.
+        //
+        // Completed work first, and it is checked even when no prior
+        // candidate exists: the point of this branch is that the clock runs
+        // from the moment the work was actually DONE. A candidate's creation
+        // time only records when the work was last SUGGESTED, which is a
+        // different thing and is often much earlier — watering a plant on
+        // Friday must silence the watering check, and before this branch
+        // existed it did not, because completing the task removed the open
+        // task that had been suppressing it.
+        //
+        // Manual tasks cannot reach here: `latestCompletedForRuleAndTarget`
+        // matches on `originRuleKey`, which is `null` for them. A free-text
+        // title cannot be shown to mean "I watered this", and treating it as
+        // if it could would silently withhold care.
+        const lastCompleted = latestCompletedForRuleAndTarget(
+          facts.completedTasks,
+          rule.ruleKey,
+          target,
+        );
+        if (
+          lastCompleted !== null &&
+          facts.evaluatedAt.getTime() - lastCompleted.completedAt.getTime() <
+            rule.timing.recurrenceIntervalMs
+        ) {
+          suppressed({
+            kind: 'recentlyCompleted',
+            taskId: lastCompleted.taskId,
+            completedAt: lastCompleted.completedAt,
+          });
+          continue;
+        }
+
         const latest = latestMatching(prior.latestPerRuleAndTarget, rule.ruleKey, target);
         if (latest !== null && latest.state === 'postponed') {
           // The postponed-prior special case — see this file's header. The

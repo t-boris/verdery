@@ -17,6 +17,7 @@ import {
 } from '../../src/modules/tasks-recommendations/public.js';
 import type { RuleFixture } from './fixture-support.js';
 import { cropRotationCautionFixtures } from './crop-rotation-caution.fixtures.js';
+import { completedCareFixtures } from './completed-care.fixtures.js';
 import { crossRuleFixtures } from './cross-rule.fixtures.js';
 import { lifecycleHarvestReadinessCheckFixtures } from './lifecycle-harvest-readiness-check.fixtures.js';
 import { observationRoutineCheckReminderFixtures } from './observation-routine-check-reminder.fixtures.js';
@@ -34,6 +35,7 @@ const FIXTURE_GROUPS: readonly (readonly [string, readonly RuleFixture[]])[] = [
   ['succession.replanting-reminder', successionReplantingReminderFixtures],
   ['rotation.crop-rotation-caution', cropRotationCautionFixtures],
   ['cross-rule', crossRuleFixtures],
+  ['completed-care', completedCareFixtures],
 ];
 
 const catalog = createLaunchRuleCatalog();

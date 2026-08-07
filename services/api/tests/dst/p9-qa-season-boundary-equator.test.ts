@@ -50,6 +50,7 @@ import {
   KyselyMembershipRepository,
 } from '../../src/modules/gardens-mapping/public.js';
 import {
+  GetGardenPrecipitation,
   GetGardenWeather,
   KyselyWeatherRecordRepository,
 } from '../../src/modules/integrations/public.js';
@@ -291,6 +292,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       new KyselyTasksRecommendationsUnitOfWork(db, clock),
       createLaunchRuleCatalog(),
       new GetGardenWeather(new KyselyWeatherRecordRepository(db), FRESHNESS, clock),
+      new GetGardenPrecipitation(new KyselyWeatherRecordRepository(db)),
       new KyselyGeoreferenceRepository(db),
       clock,
     );

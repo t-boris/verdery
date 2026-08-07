@@ -8,7 +8,11 @@ import { RuleCatalog } from '../domain/rule-catalog.js';
 import { createLaunchRuleCatalog } from '../domain/rules/launch-rule-catalog.js';
 import { createRuleVersion } from '../domain/rule-version.js';
 import { EvaluateGardenRecommendations } from './evaluate-garden-recommendations.js';
-import { FakeGeoreferenceRepository, getGardenWeatherOver } from './recommendation-test-doubles.js';
+import {
+  FakeGeoreferenceRepository,
+  getGardenPrecipitationOver,
+  getGardenWeatherOver,
+} from './recommendation-test-doubles.js';
 import {
   FakeTasksRecommendationsUnitOfWork,
   buildTask,
@@ -49,6 +53,28 @@ function plant(overrides: Partial<Plant> = {}): Plant {
   };
 }
 
+/**
+ * Seven elapsed days of daily totals, all bone dry — the history
+ * `watering.dry-spell-check` v2 accumulates over. Each carries the daily
+ * interval, which is what keeps them summable as one series.
+ */
+function rainlessWeek(): WeatherRecord[] {
+  return Array.from({ length: 7 }, (_unused, index) =>
+    weatherObservationRecord({
+      id: generateUuidV7(),
+      effectiveAt: new Date(NOW.getTime() - (index + 1) * 24 * 60 * 60 * 1000),
+      fetchedAt: new Date(NOW.getTime() - (index + 1) * 24 * 60 * 60 * 1000),
+      measurements: {
+        temperatureCelsius: null,
+        precipitationMm: 0,
+        windSpeedMps: null,
+        humidityPercent: null,
+      },
+      precipitationIntervalSeconds: 24 * 60 * 60,
+    }),
+  );
+}
+
 function weatherObservationRecord(overrides: Partial<WeatherRecord> = {}): WeatherRecord {
   return {
     id: generateUuidV7(),
@@ -64,6 +90,7 @@ function weatherObservationRecord(overrides: Partial<WeatherRecord> = {}): Weath
       windSpeedMps: null,
       humidityPercent: null,
     },
+    precipitationIntervalSeconds: null,
     sourceUnits: {
       temperature: 'celsius',
       precipitation: 'millimetre',
@@ -88,6 +115,7 @@ function makeEvaluate(options: {
     new FakeTasksRecommendationsUnitOfWork(options.fakes),
     options.catalog ?? createLaunchRuleCatalog(),
     getGardenWeatherOver(options.weatherRecords ?? [], FRESHNESS, fixedClock(NOW)),
+    getGardenPrecipitationOver(options.weatherRecords ?? []),
     options.georeferenceRepository ?? new FakeGeoreferenceRepository(),
     fixedClock(NOW),
   );
@@ -105,6 +133,9 @@ describe('EvaluateGardenRecommendations', () => {
     const registered = [...fakes.ruleVersions.rows.values()].map(
       (row) => `${row.ruleKey}@${String(row.version)}`,
     );
+    // Every SHIPPED version is registered, not only the active ones: a
+    // stored candidate pins the version that produced it, so the row it
+    // references has to exist even after a newer version supersedes it.
     expect(registered.sort()).toEqual([
       'lifecycle.harvest-readiness-check@1',
       'observation.routine-check-reminder@1',
@@ -112,6 +143,7 @@ describe('EvaluateGardenRecommendations', () => {
       'seasonal.sowing-window-check@1',
       'succession.replanting-reminder@1',
       'watering.dry-spell-check@1',
+      'watering.dry-spell-check@2',
       'weather.frost-watch@1',
     ]);
   });
@@ -233,12 +265,17 @@ describe('EvaluateGardenRecommendations', () => {
     );
   });
 
-  it('feeds weather facts to the engine: a fresh dry-spell observation fires the watering rule with the weather record pinned as evidence', async () => {
+  it('feeds weather facts to the engine: a warm reading over a rainless week fires the watering rule with the weather record pinned as evidence', async () => {
     const record = weatherObservationRecord();
     const fakes = createTasksRecommendationsFakes({
       plants: new Map([[PLANT_ID, plant({ lifecycleStage: 'growing' })]]),
     });
-    const result = await makeEvaluate({ fakes, weatherRecords: [record] }).execute({
+    // v2 decides on ACCUMULATION, so a single latest reading is no longer
+    // enough to fire it — a week of elapsed daily totals is what says "dry".
+    const result = await makeEvaluate({
+      fakes,
+      weatherRecords: [record, ...rainlessWeek()],
+    }).execute({
       gardenId: GARDEN_ID,
     });
 

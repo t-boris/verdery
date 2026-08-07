@@ -173,4 +173,20 @@ export class KyselyTaskRepository implements TaskRepository {
 
     return rows.map(toTask);
   }
+
+  async listCompletedSince(gardenId: Uuid, since: Date): Promise<Task[]> {
+    const rows = await this.db
+      .selectFrom('tasks_recommendations.task')
+      .selectAll()
+      .where('garden_id', '=', gardenId)
+      .where('status', '=', 'completed')
+      // `completed_at` is stamped by the completion transition and is
+      // non-null for exactly this status, so no null guard is needed beyond
+      // the status filter itself.
+      .where('completed_at', '>=', since)
+      .orderBy('completed_at', 'desc')
+      .execute();
+
+    return rows.map(toTask);
+  }
 }

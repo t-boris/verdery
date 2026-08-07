@@ -16,6 +16,7 @@
 
 import type { RuleFixture } from './fixture-support.js';
 import {
+  ACTIVE_WATERING_RULE_VERSION,
   DAY_MS,
   FIXTURE_NOW,
   PLANT_A_ID,
@@ -34,10 +35,11 @@ import {
 
 /** The four original launch rules' own decisions for one active, recently-added, `growing`-stage plant with no weather configured — identical across every scenario below that keeps `evaluatedAt`/`plant.createdAt` at their fixture defaults. */
 const ORIGINAL_FOUR_RULES_QUIET = [
-  ruleSkippedDecision('watering.dry-spell-check', {
-    kind: 'weatherMissing',
-    requiredKind: 'observation',
-  }),
+  ruleSkippedDecision(
+    'watering.dry-spell-check',
+    { kind: 'weatherMissing', requiredKind: 'observation' },
+    ACTIVE_WATERING_RULE_VERSION,
+  ),
   notEligibleDecision('observation.routine-check-reminder', PLANT_A_ID, 'plant.recently_observed'),
   notEligibleDecision(
     'lifecycle.harvest-readiness-check',
@@ -234,10 +236,11 @@ export const seasonalSowingWindowCheckFixtures: readonly RuleFixture[] = [
     prior: noPrior(),
     expected: {
       decisions: [
-        ruleSkippedDecision('watering.dry-spell-check', {
-          kind: 'weatherMissing',
-          requiredKind: 'observation',
-        }),
+        ruleSkippedDecision(
+          'watering.dry-spell-check',
+          { kind: 'weatherMissing', requiredKind: 'observation' },
+          ACTIVE_WATERING_RULE_VERSION,
+        ),
         notEligibleDecision(
           'observation.routine-check-reminder',
           PLANT_A_ID,

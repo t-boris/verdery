@@ -8,6 +8,7 @@
 
 import type { RuleFixture } from './fixture-support.js';
 import {
+  ACTIVE_WATERING_RULE_VERSION,
   FIXTURE_NOW,
   HOUR_MS,
   PLANT_A_ID,
@@ -24,10 +25,11 @@ import {
   weatherForecastFact,
 } from './fixture-support.js';
 
-const WATERING_SKIPS = ruleSkippedDecision('watering.dry-spell-check', {
-  kind: 'weatherMissing',
-  requiredKind: 'observation',
-});
+const WATERING_SKIPS = ruleSkippedDecision(
+  'watering.dry-spell-check',
+  { kind: 'weatherMissing', requiredKind: 'observation' },
+  ACTIVE_WATERING_RULE_VERSION,
+);
 
 const FORECAST_MOMENT = new Date('2026-07-26T03:00:00Z');
 

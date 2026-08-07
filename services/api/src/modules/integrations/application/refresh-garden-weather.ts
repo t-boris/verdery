@@ -223,6 +223,7 @@ function toWeatherRecord(
     fetchedAt,
     location,
     measurements: reading.measurements,
+    precipitationIntervalSeconds: reading.precipitationIntervalSeconds,
     sourceUnits: reading.sourceUnits,
     quality: reading.quality,
     rawLicenseNote: registration.metadata.licenseNote,

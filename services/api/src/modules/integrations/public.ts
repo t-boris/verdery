@@ -16,14 +16,13 @@
  *   module's exports for.
  *
  * P0-PROV-01's WEATHER half is decided (2026-07-26): Open-Meteo, CC BY 4.0,
- * models pinned to NOAA. The registry now has one real registration
+ * models pinned to NOAA. The registry has one real registration
  * (`persistence/open-meteo-weather-registration.ts`), built by
- * `compose-integrations.ts` from configuration. Registered is not active:
- * `activeProviderKey` (`WEATHER_ACTIVE_PROVIDER_KEY`) still selects, and
- * where it is unset the honest runtime outcome remains the typed
- * `noProviderConfigured` degradation — see
- * `application/refresh-garden-weather.ts`. The PLANT-CONTENT half of
- * P0-PROV-01 remains open.
+ * `compose-integrations.ts` from configuration, and it is now ACTIVE —
+ * `activeProviderKey` (`WEATHER_ACTIVE_PROVIDER_KEY`) names it in every
+ * environment. Unsetting it restores the typed `noProviderConfigured`
+ * degradation exactly — see `application/refresh-garden-weather.ts`. The
+ * PLANT-CONTENT half of P0-PROV-01 remains open.
  *
  * P7-INT-02 lands the module's plant-content half under the same blocker
  * posture: the taxonomy-mapping and content domain models, the
@@ -75,7 +74,10 @@ export type {
   WeatherProviderMetadata,
   WeatherProviderRegistration,
 } from './application/weather-provider-registry.js';
-export type { WeatherRecordRepository } from './application/weather-record-repository.js';
+export type {
+  PrecipitationEntry,
+  WeatherRecordRepository,
+} from './application/weather-record-repository.js';
 export { quotaWindowStart } from './application/provider-quota-repository.js';
 /** The bounded-deadline racing helper (external-integrations.md section 11) — provider-neutral, reused by P9C-INVITE-01's transactional-email call the same way `RefreshGardenWeather` uses it for its own provider call. */
 export { withDeadline } from './application/with-deadline.js';
@@ -94,6 +96,8 @@ export type {
   RefreshGardenWeatherResult,
   WeatherUnavailableReason,
 } from './application/refresh-garden-weather.js';
+export { GetGardenPrecipitation } from './application/get-garden-precipitation.js';
+export type { GetGardenPrecipitationInput } from './application/get-garden-precipitation.js';
 export { GetGardenWeather } from './application/get-garden-weather.js';
 export type {
   GetGardenWeatherInput,

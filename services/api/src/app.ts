@@ -164,6 +164,7 @@ export async function buildApplication(
   // the taxon-enrichment pipeline.
   const {
     getGardenWeather,
+    getGardenPrecipitation,
     generateAiExplanation,
     identifyPlantSpecies,
     analyzePlantCondition,
@@ -327,6 +328,7 @@ export async function buildApplication(
     gardenAuthorization,
     getObservation,
     getGardenWeather,
+    getGardenPrecipitation,
     generateAiExplanation,
     configuration.aiExplanation.enabled,
     cloudTasksInvocationVerifier,
