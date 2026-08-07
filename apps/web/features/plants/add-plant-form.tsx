@@ -108,7 +108,17 @@ const ADD_PLANT_DRAFT_SCHEMA_VERSION = 1;
  * Source: implementation-plan.md work package P4-WEB-01;
  * packages/api-contracts/openapi.yaml, operation `addPlant`.
  */
-export function AddPlantForm({ gardenId }: { readonly gardenId: string }) {
+export interface AddPlantFormProps {
+  readonly gardenId: string;
+  readonly initialPlacementMapObjectId?: string;
+  readonly returnHref?: string;
+}
+
+export function AddPlantForm({
+  gardenId,
+  initialPlacementMapObjectId,
+  returnHref,
+}: AddPlantFormProps) {
   const { t } = useLocalization();
   const router = useRouter();
   const mutation = useAddPlant(gardenId);
@@ -124,9 +134,15 @@ export function AddPlantForm({ gardenId }: { readonly gardenId: string }) {
     })),
   ];
 
+  const defaultValues: AddPlantValues = {
+    ...DEFAULT_VALUES,
+    ...(initialPlacementMapObjectId === undefined
+      ? {}
+      : { placementMapObjectId: initialPlacementMapObjectId }),
+  };
   const { register, handleSubmit, formState, watch, reset, setValue } = useForm<AddPlantValues>({
     resolver: zodResolver(addPlantSchema),
-    defaultValues: DEFAULT_VALUES,
+    defaultValues,
     // `quantity` is conditionally rendered on `groupingKind`; unregistering it
     // on unmount is what makes switching back to `individual` clear a
     // previously typed value instead of leaving a hidden, unfixable error.
@@ -138,7 +154,7 @@ export function AddPlantForm({ gardenId }: { readonly gardenId: string }) {
 
   const draft = useRecoverableDraft<AddPlantDraftPayload>({
     draftType: 'plants.addPlant',
-    scopeKey: gardenId,
+    scopeKey: `${gardenId}:${initialPlacementMapObjectId ?? 'inventory'}`,
     schemaVersion: ADD_PLANT_DRAFT_SCHEMA_VERSION,
     payload: { ...currentValues, taxonomyReferenceId },
     hasUnsavedInput: formState.isDirty || taxonomyReferenceId !== null,
@@ -164,7 +180,7 @@ export function AddPlantForm({ gardenId }: { readonly gardenId: string }) {
 
   const discardRecoveredDraft = () => {
     draft.dismissRecovered();
-    reset(DEFAULT_VALUES);
+    reset(defaultValues);
     setTaxonomyReferenceId(null);
   };
 
@@ -202,7 +218,7 @@ export function AddPlantForm({ gardenId }: { readonly gardenId: string }) {
         reset();
         setTaxonomyReferenceId(null);
         draft.clearDraft();
-        router.push(`/application/gardens/${gardenId}/plants/${plant.id}`);
+        router.push(returnHref ?? `/application/gardens/${gardenId}/plants/${plant.id}`);
       },
     });
   });

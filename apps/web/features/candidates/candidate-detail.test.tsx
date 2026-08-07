@@ -160,6 +160,7 @@ describe('CandidateDetail — converted candidate', () => {
     expect(screen.queryByRole('button', { name: 'Save details' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Active' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Convert to plant' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Delete permanently' })).toBeTruthy();
     expect(screen.getByText('Suitability for this garden')).toBeTruthy();
   });
 });

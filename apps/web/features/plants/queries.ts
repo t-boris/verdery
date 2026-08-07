@@ -103,9 +103,6 @@ export function useAddPlant(gardenId: string) {
     onSuccess: (plant) => {
       queryClient.setQueryData(plantQueryKey(gardenId, plant.id), plant);
     },
-    retry: (_failureCount, error) =>
-      error.failure.code === 'plants_inventory.plant.identification_source_not_ready',
-    retryDelay: 1000,
   });
 }
 
@@ -120,6 +117,14 @@ export function useAddPlantFromPhoto(gardenId: string) {
     onSuccess: (plant) => {
       queryClient.setQueryData(plantQueryKey(gardenId, plant.id), plant);
     },
+    // A large original may reach `available` before its analysis-sized
+    // derivative exists. The API reports exactly this transient outcome;
+    // keep the mutation pending and retry until the worker publishes the
+    // derivative instead of presenting normal processing as a failed plant
+    // creation. No other failure is retried.
+    retry: (_failureCount, error) =>
+      error.failure.code === 'plants_inventory.plant.identification_source_not_ready',
+    retryDelay: 1000,
   });
 }
 

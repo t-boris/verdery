@@ -1,0 +1,41 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-block: var(--space-4);
+  border-block-start: var(--border-width) solid var(--color-border);
+}
+
+.title,
+.unassigned h4 {
+  margin: 0;
+}
+
+.title {
+  font-size: var(--font-size-2);
+}
+
+.unassigned h4 {
+  font-size: var(--font-size-1);
+}
+
+.description,
+.status {
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.choices,
+.unassigned,
+.linked {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.linked > span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}

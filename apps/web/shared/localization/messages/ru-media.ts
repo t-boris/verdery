@@ -25,6 +25,10 @@ export const russianMediaMessages: Readonly<Record<keyof typeof englishMediaMess
   'media.discardRecovered': 'Отклонить',
   'media.previewLoading': 'Загрузка предпросмотра.',
   'media.previewAlt': 'Загруженная фотография: {filename}',
+  'media.previewOpenFullscreen': 'Открыть фотографию на весь экран',
+  'media.previewCloseFullscreen': 'Закрыть полноэкранную фотографию',
+  'media.previewPrevious': 'Предыдущая фотография',
+  'media.previewNext': 'Следующая фотография',
   'media.rejectedDescription':
     'Этот файл не удалось подтвердить — то, что фактически было получено, не совпало с заявленным при начале загрузки. Выберите файл заново и повторите попытку.',
   'media.processingFailedDescription':

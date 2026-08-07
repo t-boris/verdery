@@ -144,20 +144,28 @@ Objects use typed domain records rather than arbitrary styling dictionaries. Pre
 
 ## 5. Geometry Types
 
-| Domain object                   | Primary geometry                             |
-| ------------------------------- | -------------------------------------------- |
-| Lot, structure, deck, zone, bed | Polygon or multipolygon where approved       |
-| Fence, path centerline, utility | LineString or MultiLineString where approved |
-| Gate                            | Positioned segment associated with a fence   |
-| Tree trunk, point plant, marker | Point                                        |
-| Tree canopy, grouped planting   | Polygon or circle-derived polygon            |
-| Imported background             | Calibrated raster transform                  |
+| Domain object                                      | Primary geometry                             |
+| -------------------------------------------------- | -------------------------------------------- |
+| Lot, structure, deck, zone, bed                    | Polygon or multipolygon where approved       |
+| Fence, path centerline, utility                    | LineString or MultiLineString where approved |
+| Gate                                               | Positioned segment associated with a fence   |
+| Tree trunk, legacy point plant, marker             | Point                                        |
+| Tree canopy, new plant placement, grouped planting | Polygon or circle-derived polygon            |
+| Imported background                                | Calibrated raster transform                  |
 
 Curves are edited through application control points and persisted through an approved canonical approximation or curve metadata. The API cannot expose renderer-specific path objects.
 
 ## 6. Hybrid Data Model
 
 All editable objects share identity, garden, category, geometry, provenance, confidence, revision, and lifecycle state. Specialized tables and domain types hold plant, fence, structure, and other category-specific behavior.
+
+New plant placement in the web editor always traces an occupied area rather than dropping a point.
+The map object is the geometry; the plants-inventory record remains the actual plant identity and
+references that object through `placementMapObjectId`. After tracing, the editor resolves the reverse
+link and offers exactly three paths: attach an existing inventory plant with no map placement, create
+a plant manually, or create one from a photograph. Plant search therefore supports both
+`hasMapPlacement` and exact `placementMapObjectId` filters instead of downloading an arbitrary page
+and guessing client-side. Legacy point plant objects remain readable and editable.
 
 The editor receives a normalized map document:
 

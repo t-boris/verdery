@@ -2,7 +2,7 @@
 
 import type { PlantIdentificationSuggestion } from '@verdery/api-contracts';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, type ChangeEvent } from 'react';
+import { useEffect, type ChangeEvent } from 'react';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import {
@@ -42,11 +42,12 @@ import styles from './add-plant-from-photo-panel.module.css';
 
 export interface AddPlantFromPhotoPanelProps {
   readonly gardenId: string;
+  readonly placementMapObjectId?: string;
+  readonly returnHref?: string;
 }
 
 /** Section 8.1's accepted garden-photo raster types — reused as-is: the photo backing an identification is stored the same way a garden photo is (`media_class: 'garden_photo'`). */
 const ACCEPTED_TYPES = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
-const MAX_PHOTO_BYTES = 50 * 1024 * 1024;
 
 const PICKER_PHASES = new Set(['idle', 'processed', 'rejected', 'processingFailed']);
 const CANCELLABLE_PHASES = new Set([
@@ -121,7 +122,11 @@ function DetailRow({
  * packages/api-contracts/openapi.yaml, operations `addPlantFromPhoto`,
  * `getPlantIdentification`, `confirmPlantIdentification`.
  */
-export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps) {
+export function AddPlantFromPhotoPanel({
+  gardenId,
+  placementMapObjectId,
+  returnHref,
+}: AddPlantFromPhotoPanelProps) {
   const { t, locale } = useLocalization();
   const router = useRouter();
   const isOnline = useIsOnline();
@@ -129,7 +134,6 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
   const addFromPhoto = useAddPlantFromPhoto(gardenId);
   const confirmIdentification = useConfirmPlantIdentification(gardenId);
   const recordObservation = useRecordObservationFromIdentification(gardenId);
-  const [validationError, setValidationError] = useState<string | null>(null);
 
   const plant = addFromPhoto.data ?? null;
   const identification = usePlantIdentification(gardenId, plant?.id ?? '', plant !== null);
@@ -145,9 +149,10 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
    * `uploadState === 'available'` is the server's own precondition, so gating
    * on the same value is what makes the two agree — and for a photo the
    * provider can read as it stands, that is the whole gate: waiting on
-   * derivative processing would strand the flow in a development environment
-   * with no processing worker. An oversized original is the one case where
-   * the wait buys something, and `photoReadyForIdentification` scopes it there.
+   * derivative processing is asynchronous. An oversized original can require
+   * the analysis-sized derivative; `useAddPlantFromPhoto` owns the API's
+   * explicit retryable not-ready outcome and keeps this panel in its creating
+   * state until that derivative is published.
    */
   const uploadedMediaId = photoReadyForIdentification(upload.media, upload.phase)
     ? upload.mediaId
@@ -155,9 +160,12 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
 
   useEffect(() => {
     if (uploadedMediaId !== null && plant === null && addFromPhoto.isIdle) {
-      addFromPhoto.mutate({ photoMediaId: uploadedMediaId });
+      addFromPhoto.mutate({
+        photoMediaId: uploadedMediaId,
+        ...(placementMapObjectId === undefined ? {} : { placementMapObjectId }),
+      });
     }
-  }, [uploadedMediaId, plant, addFromPhoto]);
+  }, [uploadedMediaId, plant, addFromPhoto, placementMapObjectId]);
 
   const percent = percentOf(upload.uploadedBytes, upload.totalBytes);
   const inProgress =
@@ -170,17 +178,12 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
     if (file === undefined) {
       return;
     }
-    if (file.size > MAX_PHOTO_BYTES) {
-      setValidationError(t('media.tooLarge', { max: formatBytes(MAX_PHOTO_BYTES, locale) }));
-      return;
-    }
-    setValidationError(null);
     upload.startUpload(file);
   };
 
   const goToPlant = () => {
     if (plant !== null) {
-      router.push(`/application/gardens/${gardenId}/plants/${plant.id}`);
+      router.push(returnHref ?? `/application/gardens/${gardenId}/plants/${plant.id}`);
     }
   };
 
@@ -373,7 +376,6 @@ export function AddPlantFromPhotoPanel({ gardenId }: AddPlantFromPhotoPanelProps
           accept={ACCEPTED_TYPES}
           disabled={!isOnline}
           onChange={onFileChange}
-          {...(validationError === null ? {} : { error: validationError })}
         />
       )}
 

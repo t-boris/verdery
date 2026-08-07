@@ -12,11 +12,13 @@ import { GeometryDimensionEditor } from './geometry-dimension-editor';
 import { categoryLabelKey } from './labels';
 import styles from './map-property-panel.module.css';
 import { PlantAssignmentField } from './plant-assignment-field';
+import { PlantInventoryPlacementPanel } from './plant-inventory-placement-panel';
 import type { MapObjectRecord } from './types';
 import type { MapEditorActions } from './use-map-editor-actions';
 import { editableRingOf } from './vertex-ring';
 
 export interface MapPropertyPanelProps {
+  readonly gardenId: string;
   readonly actions: MapEditorActions;
   readonly selectedRecord: MapObjectRecord | null;
 }
@@ -29,7 +31,7 @@ export interface MapPropertyPanelProps {
  * "18. Selection and Properties" ("The property panel reads the canonical
  * object draft and exposes semantic fields").
  */
-export function MapPropertyPanel({ actions, selectedRecord }: MapPropertyPanelProps) {
+export function MapPropertyPanel({ gardenId, actions, selectedRecord }: MapPropertyPanelProps) {
   const { t } = useLocalization();
 
   if (selectedRecord === null) {
@@ -44,13 +46,22 @@ export function MapPropertyPanel({ actions, selectedRecord }: MapPropertyPanelPr
   // `key` remounts the form whenever the selection changes, so its local
   // edit-in-progress state (`label`, `details`) always starts fresh from the
   // newly selected object instead of carrying over the previous one's edits.
-  return <PropertyForm key={selectedRecord.id} actions={actions} record={selectedRecord} />;
+  return (
+    <PropertyForm
+      key={selectedRecord.id}
+      gardenId={gardenId}
+      actions={actions}
+      record={selectedRecord}
+    />
+  );
 }
 
 function PropertyForm({
   actions,
   record,
+  gardenId,
 }: {
+  readonly gardenId: string;
   readonly actions: MapEditorActions;
   readonly record: MapObjectRecord;
 }) {
@@ -123,6 +134,9 @@ function PropertyForm({
         </div>
       </CommandSurface>
       {record.category === 'plant' && <PlantAssignmentField actions={actions} record={record} />}
+      {record.category === 'plant' && (
+        <PlantInventoryPlacementPanel gardenId={gardenId} actions={actions} record={record} />
+      )}
       <div className={styles['actions']}>
         {canEditVertices && (
           <Button

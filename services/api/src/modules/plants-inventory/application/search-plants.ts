@@ -51,6 +51,8 @@ export interface SearchPlantsFilters {
   readonly groupingKind?: readonly GroupingKind[];
   /** `true` = has a resolved `taxonomyReferenceId`; `false` = does not; omitted = no restriction (P11-SEARCH-01's "identity" filter). */
   readonly identified?: boolean | null;
+  readonly hasMapPlacement?: boolean | null;
+  readonly placementMapObjectId?: Uuid | null;
 
   /** P11-SEARCH-01's joined filters. Each is documented on `PlantSearchFilters`, which is where their semantics live. */
   readonly observedWithinDays?: number | null;
@@ -102,6 +104,8 @@ export class SearchPlants {
       status: normalizeMultiValue(filters.status),
       groupingKind: normalizeMultiValue(filters.groupingKind),
       identified: filters.identified ?? null,
+      hasMapPlacement: filters.hasMapPlacement ?? null,
+      placementMapObjectId: filters.placementMapObjectId ?? null,
       observedWithinDays: filters.observedWithinDays ?? null,
       notObservedForDays: filters.notObservedForDays ?? null,
       healthConcern: normalizeMultiValue(filters.healthConcern),

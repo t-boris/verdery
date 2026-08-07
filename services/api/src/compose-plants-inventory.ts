@@ -289,6 +289,7 @@ export function composePlantsInventory(
     PLANT_KNOWLEDGE_SOURCE_PRIORITY,
   );
   const getTaxonProfile = new GetTaxonProfile(
+    taxonomyReferenceRepository,
     plantProfileVersionRepository,
     new KyselyTaxonImageSource(database.queries),
     taxonImageEnricher,

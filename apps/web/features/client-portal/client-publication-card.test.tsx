@@ -58,7 +58,7 @@ describe('ClientPublicationCard', () => {
     expect(screen.getByText('Update 3')).toBeTruthy();
     expect(screen.getByText(/^Published /)).toBeTruthy();
     expect(screen.getByText('Beds re-mulched and irrigation repaired.')).toBeTruthy();
-    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.getByRole('button', { name: /after mulching/i })).toBeTruthy();
     expect(screen.queryByRole('textbox')).toBeNull();
   });
 

@@ -45,6 +45,21 @@
   background-color: var(--color-surface-sunken);
 }
 
+.thumbnailButton {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.thumbnailButton:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
 /* Same box as the thumbnail, so a sequence does not reflow as frames resolve. */
 .placeholder {
   width: 100%;

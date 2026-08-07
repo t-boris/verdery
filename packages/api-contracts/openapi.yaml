@@ -1858,6 +1858,18 @@ paths:
             (P11-SEARCH-01).
           schema:
             type: boolean
+        - name: hasMapPlacement
+          in: query
+          required: false
+          description: '`false` returns inventory plants not yet linked to any map object; `true` returns linked plants.'
+          schema:
+            type: boolean
+        - name: placementMapObjectId
+          in: query
+          required: false
+          description: Restricts to the plant linked to this exact map object.
+          schema:
+            $ref: '#/components/schemas/Uuid'
         - name: observedWithinDays
           in: query
           required: false
@@ -2802,10 +2814,11 @@ paths:
         candidate that should never have been created at all, and it does not
         preserve anything.
 
-        A `converted` candidate CANNOT be deleted and returns `409`: its
-        conversion record is the resulting plant's provenance, and FR-19
-        requires conversion to preserve the evaluation and decision history.
-        Archive the plant instead.
+        A `converted` candidate can be deleted only after its resulting plant has
+        reached `removed`. Until then the conversion record is the plant's
+        provenance and deletion returns `409`. Once both records have explicitly
+        been disposed of, the conversion link is removed in the same transaction
+        as the candidate.
 
         Deletes the candidate's suitability assessments and its photo LINKS,
         and clears the reference from any candidate that named this one as its
@@ -10721,6 +10734,8 @@ components:
         - scientificName
         - commonName
         - varietyName
+        - family
+        - genus
         - source
         - createdByProfileId
         - createdAt
@@ -10738,6 +10753,16 @@ components:
           type:
             - string
             - 'null'
+        family:
+          type:
+            - string
+            - 'null'
+          description: Botanical family, or null when it has not been catalogued.
+        genus:
+          type:
+            - string
+            - 'null'
+          description: Botanical genus, or null when it has not been catalogued.
         source:
           $ref: '#/components/schemas/TaxonomySource'
         createdByProfileId:
@@ -11531,6 +11556,7 @@ components:
       type: object
       additionalProperties: false
       required:
+        - taxonomyReference
         - profile
         - images
       description: |
@@ -11540,6 +11566,8 @@ components:
         filtered independently. A null profile never prevents reference images
         from being returned.
       properties:
+        taxonomyReference:
+          $ref: '#/components/schemas/TaxonomyReference'
         profile:
           description: The latest reviewed fact projection, or null when no fact projection has been assembled yet.
           oneOf:

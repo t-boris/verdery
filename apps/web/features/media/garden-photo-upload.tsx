@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ChangeEvent } from 'react';
+import type { ChangeEvent } from 'react';
 import { CloseIcon, PauseIcon, RefreshIcon, FilePicker } from '@/shared/ui/public';
 
 import { useIsOnline } from '@/core/connectivity/public';
@@ -18,8 +18,6 @@ export interface GardenPhotoUploadProps {
 
 /** Section 8.1's accepted garden-photo raster types. */
 const ACCEPTED_TYPES = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
-/** Section 8.1's declared garden-photo ceiling — checked client-side for fast feedback; the server enforces it authoritatively. */
-const MAX_GARDEN_PHOTO_BYTES = 50 * 1024 * 1024;
 
 function percentOf(uploadedBytes: number, totalBytes: number): number {
   return totalBytes <= 0 ? 0 : (uploadedBytes / totalBytes) * 100;
@@ -63,7 +61,6 @@ export function GardenPhotoUpload({ gardenId }: GardenPhotoUploadProps) {
   const { t, locale } = useLocalization();
   const isOnline = useIsOnline();
   const upload = useMediaUpload(gardenId, 'garden_photo');
-  const [validationError, setValidationError] = useState<string | null>(null);
 
   const percent = percentOf(upload.uploadedBytes, upload.totalBytes);
   const inProgress =
@@ -76,11 +73,6 @@ export function GardenPhotoUpload({ gardenId }: GardenPhotoUploadProps) {
     if (file === undefined) {
       return;
     }
-    if (file.size > MAX_GARDEN_PHOTO_BYTES) {
-      setValidationError(t('media.tooLarge', { max: formatBytes(MAX_GARDEN_PHOTO_BYTES, locale) }));
-      return;
-    }
-    setValidationError(null);
     upload.startUpload(file);
   };
 
@@ -128,7 +120,6 @@ export function GardenPhotoUpload({ gardenId }: GardenPhotoUploadProps) {
           accept={ACCEPTED_TYPES}
           disabled={!isOnline}
           onChange={onFileChange}
-          {...(validationError === null ? {} : { error: validationError })}
         />
       )}
 

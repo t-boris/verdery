@@ -60,6 +60,14 @@ export function candidateAlreadyConvertedError(): DomainRuleViolatedError {
   );
 }
 
+/** Permanent deletion keeps conversion provenance while the resulting plant still exists in the working lifecycle. */
+export function candidateConvertedPlantNotRemovedError(): DomainRuleViolatedError {
+  return new DomainRuleViolatedError(
+    'plants_inventory.plant_candidate.converted_plant_not_removed',
+    'Delete the plant created from this candidate before deleting the candidate permanently.',
+  );
+}
+
 /** `GetCandidateSuitability`'s honest 404 when `RecalculateCandidateSuitability` has never run for this candidate — never a fabricated empty assessment. */
 export function candidateSuitabilityNotFoundError(): NotFoundError {
   return new NotFoundError(

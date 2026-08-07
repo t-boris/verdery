@@ -8,12 +8,14 @@ import type { PlantCandidate } from '../domain/plant-candidate.js';
 import { buildCandidate } from './plant-candidate-test-doubles.js';
 import {
   authorizationGranting,
+  buildPlant,
   createPlantsInventoryFakes,
   FakePlantsInventoryUnitOfWork,
 } from './plants-inventory-test-doubles.js';
 
 const GARDEN_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9b0b';
 const CANDIDATE_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9b0c';
+const PLANT_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9b13';
 const OTHER_CANDIDATE_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9b0e';
 const PROFILE_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9b0d';
 const PHOTO_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9b10';
@@ -47,6 +49,23 @@ function buildUseCase(fakes: ReturnType<typeof createPlantsInventoryFakes>) {
     new FakePlantsInventoryUnitOfWork(fakes),
     authorizationGranting(OWNER_MEMBERSHIP),
   );
+}
+
+function addConversion(
+  fakes: ReturnType<typeof createPlantsInventoryFakes>,
+  plantStatus: 'active' | 'removed',
+) {
+  fakes.plants.plants.set(
+    PLANT_ID,
+    buildPlant({ id: PLANT_ID, gardenId: GARDEN_ID, status: plantStatus }),
+  );
+  fakes.candidateConversions.conversions.set(CANDIDATE_ID, {
+    id: '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9b14',
+    candidateId: CANDIDATE_ID,
+    plantId: PLANT_ID,
+    convertedByProfileId: PROFILE_ID,
+    convertedAt: new Date('2026-08-06T18:00:00Z'),
+  });
 }
 
 describe('DeleteCandidate', () => {
@@ -101,16 +120,27 @@ describe('DeleteCandidate', () => {
     expect(sibling?.alternativeToCandidateId).toBeNull();
   });
 
-  // Deleting it would leave a plant whose origin cannot be explained, which is
-  // exactly what FR-19's "conversion must preserve the decision history" forbids.
-  it('refuses a converted candidate', async () => {
+  it('refuses a converted candidate while its resulting plant is still present', async () => {
     const fakes = fakesWithCandidate({ status: 'converted' });
+    addConversion(fakes, 'active');
 
     await expect(
       buildUseCase(fakes).execute(CANDIDATE_ID, PROFILE_ID, 1, idempotencyKey('23')),
     ).rejects.toBeInstanceOf(DomainRuleViolatedError);
 
     expect(fakes.candidates.candidates.has(CANDIDATE_ID)).toBe(true);
+    expect(fakes.candidateConversions.conversions.has(CANDIDATE_ID)).toBe(true);
+  });
+
+  it('deletes a converted candidate and its conversion after the resulting plant is removed', async () => {
+    const fakes = fakesWithCandidate({ status: 'converted' });
+    addConversion(fakes, 'removed');
+
+    await buildUseCase(fakes).execute(CANDIDATE_ID, PROFILE_ID, 1, idempotencyKey('25'));
+
+    expect(fakes.candidates.candidates.has(CANDIDATE_ID)).toBe(false);
+    expect(fakes.candidateConversions.conversions.has(CANDIDATE_ID)).toBe(false);
+    expect(fakes.plants.plants.get(PLANT_ID)?.status).toBe('removed');
   });
 
   it('rejects a stale expectedRevision and leaves the candidate in place', async () => {

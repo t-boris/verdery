@@ -290,6 +290,12 @@ export class KyselyPlantRepository implements PlantRepository {
     if (filters.identified !== null) {
       q = q.where('taxonomy_reference_id', filters.identified ? 'is not' : 'is', null);
     }
+    if (filters.hasMapPlacement !== null) {
+      q = q.where('placement_map_object_id', filters.hasMapPlacement ? 'is not' : 'is', null);
+    }
+    if (filters.placementMapObjectId !== null) {
+      q = q.where('placement_map_object_id', '=', filters.placementMapObjectId);
+    }
 
     // P11-SEARCH-01's six joined filters. Every one is `EXISTS` rather than a
     // join, deliberately: a plant with three observations carrying health

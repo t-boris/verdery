@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
+
 import { useLocalization } from '@/shared/localization/public';
-import { FailureAlert } from '@/shared/ui/public';
+import { FailureAlert, PhotoLightbox } from '@/shared/ui/public';
 
 import styles from './plant-reference-gallery.module.css';
 import { usePlantTaxonProfile } from './queries';
@@ -14,9 +16,17 @@ export interface PlantReferenceGalleryProps {
 export function PlantReferenceGallery({ taxonomyReferenceId }: PlantReferenceGalleryProps) {
   const { t } = useLocalization();
   const query = usePlantTaxonProfile(taxonomyReferenceId);
+  const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
 
   if (query.isPending) return <p role="status">{t('plants.referencePhotosLoading')}</p>;
   if (query.isError) return <FailureAlert failure={query.error.failure} />;
+
+  const lightboxPhotos = query.data.images.map((image, index) => ({
+    id: image.id,
+    src: image.sourceUrl,
+    alt: t('plants.referencePhotoAlt', { number: index + 1 }),
+    caption: image.attribution ?? undefined,
+  }));
 
   return (
     <section className={styles['section']} aria-labelledby="plant-reference-photos-title">
@@ -30,14 +40,35 @@ export function PlantReferenceGallery({ taxonomyReferenceId }: PlantReferenceGal
         <p>{t('plants.referencePhotosEmpty')}</p>
       ) : (
         <ul className={styles['gallery']}>
-          {query.data.images.map((image) => (
+          {query.data.images.map((image, index) => (
             <li className={styles['image']} key={image.id}>
-              <img src={image.sourceUrl} alt={t('plants.referencePhotosTitle')} loading="lazy" />
+              <button
+                type="button"
+                className={styles['imageButton']}
+                onClick={() => setActiveImageIndex(index)}
+                aria-label={t('plants.photoOpenFullscreen')}
+              >
+                <img
+                  src={image.sourceUrl}
+                  alt={t('plants.referencePhotoAlt', { number: index + 1 })}
+                  loading="lazy"
+                />
+              </button>
               {image.attribution !== null && <small>{image.attribution}</small>}
             </li>
           ))}
         </ul>
       )}
+      <PhotoLightbox
+        photos={lightboxPhotos}
+        activeIndex={activeImageIndex}
+        dialogLabel={t('plants.referencePhotosTitle')}
+        closeLabel={t('plants.photoCloseFullscreen')}
+        previousLabel={t('plants.photoPrevious')}
+        nextLabel={t('plants.photoNext')}
+        onSelect={setActiveImageIndex}
+        onClose={() => setActiveImageIndex(null)}
+      />
     </section>
   );
 }

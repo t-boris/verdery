@@ -551,7 +551,7 @@ PlantTaxonImage:
 PlantTaxonProfileResult:
   type: object
   additionalProperties: false
-  required: [profile, images]
+  required: [taxonomyReference, profile, images]
   description: |
     A taxon knowledge read: the optional materialized fact projection plus
     licensed reference imagery. Images travel beside the profile because the
@@ -559,6 +559,8 @@ PlantTaxonProfileResult:
     filtered independently. A null profile never prevents reference images
     from being returned.
   properties:
+    taxonomyReference:
+      $ref: './plants.yaml#/TaxonomyReference'
     profile:
       description: The latest reviewed fact projection, or null when no fact projection has been assembled yet.
       oneOf:

@@ -112,15 +112,14 @@ describe('ObservationPhotosPanel', () => {
     expect(onChange).toHaveBeenCalledWith([{ mediaId: 'media-2', purpose: 'flower' }]);
   });
 
-  it('refuses a file over the declared ceiling before any upload starts', () => {
+  it('starts a resumable upload for a large original without a product byte ceiling', () => {
     renderPanel();
 
     const file = new File(['x'], 'huge.jpg', { type: 'image/jpeg' });
     Object.defineProperty(file, 'size', { value: 51 * 1024 * 1024 });
     fireEvent.change(screen.getByLabelText('Choose a photograph'), { target: { files: [file] } });
 
-    expect(startUploadMock).not.toHaveBeenCalled();
-    expect(screen.getByText('That file is larger than 50 MB.')).toBeTruthy();
+    expect(startUploadMock).toHaveBeenCalledWith(file);
   });
   it('warns that this exact photograph is already in the garden, without blocking it', () => {
     uploadState = { ...uploadState, phase: 'processed', mediaId: 'media-1' };

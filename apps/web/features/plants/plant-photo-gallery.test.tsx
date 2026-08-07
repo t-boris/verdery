@@ -91,6 +91,6 @@ describe('PlantPhotoGallery', () => {
     renderGallery();
     fireEvent.click(screen.getByRole('button', { name: 'Open photo full screen' }));
 
-    expect(screen.getByRole('dialog', { name: 'Primary photo' })).toBeTruthy();
+    expect(screen.getByRole('dialog', { name: 'Photos' })).toBeTruthy();
   });
 });

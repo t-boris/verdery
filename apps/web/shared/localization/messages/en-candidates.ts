@@ -31,8 +31,11 @@ export const englishCandidatesMessages = {
     'Upload a photo of the plant. A candidate is created for you, prefilled with the AI’s guess at its species — edit or delete it afterward if the guess is wrong.',
   'candidates.addFromPhotoCreating': 'Creating the candidate from your photo…',
   'candidates.photoGalleryTitle': 'Photo',
+  'candidates.photoAlt': 'Candidate photo {number}',
   'candidates.photoOpenFullscreen': 'Open photo full screen',
   'candidates.photoCloseFullscreen': 'Close full-screen photo',
+  'candidates.photoPrevious': 'Previous photo',
+  'candidates.photoNext': 'Next photo',
   'candidates.identificationTitle': 'Plant identification',
   'candidates.identificationDescription':
     'Identify this candidate again from its full-quality photo. Large originals are prepared automatically; no separate upload-size limit applies to identification.',
@@ -111,7 +114,7 @@ export const englishCandidatesMessages = {
   'candidates.convertTitle': 'Convert to a plant',
   'candidates.deleteTitle': 'Delete permanently',
   'candidates.deleteExplanation':
-    'Removes this candidate and its photos and suitability assessments for good. Archiving keeps the record and its history instead.',
+    'Removes this candidate, its photo links, and suitability assessments for good. A converted candidate can be deleted after its resulting plant has been deleted.',
   'candidates.deleteAction': 'Delete permanently',
   'candidates.deleteConfirm': 'Yes, delete it',
   'candidates.deleteCancel': 'Keep it',

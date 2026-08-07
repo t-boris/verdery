@@ -1,10 +1,10 @@
 'use client';
 
 import type { ObservationPhotoPurpose, PlantJournalFrame } from '@verdery/api-contracts';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { formatInstant, useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert } from '@/shared/ui/public';
+import { Button, FailureAlert, PhotoLightbox } from '@/shared/ui/public';
 
 import { useJournalFrameAccess, usePlantJournalFrames } from './journal-queries';
 import { OBSERVATION_PHOTO_PURPOSES, photoPurposeLabel } from './labels';
@@ -18,15 +18,22 @@ export interface PlantJournalStripProps {
 interface JournalFrameProps {
   readonly gardenId: string;
   readonly frame: PlantJournalFrame;
+  readonly alt: string;
+  readonly onOpen: (mediaId: string) => void;
+  readonly onResolved: (mediaId: string, url: string) => void;
 }
 
 /** The empty string is "every purpose", not a purpose — `<option value="">` is the only value a `<select>` can carry for "no narrowing". */
 const ALL_PURPOSES = '';
 
-function JournalFrame({ gardenId, frame }: JournalFrameProps) {
-  const { t, locale } = useLocalization();
+function JournalFrame({ gardenId, frame, alt, onOpen, onResolved }: JournalFrameProps) {
+  const { locale } = useLocalization();
   const access = useJournalFrameAccess(gardenId, frame.mediaId);
   const observed = formatInstant(frame.observedAt, locale);
+
+  useEffect(() => {
+    if (access.data !== undefined) onResolved(frame.mediaId, access.data.url);
+  }, [access.data, frame.mediaId, onResolved]);
 
   return (
     <li className={styles['frame']}>
@@ -36,18 +43,13 @@ function JournalFrame({ gardenId, frame }: JournalFrameProps) {
         // A plain `<img>`, not `next/image`: the source is a short-lived signed
         // Cloud Storage URL re-issued on every fetch, not a static asset the
         // build can optimise. Same reasoning as `media-preview.tsx`.
-        <img
-          className={styles['thumbnail']}
-          src={access.data.url}
-          alt={
-            frame.purpose === null
-              ? t('observations.journalFrameAlt', { observed })
-              : t('observations.journalFramePurposeAlt', {
-                  observed,
-                  purpose: t(photoPurposeLabel(frame.purpose)),
-                })
-          }
-        />
+        <button
+          type="button"
+          className={styles['thumbnailButton']}
+          onClick={() => onOpen(frame.mediaId)}
+        >
+          <img className={styles['thumbnail']} src={access.data.url} alt={alt} />
+        </button>
       )}
       <time className={styles['observed']} dateTime={frame.observedAt}>
         {observed}
@@ -77,14 +79,38 @@ function JournalFrame({ gardenId, frame }: JournalFrameProps) {
  * `listPlantJournalFrames`.
  */
 export function PlantJournalStrip({ gardenId, plantId }: PlantJournalStripProps) {
-  const { t } = useLocalization();
+  const { t, locale } = useLocalization();
   const [purpose, setPurpose] = useState<ObservationPhotoPurpose | ''>(ALL_PURPOSES);
+  const [resolvedUrls, setResolvedUrls] = useState<Record<string, string>>({});
+  const [activeMediaId, setActiveMediaId] = useState<string | null>(null);
+  const onResolved = useCallback((mediaId: string, url: string) => {
+    setResolvedUrls((current) =>
+      current[mediaId] === url ? current : { ...current, [mediaId]: url },
+    );
+  }, []);
 
   const query = usePlantJournalFrames(gardenId, plantId, {
     purpose: purpose === ALL_PURPOSES ? null : purpose,
   });
 
   const purposeOptions = [ALL_PURPOSES, ...OBSERVATION_PHOTO_PURPOSES] as const;
+  const frameAlt = (frame: PlantJournalFrame) => {
+    const observed = formatInstant(frame.observedAt, locale);
+    return frame.purpose === null
+      ? t('observations.journalFrameAlt', { observed })
+      : t('observations.journalFramePurposeAlt', {
+          observed,
+          purpose: t(photoPurposeLabel(frame.purpose)),
+        });
+  };
+  const lightboxPhotos = (query.data?.items ?? []).flatMap((frame) => {
+    const src = resolvedUrls[frame.mediaId];
+    return src === undefined
+      ? []
+      : [{ id: frame.mediaId, src, alt: frameAlt(frame), caption: frameAlt(frame) }];
+  });
+  const activeIndex =
+    activeMediaId === null ? null : lightboxPhotos.findIndex((photo) => photo.id === activeMediaId);
 
   return (
     <div className={styles['strip']}>
@@ -118,10 +144,27 @@ export function PlantJournalStrip({ gardenId, plantId }: PlantJournalStripProps)
         ) : (
           <ol className={styles['frames']}>
             {query.data.items.map((frame) => (
-              <JournalFrame key={frame.mediaId} gardenId={gardenId} frame={frame} />
+              <JournalFrame
+                key={frame.mediaId}
+                gardenId={gardenId}
+                frame={frame}
+                alt={frameAlt(frame)}
+                onOpen={setActiveMediaId}
+                onResolved={onResolved}
+              />
             ))}
           </ol>
         ))}
+      <PhotoLightbox
+        photos={lightboxPhotos}
+        activeIndex={activeIndex === -1 ? null : activeIndex}
+        dialogLabel={t('observations.journalTitle')}
+        closeLabel={t('media.previewCloseFullscreen')}
+        previousLabel={t('media.previewPrevious')}
+        nextLabel={t('media.previewNext')}
+        onSelect={(index) => setActiveMediaId(lightboxPhotos[index]?.id ?? null)}
+        onClose={() => setActiveMediaId(null)}
+      />
     </div>
   );
 }

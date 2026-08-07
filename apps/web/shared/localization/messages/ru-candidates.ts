@@ -25,8 +25,11 @@ export const russianCandidatesMessages = {
     'Загрузите фото растения. Кандидат будет создан автоматически, с полями, предзаполненными на основе предположения ИИ о виде растения — при необходимости отредактируйте или удалите его позже.',
   'candidates.addFromPhotoCreating': 'Создаём кандидата по вашему фото…',
   'candidates.photoGalleryTitle': 'Фото',
+  'candidates.photoAlt': 'Фото кандидата {number}',
   'candidates.photoOpenFullscreen': 'Открыть фото на весь экран',
   'candidates.photoCloseFullscreen': 'Закрыть полноэкранное фото',
+  'candidates.photoPrevious': 'Предыдущее фото',
+  'candidates.photoNext': 'Следующее фото',
   'candidates.identificationTitle': 'Распознавание растения',
   'candidates.identificationDescription':
     'Повторно распознать кандидата по исходной фотографии. Большие оригиналы подготавливаются автоматически; отдельного лимита размера для распознавания нет.',
@@ -104,7 +107,7 @@ export const russianCandidatesMessages = {
   'candidates.convertTitle': 'Преобразовать в растение',
   'candidates.deleteTitle': 'Удалить безвозвратно',
   'candidates.deleteExplanation':
-    'Кандидат, его фотографии и оценки пригодности исчезнут насовсем. Архивация вместо этого сохраняет запись и её историю.',
+    'Кандидат, ссылки на его фотографии и оценки пригодности исчезнут насовсем. Преобразованного кандидата можно удалить после удаления созданного из него растения.',
   'candidates.deleteAction': 'Удалить безвозвратно',
   'candidates.deleteConfirm': 'Да, удалить',
   'candidates.deleteCancel': 'Оставить',

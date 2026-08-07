@@ -6,7 +6,14 @@ import { CloseIcon, PauseIcon, RefreshIcon, FilePicker } from '@/shared/ui/publi
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, Card, FailureAlert, ProgressBar, StaleIndicator } from '@/shared/ui/public';
+import {
+  Button,
+  Card,
+  FailureAlert,
+  PhotoLightbox,
+  ProgressBar,
+  StaleIndicator,
+} from '@/shared/ui/public';
 
 import styles from './garden-plan-upload.module.css';
 import { formatBytes, uploadFailureReasonLabel, uploadPhaseLabel } from './labels';
@@ -61,6 +68,7 @@ const CANCELLABLE_PHASES = new Set([
  */
 function PlanPreview({ gardenId, media }: { readonly gardenId: string; readonly media: Media }) {
   const { t } = useLocalization();
+  const [open, setOpen] = useState(false);
   const derivatives = media.derivatives ?? [];
   const displayDerivative =
     derivatives.find((entry) => entry.derivativeKind === 'screen_preview') ??
@@ -81,11 +89,37 @@ function PlanPreview({ gardenId, media }: { readonly gardenId: string; readonly 
     return <FailureAlert failure={accessQuery.error.failure} />;
   }
   return (
-    <img
-      className={styles['preview']}
-      src={accessQuery.data.url}
-      alt={t('media.plan.previewAlt', { filename: media.displayFilename })}
-    />
+    <>
+      <button
+        type="button"
+        className={styles['previewButton']}
+        onClick={() => setOpen(true)}
+        aria-label={t('media.previewOpenFullscreen')}
+      >
+        <img
+          className={styles['preview']}
+          src={accessQuery.data.url}
+          alt={t('media.plan.previewAlt', { filename: media.displayFilename })}
+        />
+      </button>
+      <PhotoLightbox
+        photos={[
+          {
+            id: displayDerivative.mediaId,
+            src: accessQuery.data.url,
+            alt: t('media.plan.previewAlt', { filename: media.displayFilename }),
+            caption: media.displayFilename,
+          },
+        ]}
+        activeIndex={open ? 0 : null}
+        dialogLabel={media.displayFilename}
+        closeLabel={t('media.previewCloseFullscreen')}
+        previousLabel={t('media.previewPrevious')}
+        nextLabel={t('media.previewNext')}
+        onSelect={() => undefined}
+        onClose={() => setOpen(false)}
+      />
+    </>
   );
 }
 

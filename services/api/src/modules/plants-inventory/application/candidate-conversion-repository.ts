@@ -11,4 +11,7 @@ export interface CandidateConversionRepository {
    */
   insert(conversion: CandidateConversion): Promise<void>;
   findByCandidateId(candidateId: Uuid): Promise<CandidateConversion | null>;
+
+  /** Removes the provenance link only when permanent candidate deletion is allowed after the converted plant itself reached `removed`. */
+  deleteByCandidateId(candidateId: Uuid): Promise<boolean>;
 }

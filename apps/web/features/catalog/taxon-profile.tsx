@@ -1,9 +1,10 @@
 'use client';
 
 import type { ResolvedFact } from '@verdery/api-contracts';
+import { useState } from 'react';
 
-import { formatInstant, useLocalization } from '@/shared/localization/public';
-import { Alert, FailureAlert } from '@/shared/ui/public';
+import { formatInstant, useLocalization, type MessageKey } from '@/shared/localization/public';
+import { Alert, FailureAlert, PhotoLightbox } from '@/shared/ui/public';
 
 import { useTaxonProfile } from './queries';
 import styles from './taxon-profile.module.css';
@@ -18,6 +19,41 @@ function factValue(fact: ResolvedFact): string {
     return fact.value;
   }
   return JSON.stringify(fact.value);
+}
+
+const FACT_LABELS: Readonly<Record<string, MessageKey>> = {
+  hardinesszonemin: 'catalog.factHardinessMinimum',
+  hardinesszonemax: 'catalog.factHardinessMaximum',
+  sunexposure: 'catalog.factSunExposure',
+  waterneeds: 'catalog.factWaterNeeds',
+  soiltype: 'catalog.factSoilType',
+  soilphmin: 'catalog.factSoilPhMinimum',
+  soilphmax: 'catalog.factSoilPhMaximum',
+  drainage: 'catalog.factDrainage',
+  matureheightcm: 'catalog.factMatureHeight',
+  maturespreadcm: 'catalog.factMatureSpread',
+  growthhabit: 'catalog.factGrowthHabit',
+  lifecycle: 'catalog.factLifeCycle',
+  bloomtime: 'catalog.factBloomTime',
+  harvesttime: 'catalog.factHarvestTime',
+  pruning: 'catalog.factPruning',
+  propagation: 'catalog.factPropagation',
+  wildlifevalue: 'catalog.factWildlifeValue',
+  toxicity: 'catalog.factToxicity',
+  edibility: 'catalog.factEdibility',
+  interestingfact: 'catalog.factInterestingFact',
+};
+
+function normalizedFactKey(key: string): string {
+  return key.replaceAll(/[^a-z0-9]/gi, '').toLowerCase();
+}
+
+function readableFactKey(key: string): string {
+  const words = key
+    .replaceAll(/([a-z])([A-Z])/g, '$1 $2')
+    .replaceAll(/[._-]+/g, ' ')
+    .trim();
+  return words === '' ? key : `${words[0]?.toUpperCase() ?? ''}${words.slice(1)}`;
 }
 
 /**
@@ -44,6 +80,7 @@ function factValue(fact: ResolvedFact): string {
 export function TaxonProfile({ taxonomyReferenceId }: TaxonProfileProps) {
   const { t, locale } = useLocalization();
   const query = useTaxonProfile(taxonomyReferenceId);
+  const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
 
   if (query.isPending) {
     return <p className={styles['status']}>{t('catalog.profileLoading')}</p>;
@@ -57,10 +94,60 @@ export function TaxonProfile({ taxonomyReferenceId }: TaxonProfileProps) {
     );
   }
 
-  const { profile, images } = query.data;
+  const { taxonomyReference, profile, images } = query.data;
+  const lightboxPhotos = images.map((image, index) => {
+    const alt =
+      image.organ === null || image.organ === undefined
+        ? t('catalog.imageAlt')
+        : t('catalog.imageAltOrgan', { organ: image.organ });
+    return {
+      id: image.id,
+      src: image.sourceUrl,
+      alt,
+      caption:
+        image.attribution === null || image.attribution === undefined
+          ? undefined
+          : t('catalog.imageCredit', { holder: image.attribution }),
+      openLabel: t('catalog.imageOpenFullscreen', { number: index + 1 }),
+    };
+  });
 
   return (
     <div className={styles['profile']}>
+      <section className={styles['identity']} aria-labelledby="taxon-name">
+        <div>
+          <p className={styles['eyebrow']}>{t('catalog.taxonomyLabel')}</p>
+          <h2 id="taxon-name" className={styles['commonName']}>
+            {taxonomyReference.commonName ?? taxonomyReference.scientificName}
+          </h2>
+          <p className={styles['scientificName']}>{taxonomyReference.scientificName}</p>
+        </div>
+        <dl className={styles['taxonomyFacts']}>
+          {taxonomyReference.family !== null && (
+            <div>
+              <dt>{t('catalog.familyLabel')}</dt>
+              <dd>{taxonomyReference.family}</dd>
+            </div>
+          )}
+          {taxonomyReference.genus !== null && (
+            <div>
+              <dt>{t('catalog.genusLabel')}</dt>
+              <dd>{taxonomyReference.genus}</dd>
+            </div>
+          )}
+          {taxonomyReference.varietyName !== null && (
+            <div>
+              <dt>{t('catalog.varietyLabel')}</dt>
+              <dd>{taxonomyReference.varietyName}</dd>
+            </div>
+          )}
+          <div>
+            <dt>{t('catalog.taxonomySourceLabel')}</dt>
+            <dd>{taxonomyReference.source.replaceAll('_', ' ')}</dd>
+          </div>
+        </dl>
+      </section>
+
       {profile !== null && (
         <p className={styles['assembled']}>
           {t('catalog.profileAssembled', { date: formatInstant(profile.createdAt, locale) })}
@@ -69,19 +156,18 @@ export function TaxonProfile({ taxonomyReferenceId }: TaxonProfileProps) {
 
       {images.length > 0 && (
         <ul className={styles['images']}>
-          {images.map((image) => (
+          {images.map((image, index) => (
             <li key={image.id} className={styles['image']}>
-              {/* Not next/image: these are third-party URLs on hosts this
-                  application does not control or configure. */}
-              <img
-                src={image.sourceUrl}
-                alt={
-                  image.organ === null || image.organ === undefined
-                    ? t('catalog.imageAlt')
-                    : t('catalog.imageAltOrgan', { organ: image.organ })
-                }
-                loading="lazy"
-              />
+              <button
+                type="button"
+                className={styles['imageButton']}
+                onClick={() => setActiveImageIndex(index)}
+                aria-label={lightboxPhotos[index]?.openLabel}
+              >
+                {/* Not next/image: these are third-party URLs on hosts this
+                    application does not control or configure. */}
+                <img src={image.sourceUrl} alt={lightboxPhotos[index]?.alt} loading="lazy" />
+              </button>
               {/* Rendered whenever the server sent one: for CC-BY it is the
                   condition the licence was granted under, not a nicety. */}
               {image.attribution !== null && image.attribution !== undefined && (
@@ -94,6 +180,17 @@ export function TaxonProfile({ taxonomyReferenceId }: TaxonProfileProps) {
         </ul>
       )}
 
+      <PhotoLightbox
+        photos={lightboxPhotos}
+        activeIndex={activeImageIndex}
+        dialogLabel={t('catalog.profileTitle')}
+        closeLabel={t('catalog.imageCloseFullscreen')}
+        previousLabel={t('catalog.imagePrevious')}
+        nextLabel={t('catalog.imageNext')}
+        onSelect={setActiveImageIndex}
+        onClose={() => setActiveImageIndex(null)}
+      />
+
       {profile?.isPartial && (
         <Alert tone="info" title={t('catalog.profilePartialTitle')}>
           {t('catalog.profilePartial')}
@@ -101,28 +198,34 @@ export function TaxonProfile({ taxonomyReferenceId }: TaxonProfileProps) {
       )}
 
       {profile === null || profile.resolvedFacts.length === 0 ? (
-        <p className={styles['status']}>{t('catalog.profileNoFacts')}</p>
+        <Alert tone="info" title={t('catalog.profileNoFactsTitle')}>
+          {t('catalog.profileNoFacts')}
+        </Alert>
       ) : (
         <dl className={styles['facts']}>
-          {profile.resolvedFacts.map((fact) => (
-            <div className={styles['fact']} key={fact.factKey}>
-              {/* The fact key is shown as the provider ledger stores it: this client has no translation table for a vocabulary the sources own, and inventing readable labels would misstate what was asserted. */}
-              <dt className={styles['factKey']}>{fact.factKey}</dt>
-              <dd className={styles['factBody']}>
-                <span className={styles['factValue']}>
-                  {factValue(fact)}
-                  {fact.unit !== null && ` ${fact.unit}`}
-                </span>
-                <span className={styles['factMeta']}>
-                  <span>{t('catalog.factProvider', { provider: fact.providerKey })}</span>
-                  {fact.geographicScope !== null && (
-                    <span>{t('catalog.factScope', { scope: fact.geographicScope })}</span>
-                  )}
-                  {fact.sourceCitation !== null && <span>{fact.sourceCitation}</span>}
-                </span>
-              </dd>
-            </div>
-          ))}
+          {profile.resolvedFacts.map((fact) => {
+            const labelKey = FACT_LABELS[normalizedFactKey(fact.factKey)];
+            return (
+              <div className={styles['fact']} key={fact.factKey}>
+                <dt className={styles['factKey']}>
+                  {labelKey === undefined ? readableFactKey(fact.factKey) : t(labelKey)}
+                </dt>
+                <dd className={styles['factBody']}>
+                  <span className={styles['factValue']}>
+                    {factValue(fact)}
+                    {fact.unit !== null && ` ${fact.unit}`}
+                  </span>
+                  <span className={styles['factMeta']}>
+                    <span>{t('catalog.factProvider', { provider: fact.providerKey })}</span>
+                    {fact.geographicScope !== null && (
+                      <span>{t('catalog.factScope', { scope: fact.geographicScope })}</span>
+                    )}
+                    {fact.sourceCitation !== null && <span>{fact.sourceCitation}</span>}
+                  </span>
+                </dd>
+              </div>
+            );
+          })}
         </dl>
       )}
     </div>

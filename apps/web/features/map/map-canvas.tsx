@@ -106,6 +106,7 @@ export function MapCanvas({
   const [size, setSize] = useState<CanvasSize>({ width: 0, height: 0 });
   const [pointerLocal, setPointerLocal] = useState<Position | null>(null);
   const [draftSnap, setDraftSnap] = useState<SnapResult | null>(null);
+  const camera = store.state.camera;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -135,7 +136,6 @@ export function MapCanvas({
     });
   }, [actions.records, backdrop, size, store]);
 
-  const camera = store.state.camera;
   const tool = store.state.tool;
   const creatingCategory = creatableCategoryOfTool(tool);
   const draftKind = creatingCategory === null ? null : CREATABLE_GEOMETRY_KIND[creatingCategory];

@@ -44,14 +44,10 @@ import { generateTilePyramid } from './tile-pyramid-generator.js';
 const PROCESSOR_VERSION = 'media-derivative-generator-v1';
 
 /**
- * Defense-in-depth re-download ceiling: this manifest's own source has
- * already passed `media_validation`'s own class-specific byte ceiling once
- * (`../validation/validation-policy.ts`). 50 MiB is that policy's own
- * `imported_plan` number — the larger of the two derivative-eligible
- * classes' ceilings — reused here rather than inventing a second figure,
- * matching this stage's own "reuse an existing number before minting a new
- * one" posture elsewhere (`derivative-eligibility.ts`'s content-type list,
- * this file's own `PROCESSOR_VERSION` naming convention).
+ * Defense-in-depth ceiling for imported plans. Garden photos have no product
+ * byte limit; their re-download is instead bounded to the exact byte size
+ * already verified by media validation, so an object replacement cannot make
+ * derivative work consume more than the accepted source did.
  */
 const MAX_SOURCE_BYTES = 50 * 1024 * 1024;
 
@@ -163,10 +159,14 @@ export class ProcessMediaDerivativeGenerationJob {
       );
     }
 
+    const sourceByteLimit =
+      manifest.validation.mediaClass === 'garden_photo'
+        ? manifest.validation.expectedByteSize
+        : MAX_SOURCE_BYTES;
     const object = await this.source.materialize(
       input.bucketName,
       input.objectKey,
-      MAX_SOURCE_BYTES,
+      sourceByteLimit,
     );
     try {
       /*

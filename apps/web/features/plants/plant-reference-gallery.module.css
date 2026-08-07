@@ -31,12 +31,28 @@
   gap: var(--space-1);
 }
 
-.image img {
+.imageButton {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  cursor: zoom-in;
+}
+
+.imageButton img {
+  display: block;
   width: 100%;
   aspect-ratio: 1;
   border-radius: var(--radius-md);
-  object-fit: cover;
+  object-fit: contain;
   background: var(--color-surface-sunken);
+}
+
+.imageButton:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
 }
 
 .image small {

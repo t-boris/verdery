@@ -44,9 +44,16 @@ afterEach(async () => {
 });
 
 class FileObjectSource implements MediaObjectSource {
+  readonly byteLimits: (number | null)[] = [];
+
   constructor(private readonly buffer: Buffer) {}
 
-  async materialize(): Promise<MaterializedMediaObject> {
+  async materialize(
+    _bucketName: string,
+    _objectKey: string,
+    maxBytes: number | null,
+  ): Promise<MaterializedMediaObject> {
+    this.byteLimits.push(maxBytes);
     const directory = await mkdtemp(join(tmpdir(), 'verdery-derivative-source-'));
     const path = join(directory, 'source');
     await writeFile(path, this.buffer);
@@ -255,6 +262,21 @@ describe('ProcessMediaDerivativeGenerationJob', () => {
     const result = await job.execute(manifest());
 
     expect(result.inputChecksums).toEqual([createHash('sha256').update(photo).digest('hex')]);
+  });
+
+  it('bounds an unlimited-size garden photo re-download to its already validated byte size', async () => {
+    const photo = await samplePhoto(100, 100);
+    const source = new FileObjectSource(photo);
+    const job = new ProcessMediaDerivativeGenerationJob(
+      source,
+      new RecordingObjectSink(),
+      new RecordingResultRecorder(),
+      new PopplerPdfPageRasterizer(),
+    );
+
+    await job.execute(manifest({ expectedByteSize: photo.length }));
+
+    expect(source.byteLimits).toEqual([photo.length]);
   });
 
   it('is a terminal failure, not a thrown error, for a media class with no derivative profile', async () => {

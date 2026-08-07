@@ -92,6 +92,24 @@ function parseIdentifiedFilter(raw: unknown): boolean | undefined {
   return raw === 'true';
 }
 
+function parseBooleanFilter(raw: unknown, pointer: string): boolean | undefined {
+  if (raw === undefined) return undefined;
+  if (raw !== 'true' && raw !== 'false') {
+    throw invalid(`${pointer} must be "true" or "false".`, 'request.invalid', pointer);
+  }
+  return raw === 'true';
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function parseOptionalUuid(raw: unknown, pointer: string): string | undefined {
+  if (raw === undefined) return undefined;
+  if (typeof raw !== 'string' || !UUID_PATTERN.test(raw)) {
+    throw invalid(`${pointer} must be a UUID.`, 'request.uuid.invalid', pointer);
+  }
+  return raw;
+}
+
 /** A day count for the journal-recency filters. Rejects zero and negatives rather than silently treating them as "no filter", which would hide a client bug. */
 function parseDayCount(raw: unknown, pointer: string): number | undefined {
   return parseBoundedInteger(raw, 1, 3650, pointer);
@@ -128,6 +146,8 @@ export function parseSearchPlantsQuery(request: FastifyRequest): {
     status?: unknown;
     groupingKind?: unknown;
     identified?: unknown;
+    hasMapPlacement?: unknown;
+    placementMapObjectId?: unknown;
     observedWithinDays?: unknown;
     notObservedForDays?: unknown;
     healthConcern?: unknown;
@@ -155,6 +175,15 @@ export function parseSearchPlantsQuery(request: FastifyRequest): {
     '/groupingKind',
   );
   const identified = parseIdentifiedFilter(raw.identified);
+  const hasMapPlacement = parseBooleanFilter(raw.hasMapPlacement, '/hasMapPlacement');
+  const placementMapObjectId = parseOptionalUuid(raw.placementMapObjectId, '/placementMapObjectId');
+  if (hasMapPlacement === false && placementMapObjectId !== undefined) {
+    throw invalid(
+      'placementMapObjectId cannot be combined with hasMapPlacement=false.',
+      'request.query.conflict',
+      '/placementMapObjectId',
+    );
+  }
   const healthConcern = parseCommaSeparatedEnum<ImageAnalysisKind>(
     raw.healthConcern,
     IMAGE_ANALYSIS_KINDS,
@@ -207,6 +236,8 @@ export function parseSearchPlantsQuery(request: FastifyRequest): {
       ...(status === undefined ? {} : { status }),
       ...(groupingKind === undefined ? {} : { groupingKind }),
       ...(identified === undefined ? {} : { identified }),
+      ...(hasMapPlacement === undefined ? {} : { hasMapPlacement }),
+      ...(placementMapObjectId === undefined ? {} : { placementMapObjectId }),
       ...(observedWithinDays === undefined ? {} : { observedWithinDays }),
       ...(notObservedForDays === undefined ? {} : { notObservedForDays }),
       ...(healthConcern === undefined ? {} : { healthConcern }),

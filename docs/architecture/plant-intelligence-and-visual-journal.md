@@ -87,7 +87,9 @@ Conversion to an actual plant is an explicit revision-aware command. It:
 2. Creates the actual plant identity and accepted placement.
 3. Records the planting or acquisition event.
 4. Starts, but does not fabricate, an observation history.
-5. Leaves the original candidate record linked as converted rather than deleting it.
+5. Leaves the original candidate record linked as converted while the resulting plant remains in
+   the working lifecycle. If that plant is later marked `removed`, the user may explicitly delete
+   the converted candidate and its conversion link permanently.
 
 Actual plants are not silently demoted to candidates. Removing an actual plant uses the existing
 lifecycle and archival model.

@@ -39,6 +39,8 @@ export interface SearchPlantsParams {
   readonly status?: readonly PlantStatus[] | null;
   readonly groupingKind?: readonly PlantGroupingKind[] | null;
   readonly identified?: boolean | null;
+  readonly hasMapPlacement?: boolean | null;
+  readonly placementMapObjectId?: string | null;
   /** P11-SEARCH-01's joined filters. Semantics live on the operation in openapi.yaml; this type only carries them. */
   readonly observedWithinDays?: number | null;
   readonly notObservedForDays?: number | null;
@@ -214,6 +216,12 @@ function searchPlantsQuery(params: SearchPlantsParams): string {
   }
   if (params.identified !== undefined && params.identified !== null) {
     search.set('identified', String(params.identified));
+  }
+  if (params.hasMapPlacement !== undefined && params.hasMapPlacement !== null) {
+    search.set('hasMapPlacement', String(params.hasMapPlacement));
+  }
+  if (params.placementMapObjectId !== undefined && params.placementMapObjectId !== null) {
+    search.set('placementMapObjectId', params.placementMapObjectId);
   }
   setNumber(search, 'observedWithinDays', params.observedWithinDays);
   setNumber(search, 'notObservedForDays', params.notObservedForDays);

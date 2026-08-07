@@ -86,12 +86,16 @@ export const englishPlantsMessages = {
   'plants.photoPrimary': 'Primary photo',
   'plants.photoMakePrimary': 'Make primary',
   'plants.photoOpenFullscreen': 'Open photo full screen',
+  'plants.photoAlt': 'Plant photo {number}',
   'plants.photoCloseFullscreen': 'Close full-screen photo',
+  'plants.photoPrevious': 'Previous photo',
+  'plants.photoNext': 'Next photo',
   'plants.referencePhotosTitle': 'Reference photos',
   'plants.referencePhotosDescription':
     'Licensed reference images show the typical appearance of this species. Your own plant photos remain separate above.',
   'plants.referencePhotosLoading': 'Loading reference photos…',
   'plants.referencePhotosEmpty': 'No licensed reference photos are available for this species yet.',
+  'plants.referencePhotoAlt': 'Reference photo {number}',
   'plants.addFromPhotoTitle': 'Add from a photo',
   'plants.addFromPhotoDescription':
     'Upload a photo of the plant. It is created for you, and the AI’s guess at its species is shown for you to confirm.',

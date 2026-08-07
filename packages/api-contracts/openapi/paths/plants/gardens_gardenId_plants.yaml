@@ -108,6 +108,18 @@ get:
         (P11-SEARCH-01).
       schema:
         type: boolean
+    - name: hasMapPlacement
+      in: query
+      required: false
+      description: '`false` returns inventory plants not yet linked to any map object; `true` returns linked plants.'
+      schema:
+        type: boolean
+    - name: placementMapObjectId
+      in: query
+      required: false
+      description: Restricts to the plant linked to this exact map object.
+      schema:
+        $ref: '../../components/schemas/shared.yaml#/Uuid'
     - name: observedWithinDays
       in: query
       required: false

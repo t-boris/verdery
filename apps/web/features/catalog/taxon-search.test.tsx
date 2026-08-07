@@ -31,6 +31,8 @@ function taxon(
     scientificName,
     commonName,
     varietyName: null,
+    family: null,
+    genus: null,
     source: 'system_catalog',
     matchedName,
     createdByProfileId: null,

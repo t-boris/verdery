@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useLocalization } from '@/shared/localization/public';
-import { CloseIcon, FailureAlert } from '@/shared/ui/public';
+import { FailureAlert, PhotoLightbox } from '@/shared/ui/public';
 
 import { useCandidatePhotoAccess } from './candidate-media-queries';
 import styles from './candidate-photo-gallery.module.css';
@@ -16,31 +16,29 @@ export interface CandidatePhotoGalleryProps {
 
 interface CandidatePhotoThumbnailProps {
   readonly gardenId: string;
+  readonly photoId: string;
   readonly mediaId: string;
   readonly alt: string;
   readonly openLabel: string;
-  readonly closeLabel: string;
+  readonly onOpen: (photoId: string) => void;
+  readonly onResolved: (photoId: string, url: string) => void;
 }
 
 /** One photo's signed-URL resolution — mirrors `plant-photo-gallery.tsx`'s identical `PlantPhotoThumbnail`. */
 function CandidatePhotoThumbnail({
   gardenId,
+  photoId,
   mediaId,
   alt,
   openLabel,
-  closeLabel,
+  onOpen,
+  onResolved,
 }: CandidatePhotoThumbnailProps) {
   const query = useCandidatePhotoAccess(gardenId, mediaId);
-  const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('keydown', closeOnEscape);
-    return () => document.removeEventListener('keydown', closeOnEscape);
-  }, [open]);
+    if (query.data !== undefined) onResolved(photoId, query.data.url);
+  }, [onResolved, photoId, query.data]);
 
   // `data` is absent both while the photo is still being validated and when
   // the read failed; the placeholder covers each, and the status poll behind
@@ -53,38 +51,14 @@ function CandidatePhotoThumbnail({
   // doc comment: the source is a short-lived signed Cloud Storage URL,
   // re-issued on every fetch, not a build-time-optimizable static asset.
   return (
-    <>
-      <button
-        type="button"
-        className={styles['thumbnailButton']}
-        onClick={() => setOpen(true)}
-        aria-label={openLabel}
-      >
-        <img className={styles['thumbnail']} src={query.data.url} alt={alt} />
-      </button>
-      {open && (
-        <div
-          className={styles['lightbox']}
-          role="dialog"
-          aria-modal="true"
-          aria-label={alt}
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setOpen(false);
-          }}
-        >
-          <button
-            type="button"
-            className={styles['close']}
-            onClick={() => setOpen(false)}
-            aria-label={closeLabel}
-            title={closeLabel}
-          >
-            <CloseIcon />
-          </button>
-          <img className={styles['fullImage']} src={query.data.url} alt={alt} />
-        </div>
-      )}
-    </>
+    <button
+      type="button"
+      className={styles['thumbnailButton']}
+      onClick={() => onOpen(photoId)}
+      aria-label={openLabel}
+    >
+      <img className={styles['thumbnail']} src={query.data.url} alt={alt} />
+    </button>
   );
 }
 
@@ -100,6 +74,13 @@ function CandidatePhotoThumbnail({
 export function CandidatePhotoGallery({ gardenId, candidateId }: CandidatePhotoGalleryProps) {
   const { t } = useLocalization();
   const query = useCandidatePhotos(gardenId, candidateId);
+  const [resolvedUrls, setResolvedUrls] = useState<Record<string, string>>({});
+  const [activePhotoId, setActivePhotoId] = useState<string | null>(null);
+  const onResolved = useCallback((photoId: string, url: string) => {
+    setResolvedUrls((current) =>
+      current[photoId] === url ? current : { ...current, [photoId]: url },
+    );
+  }, []);
 
   if (query.isPending) {
     return null;
@@ -113,18 +94,48 @@ export function CandidatePhotoGallery({ gardenId, candidateId }: CandidatePhotoG
     return null;
   }
 
+  const lightboxPhotos = query.data.flatMap((photo, index) => {
+    const url = resolvedUrls[photo.id];
+    return url === undefined
+      ? []
+      : [
+          {
+            id: photo.id,
+            src: url,
+            alt: t('candidates.photoAlt', { number: index + 1 }),
+            caption: t('candidates.photoAlt', { number: index + 1 }),
+          },
+        ];
+  });
+  const activeIndex =
+    activePhotoId === null ? null : lightboxPhotos.findIndex((photo) => photo.id === activePhotoId);
+
   return (
-    <div className={styles['gallery']}>
-      {query.data.map((photo) => (
-        <CandidatePhotoThumbnail
-          key={photo.id}
-          gardenId={gardenId}
-          mediaId={photo.mediaId}
-          alt={t('candidates.photoGalleryTitle')}
-          openLabel={t('candidates.photoOpenFullscreen')}
-          closeLabel={t('candidates.photoCloseFullscreen')}
-        />
-      ))}
-    </div>
+    <>
+      <div className={styles['gallery']}>
+        {query.data.map((photo, index) => (
+          <CandidatePhotoThumbnail
+            key={photo.id}
+            gardenId={gardenId}
+            photoId={photo.id}
+            mediaId={photo.mediaId}
+            alt={t('candidates.photoAlt', { number: index + 1 })}
+            openLabel={t('candidates.photoOpenFullscreen')}
+            onOpen={setActivePhotoId}
+            onResolved={onResolved}
+          />
+        ))}
+      </div>
+      <PhotoLightbox
+        photos={lightboxPhotos}
+        activeIndex={activeIndex === -1 ? null : activeIndex}
+        dialogLabel={t('candidates.photoGalleryTitle')}
+        closeLabel={t('candidates.photoCloseFullscreen')}
+        previousLabel={t('candidates.photoPrevious')}
+        nextLabel={t('candidates.photoNext')}
+        onSelect={(index) => setActivePhotoId(lightboxPhotos[index]?.id ?? null)}
+        onClose={() => setActivePhotoId(null)}
+      />
+    </>
   );
 }

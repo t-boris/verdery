@@ -362,5 +362,14 @@ export const englishMapMessages = {
   'map.aerial.addSelected': 'Add selected ({count})',
   'map.aerial.acceptFailed': 'The detected objects could not all be added.',
   'map.aerial.accepted': 'Added {count} detected objects.',
+  'map.plantInventory.title': 'Inventory plant',
+  'map.plantInventory.description':
+    'Connect this traced growing area to a real plant record. The area and the inventory plant then stay linked.',
+  'map.plantInventory.loading': 'Loading plants…',
+  'map.plantInventory.linked': 'This area is linked to:',
+  'map.plantInventory.createManual': 'Create plant from questions',
+  'map.plantInventory.createFromPhoto': 'Create plant from a photo',
+  'map.plantInventory.unassignedTitle': 'Plants without a map area',
+  'map.plantInventory.unassignedEmpty': 'Every current plant already has a map area.',
   'map.plat.areaMismatchWarning': 'the walked area does not match the area printed on the sheet',
 } as const;

@@ -35,11 +35,21 @@ import styles from './page.module.css';
  */
 export default async function PlantsPage({
   params,
+  searchParams,
 }: {
   readonly params: Promise<{ gardenId: string }>;
+  readonly searchParams: Promise<{
+    create?: string;
+    placementMapObjectId?: string;
+    returnTo?: string;
+  }>;
 }) {
   const { gardenId } = await params;
+  const requested = await searchParams;
   const t = await getRequestTranslator();
+  const placementMapObjectId = requested.placementMapObjectId;
+  const returnHref =
+    requested.returnTo === 'map' ? `/application/gardens/${gardenId}/map` : undefined;
 
   return (
     <RoutePage>
@@ -57,12 +67,27 @@ export default async function PlantsPage({
             title={t('plants.addFromPhotoTitle')}
             description={t('plants.addFromPhotoDescription')}
             icon={<ImageIcon />}
+            defaultOpen={requested.create === 'photo'}
           >
-            <AddPlantFromPhotoPanel gardenId={gardenId} />
+            <AddPlantFromPhotoPanel
+              gardenId={gardenId}
+              {...(placementMapObjectId === undefined ? {} : { placementMapObjectId })}
+              {...(returnHref === undefined ? {} : { returnHref })}
+            />
           </ActionDisclosure>
 
-          <ActionDisclosure title={t('plants.addTitle')} icon={<PlusIcon />}>
-            <AddPlantForm gardenId={gardenId} />
+          <ActionDisclosure
+            title={t('plants.addTitle')}
+            icon={<PlusIcon />}
+            defaultOpen={requested.create === 'manual'}
+          >
+            <AddPlantForm
+              gardenId={gardenId}
+              {...(placementMapObjectId === undefined
+                ? {}
+                : { initialPlacementMapObjectId: placementMapObjectId })}
+              {...(returnHref === undefined ? {} : { returnHref })}
+            />
           </ActionDisclosure>
 
           <ActionDisclosure title={t('plants.openByIdTitle')} icon={<SearchIcon />}>

@@ -57,6 +57,7 @@ export {
 } from './icons';
 export { Label, type LabelProps } from './label';
 export { ProgressBar, type ProgressBarProps } from './progress-bar';
+export { PhotoLightbox, type LightboxPhoto, type PhotoLightboxProps } from './photo-lightbox';
 export {
   RouteBody,
   RouteDashboard,

@@ -10,7 +10,7 @@ export interface MediaObjectSource {
   materialize(
     bucketName: string,
     objectKey: string,
-    maxBytes: number,
+    maxBytes: number | null,
   ): Promise<MaterializedMediaObject>;
 }
 

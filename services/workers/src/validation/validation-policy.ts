@@ -1,6 +1,7 @@
 export interface ValidationPolicy {
   readonly allowedContentTypes: readonly string[];
-  readonly maxBytes: number;
+  /** Null means the product accepts any photo size; processing still streams to disk and validates dimensions. */
+  readonly maxBytes: number | null;
   readonly maxImagePixels: number;
   readonly maxImageDimension: number;
   readonly maxPdfPages: number;
@@ -33,7 +34,7 @@ const POLICIES: Readonly<Record<string, ValidationPolicy>> = {
   garden_photo: {
     ...BASE,
     allowedContentTypes: IMAGE_TYPES,
-    maxBytes: 50 * MIB,
+    maxBytes: null,
   },
   imported_plan: {
     ...BASE,

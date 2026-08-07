@@ -369,5 +369,14 @@ export const russianMapMessages: Readonly<Record<keyof typeof englishMapMessages
   'map.aerial.addSelected': 'Добавить выбранное ({count})',
   'map.aerial.acceptFailed': 'Не все найденные объекты удалось добавить.',
   'map.aerial.accepted': 'Добавлено найденных объектов: {count}.',
+  'map.plantInventory.title': 'Растение из инвентаря',
+  'map.plantInventory.description':
+    'Свяжите эту обведённую площадь с реальной записью растения. После этого площадь на карте и растение в инвентаре будут связаны.',
+  'map.plantInventory.loading': 'Загрузка растений…',
+  'map.plantInventory.linked': 'Эта площадь связана с растением:',
+  'map.plantInventory.createManual': 'Создать растение по вопросам',
+  'map.plantInventory.createFromPhoto': 'Создать растение по фотографии',
+  'map.plantInventory.unassignedTitle': 'Растения без места на карте',
+  'map.plantInventory.unassignedEmpty': 'У всех текущих растений уже есть площадь на карте.',
   'map.plat.areaMismatchWarning': 'площадь обхода не совпадает с площадью на листе',
 };

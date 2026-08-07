@@ -55,7 +55,7 @@ The Cloud Tasks handler:
 
 1. Verifies the Google-signed OIDC token and exact worker service-account identity.
 2. Streams exactly one private GCS object into a mode-`0600` temporary directory while enforcing
-   the class byte limit and computing SHA-256.
+   the class byte limit when one exists and computing SHA-256.
 3. Compares magic signature, declared type, display-filename extension, exact size, and any expected
    checksum.
 4. Runs a bounded, pure-JS parser: header-only dimension reading (`image-size`) for raster images, or
@@ -69,8 +69,8 @@ Images are limited to 40 megapixels and 16,384 pixels on either axis, read from 
 (never a full pixel decode — see `src/validation/image-metadata-parser.ts`'s own header comment for
 why that is sufficient). PDFs are limited to 100 pages and reject encryption, JavaScript, launch
 actions, embedded files, rich media, XFA, excessive object cardinality, and malformed envelopes.
-Class byte limits are 50 MiB for garden photos, 50 MiB for imported plans, 50 MiB for derived
-previews, and 1 GiB for processing output.
+Garden photos have no fixed product byte limit. Class byte limits are 50 MiB for imported plans,
+50 MiB for derived previews, and 1 GiB for processing output.
 
 **Video/raw-capture is explicitly out of scope for this stage.** Duration, codec, and frame-rate
 validation needs `ffprobe`, a native binary dependency not yet in this stack — the same reasoning

@@ -585,13 +585,18 @@ Disposing of a candidate must take it out of the working list rather than leave 
 disposal reads as one that failed. Archiving and rejecting are the ordinary disposals and keep the
 record and its history; both remain reachable through an explicit filter. A candidate that should
 never have been created may also be deleted outright, which keeps nothing — except that a converted
-candidate must not be deletable, because its conversion record is the resulting plant's provenance
-and deleting it would contradict the preservation requirement above.
+candidate must not be deletable while the resulting plant remains in the working lifecycle,
+because its conversion record is that plant's provenance. After the resulting plant reaches
+`removed`, the user may permanently delete the converted candidate and its conversion link; this
+is an explicit disposal of both sides, not a silent loss of provenance from a live plant.
 
 ### FR-20: Plant Addition
 
 - Users must be able to add plants manually.
 - Users should be able to add plants from a photo.
+- From the map, users must trace the area occupied by a plant and then either attach an existing
+  unassigned inventory plant, create one manually, or create one from a photo. New map additions are
+  polygons; legacy point placements remain supported for compatibility.
 - Photo identification results must show uncertainty and remain editable.
 - The application should prefill supported plant information after identification.
 - Users should be able to add individual plants, rows, or groups.
@@ -600,6 +605,17 @@ and deleting it would contradict the preservation requirement above.
   candidate.
 - Users must be able to search a shared plant catalog or create a garden-specific unknown entry.
 - Addition must complete without waiting for optional external enrichment.
+- Plant and candidate creation from a processed large photo must wait through the named transient
+  derivative-preparation state and retry it automatically rather than rolling back as a visible
+  creation failure.
+- Garden-photo upload has no fixed product byte limit. Originals are transferred resumably and kept;
+  identification uses the largest prepared rendition accepted by the vision transport.
+- Every displayed photograph must open in a viewport-contained full-screen viewer. Multi-photo
+  contexts must support previous/next navigation, keyboard navigation, a counter, and visible
+  caption or attribution.
+- A catalog profile must show canonical taxonomy identity even when reviewed gardening facts have
+  not yet been assembled. Available reviewed growing, care, seasonal, size, safety, and garden-use
+  facts must retain their value, unit, scope, provider, and citation.
 
 ### FR-21: Plant Lifecycle and Seasonal Planning
 

@@ -44,6 +44,14 @@ export function plantNotFoundError(): NotFoundError {
   return new NotFoundError(PlantErrorCode.NotFound, 'Plant not found.');
 }
 
+/** A catalog profile cannot exist without the canonical taxonomy row it describes. */
+export function taxonomyReferenceNotFoundError(): NotFoundError {
+  return new NotFoundError(
+    'plants_inventory.taxonomy_reference.not_found',
+    'Taxonomy reference not found.',
+  );
+}
+
 export function plantStaleRevisionError(currentRevision: number): StaleRevisionError {
   return new StaleRevisionError(
     PlantErrorCode.StaleRevision,

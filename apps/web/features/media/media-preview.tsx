@@ -1,9 +1,10 @@
 'use client';
 
 import type { MediaDerivativeSummary, MediaProcessingState } from '@verdery/api-contracts';
+import { useState } from 'react';
 
 import { useLocalization } from '@/shared/localization/public';
-import { FailureAlert } from '@/shared/ui/public';
+import { FailureAlert, PhotoLightbox } from '@/shared/ui/public';
 
 import styles from './media-preview.module.css';
 import { useMediaAccess } from './queries';
@@ -52,6 +53,7 @@ export function MediaPreview({
   derivatives = [],
 }: MediaPreviewProps) {
   const { t } = useLocalization();
+  const [open, setOpen] = useState(false);
   const preferred =
     derivatives.find((entry) => entry.derivativeKind === 'screen_preview') ??
     derivatives.find((entry) => entry.derivativeKind === 'thumbnail');
@@ -75,10 +77,36 @@ export function MediaPreview({
   // optimizable static asset, and `next/image`'s remote-pattern allowlist
   // would need to match a per-request signed URL, not a stable host path.
   return (
-    <img
-      className={styles['preview']}
-      src={query.data.url}
-      alt={t('media.previewAlt', { filename: displayFilename })}
-    />
+    <>
+      <button
+        type="button"
+        className={styles['previewButton']}
+        onClick={() => setOpen(true)}
+        aria-label={t('media.previewOpenFullscreen')}
+      >
+        <img
+          className={styles['preview']}
+          src={query.data.url}
+          alt={t('media.previewAlt', { filename: displayFilename })}
+        />
+      </button>
+      <PhotoLightbox
+        photos={[
+          {
+            id: accessMediaId,
+            src: query.data.url,
+            alt: t('media.previewAlt', { filename: displayFilename }),
+            caption: displayFilename,
+          },
+        ]}
+        activeIndex={open ? 0 : null}
+        dialogLabel={displayFilename}
+        closeLabel={t('media.previewCloseFullscreen')}
+        previousLabel={t('media.previewPrevious')}
+        nextLabel={t('media.previewNext')}
+        onSelect={() => undefined}
+        onClose={() => setOpen(false)}
+      />
+    </>
   );
 }

@@ -156,6 +156,16 @@ export class FakePlantRepository implements PlantRepository {
           filters.identified === null ||
           filters.identified === (plant.taxonomyReferenceId !== null),
       )
+      .filter(
+        (plant) =>
+          filters.hasMapPlacement === null ||
+          filters.hasMapPlacement === (plant.placementMapObjectId !== null),
+      )
+      .filter(
+        (plant) =>
+          filters.placementMapObjectId === null ||
+          plant.placementMapObjectId === filters.placementMapObjectId,
+      )
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime() || (a.id < b.id ? 1 : -1));
 
     const start = cursor === null ? 0 : Number(cursor);

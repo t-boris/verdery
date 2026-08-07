@@ -92,7 +92,10 @@ export const CREATABLE_GEOMETRY_KIND: Readonly<
   waterFeature: 'polygon',
   utilityExclusion: 'polygon',
   tree: 'point',
-  plant: 'point',
+  // A plant occupies real ground/canopy space. The contracts already allow
+  // both Point and Polygon for imported/legacy data, but new editor work is
+  // always an area the gardener traces and can later resize.
+  plant: 'polygon',
   annotation: 'point',
 };
 

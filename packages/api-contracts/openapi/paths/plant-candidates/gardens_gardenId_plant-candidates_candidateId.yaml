@@ -78,10 +78,11 @@ delete:
     candidate that should never have been created at all, and it does not
     preserve anything.
 
-    A `converted` candidate CANNOT be deleted and returns `409`: its
-    conversion record is the resulting plant's provenance, and FR-19
-    requires conversion to preserve the evaluation and decision history.
-    Archive the plant instead.
+    A `converted` candidate can be deleted only after its resulting plant has
+    reached `removed`. Until then the conversion record is the plant's
+    provenance and deletion returns `409`. Once both records have explicitly
+    been disposed of, the conversion link is removed in the same transaction
+    as the candidate.
 
     Deletes the candidate's suitability assessments and its photo LINKS,
     and clears the reference from any candidate that named this one as its

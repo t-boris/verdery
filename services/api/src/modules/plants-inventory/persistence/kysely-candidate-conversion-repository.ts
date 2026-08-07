@@ -37,4 +37,13 @@ export class KyselyCandidateConversionRepository implements CandidateConversionR
           convertedAt: row.converted_at,
         };
   }
+
+  async deleteByCandidateId(candidateId: Uuid): Promise<boolean> {
+    const result = await this.db
+      .deleteFrom('plants_inventory.candidate_conversion')
+      .where('candidate_id', '=', candidateId)
+      .executeTakeFirst();
+
+    return result.numDeletedRows > 0n;
+  }
 }

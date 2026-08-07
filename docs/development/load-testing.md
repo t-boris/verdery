@@ -176,11 +176,10 @@ success for non-final chunks; counting it as a failure would make every chunked 
 outage.
 
 **Two behaviours it is built to surface.** Registration performs **no size or MIME check** — the API
-requires only a non-empty `declaredContentType` and a positive `declaredByteSize`, while the real
-ceilings (50 MiB for `garden_photo`, 50 MiB for `imported_plan`) live in the worker's validation
-policy and apply _after_ the bytes are stored. And the quota ledger reserves bytes at registration
-and compares them to nothing (`T-COST-03`). `VERDERY_UPLOAD_OVERSIZE=true` demonstrates both in one
-run.
+requires only a non-empty `declaredContentType` and a positive `declaredByteSize`. Garden photos have
+no fixed product byte ceiling; imported plans retain a 50 MiB worker validation ceiling. The quota
+ledger reserves bytes at registration and compares them to nothing (`T-COST-03`).
+`VERDERY_UPLOAD_OVERSIZE=true` demonstrates both the unbounded photo path and the bounded plan path.
 
 **Measure.** `verdery_media_register_duration`, `verdery_media_complete_duration`,
 `verdery_media_upload_duration` by chunk size, `verdery_media_uploaded_bytes`,

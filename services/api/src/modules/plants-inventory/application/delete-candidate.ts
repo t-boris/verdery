@@ -6,11 +6,10 @@
  * keeping is disposed of; this exists for the candidate that should never have
  * existed, and it keeps nothing.
  *
- * A `converted` candidate is refused. Its `candidate_conversion` row is the
- * resulting plant's provenance, and FR-19 requires conversion to preserve the
- * evaluation and decision history — deleting the candidate would leave a plant
- * whose origin cannot be explained. The plant's own lifecycle is where an
- * unwanted conversion gets undone.
+ * A `converted` candidate remains protected while its resulting plant is still
+ * present. Once that plant reaches `removed`, the user has explicitly disposed
+ * of both sides and may permanently remove the candidate; the conversion link
+ * is deleted first in the same transaction so no dangling provenance remains.
  *
  * ORDER MATTERS, and it is not alphabetical. Dependents go first so the final
  * delete cannot fail a foreign key, and `clearAlternativeReferences` runs
@@ -32,7 +31,11 @@ import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { GardenAuthorization } from '../../gardens-mapping/public.js';
 import type { PlantCandidateRepository } from './plant-candidate-repository.js';
 import type { PlantsInventoryUnitOfWork } from './plants-inventory-unit-of-work.js';
-import { candidateAlreadyConvertedError, candidateStaleRevisionError } from './candidate-errors.js';
+import {
+  candidateAlreadyConvertedError,
+  candidateConvertedPlantNotRemovedError,
+  candidateStaleRevisionError,
+} from './candidate-errors.js';
 import { requireCandidateAndAuthorize } from './require-candidate-and-authorize.js';
 import { runIdempotentCommand } from './run-idempotent-command.js';
 
@@ -60,10 +63,6 @@ export class DeleteCandidate {
       profileId,
     );
 
-    if (candidate.status === 'converted') {
-      throw candidateAlreadyConvertedError();
-    }
-
     if (candidate.revision !== expectedRevision) {
       throw candidateStaleRevisionError(candidate.revision);
     }
@@ -79,6 +78,24 @@ export class DeleteCandidate {
       },
       RESPONSE_STATUS_CODE,
       async (context) => {
+        if (candidate.status === 'converted') {
+          const conversion = await context.candidateConversions.findByCandidateId(candidateId);
+          if (conversion === null) {
+            // A converted row without its required provenance is inconsistent;
+            // keep it rather than silently deleting evidence around corruption.
+            throw candidateAlreadyConvertedError();
+          }
+          const convertedPlant = await context.plants.findById(conversion.plantId);
+          if (convertedPlant?.status !== 'removed') {
+            throw candidateConvertedPlantNotRemovedError();
+          }
+          const conversionDeleted =
+            await context.candidateConversions.deleteByCandidateId(candidateId);
+          if (!conversionDeleted) {
+            throw candidateAlreadyConvertedError();
+          }
+        }
+
         await context.candidateSuitability.deleteAllForCandidate(candidateId);
         await context.candidatePhotos.deleteAllForCandidate(candidateId);
         await context.candidates.clearAlternativeReferences(candidateId);

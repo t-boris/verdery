@@ -52,6 +52,18 @@ describe('GcsMediaObjectSource', () => {
     }
   });
 
+  it('streams an unrestricted garden photo when the policy has no product byte ceiling', async () => {
+    const chunks = [Buffer.alloc(80, 0x41), Buffer.alloc(80, 0x42)];
+    const source = new GcsMediaObjectSource(fakeStorage(chunks));
+
+    const object = await source.materialize('bucket', 'object-key', null);
+    try {
+      expect(object.byteSize).toBe(160);
+    } finally {
+      await object.dispose();
+    }
+  });
+
   it('rejects a file one byte over the cap before reading further — the parser-bomb / oversized-object fixture', async () => {
     const oneOverCap = Buffer.alloc(101, 0x41);
     const source = new GcsMediaObjectSource(fakeStorage([oneOverCap]));

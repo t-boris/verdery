@@ -209,4 +209,8 @@ export class FakeCandidateConversionRepository implements CandidateConversionRep
   findByCandidateId(candidateId: Uuid): Promise<CandidateConversion | null> {
     return Promise.resolve(this.conversions.get(candidateId) ?? null);
   }
+
+  deleteByCandidateId(candidateId: Uuid): Promise<boolean> {
+    return Promise.resolve(this.conversions.delete(candidateId));
+  }
 }

@@ -244,6 +244,20 @@ Candidate conversion preserves every candidate-photo link by creating plant-phot
 
 Reference photographs use the same viewport-contained full-screen lightbox behavior as specimen photographs. The thumbnail may use a compact grid cell, but the popup always uses `object-fit: contain` so the complete source image remains visible.
 
+Every photographic surface follows this rule, including uploads, candidate and plant galleries,
+catalog references, journal frames, plan previews, and client publications. Opening a photograph
+uses the shared full-viewport viewer; a multi-photo context provides previous/next controls,
+keyboard navigation, a position counter, and the photo caption or attribution. Thumbnails may crop
+for density, but the viewer never crops the source image.
+
+Photo-driven plant and candidate creation may reach the API before an oversized original's analysis-sized derivative is published. The server reports this one state as retryable; the web mutation remains in its creating state and retries only that named outcome. It does not show normal derivative preparation as a failed creation.
+
+The catalog profile read always returns its canonical taxonomy reference beside reviewed facts and
+licensed images. The page leads with common/scientific name, family, genus, variety, and source;
+reviewed horticultural facts follow with readable labels, values, units, geographic scope, provider,
+and citation. A taxon with no reviewed care facts remains a useful botanical identity while clearly
+stating which gardening knowledge is still missing.
+
 Uploading needs the media feature, so any form that attaches media is composed at the route layer rather than inside another feature — see section 20. The observation form receives its attachments as a prop; the route owns the list and clears it when the record succeeds.
 
 ## 13. Error Boundaries

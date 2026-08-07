@@ -13,6 +13,8 @@ export interface TaxonomyReferenceResource {
   readonly scientificName: string;
   readonly commonName: string | null;
   readonly varietyName: string | null;
+  readonly family: string | null;
+  readonly genus: string | null;
   readonly source: string;
   readonly createdByProfileId: string | null;
   readonly createdAt: string;
@@ -29,6 +31,8 @@ export function toTaxonomyReferenceResource(
     scientificName: reference.scientificName,
     commonName: reference.commonName,
     varietyName: reference.varietyName,
+    family: reference.family,
+    genus: reference.genus,
     source: reference.source,
     createdByProfileId: reference.createdByProfileId,
     createdAt: reference.createdAt.toISOString(),

@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
+
 import { useLocalization } from '@/shared/localization/public';
-import { FailureAlert } from '@/shared/ui/public';
+import { FailureAlert, PhotoLightbox } from '@/shared/ui/public';
 
 import styles from './client-media-image.module.css';
 import { useClientMediaAccess } from './queries';
@@ -28,6 +30,7 @@ export interface ClientMediaImageProps {
 export function ClientMediaImage({ publicationId, mediaId, alt }: ClientMediaImageProps) {
   const { t } = useLocalization();
   const query = useClientMediaAccess(publicationId, mediaId);
+  const [open, setOpen] = useState(false);
 
   if (query.isPending) {
     return <p role="status">{t('clientPortal.mediaLoading')}</p>;
@@ -37,5 +40,21 @@ export function ClientMediaImage({ publicationId, mediaId, alt }: ClientMediaIma
     return <FailureAlert failure={query.error.failure} />;
   }
 
-  return <img className={styles['image']} src={query.data.url} alt={alt} />;
+  return (
+    <>
+      <button type="button" className={styles['imageButton']} onClick={() => setOpen(true)}>
+        <img className={styles['image']} src={query.data.url} alt={alt} />
+      </button>
+      <PhotoLightbox
+        photos={[{ id: mediaId, src: query.data.url, alt, caption: alt }]}
+        activeIndex={open ? 0 : null}
+        dialogLabel={alt}
+        closeLabel={t('media.previewCloseFullscreen')}
+        previousLabel={t('media.previewPrevious')}
+        nextLabel={t('media.previewNext')}
+        onSelect={() => undefined}
+        onClose={() => setOpen(false)}
+      />
+    </>
+  );
 }

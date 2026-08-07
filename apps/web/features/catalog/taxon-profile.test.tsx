@@ -30,6 +30,26 @@ const PROFILE: NonNullable<PlantTaxonProfileResult['profile']> = {
   ],
 };
 
+const TAXONOMY_REFERENCE: PlantTaxonProfileResult['taxonomyReference'] = {
+  id: 'taxon-1',
+  scientificName: 'Fraxinus pennsylvanica',
+  commonName: 'Green ash',
+  varietyName: null,
+  family: 'Oleaceae',
+  genus: 'Fraxinus',
+  source: 'system_catalog',
+  createdByProfileId: null,
+  createdAt: '2026-01-01T00:00:00Z',
+  matchedName: null,
+};
+
+function result(
+  profile: PlantTaxonProfileResult['profile'],
+  images: PlantTaxonProfileResult['images'] = [],
+): PlantTaxonProfileResult {
+  return { taxonomyReference: TAXONOMY_REFERENCE, profile, images };
+}
+
 function failure(status: number): ApiFailureError {
   return new ApiFailureError({
     ok: false,
@@ -60,14 +80,14 @@ describe('TaxonProfile', () => {
     mockedUseTaxonProfile.mockReturnValue({
       isPending: false,
       isError: false,
-      data: { profile: PROFILE, images: [] },
+      data: result(PROFILE),
     } as never);
 
     renderProfile();
 
     // Provenance is not optional decoration: a hardiness range from a federal
     // dataset and one from an occurrence record are different claims.
-    expect(screen.getByText('hardiness_zone_min')).toBeTruthy();
+    expect(screen.getByText('Minimum hardiness zone')).toBeTruthy();
     expect(screen.getByText('Source: usda_plants')).toBeTruthy();
     expect(screen.getByText('USDA PLANTS Database')).toBeTruthy();
   });
@@ -76,14 +96,12 @@ describe('TaxonProfile', () => {
     mockedUseTaxonProfile.mockReturnValue({
       isPending: false,
       isError: false,
-      data: { profile: null, images: [] },
+      data: result(null),
     } as never);
 
     renderProfile();
 
-    expect(
-      screen.getByText('This profile was assembled without any reviewed facts in it.'),
-    ).toBeTruthy();
+    expect(screen.getByText(/Care, growing, seasonal, safety/)).toBeTruthy();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
@@ -104,7 +122,7 @@ describe('TaxonProfile', () => {
     mockedUseTaxonProfile.mockReturnValue({
       isPending: false,
       isError: false,
-      data: { profile: { ...PROFILE, isPartial: true }, images: [] },
+      data: result({ ...PROFILE, isPartial: true }),
     } as never);
 
     renderProfile();
@@ -115,23 +133,34 @@ describe('TaxonProfile', () => {
     mockedUseTaxonProfile.mockReturnValue({
       isPending: false,
       isError: false,
-      data: {
-        profile: PROFILE,
-        images: [
-          {
-            id: 'image-1',
-            sourceUrl: 'https://example.org/tomato.jpg',
-            license: 'cc_by',
-            attribution: 'A. Botanist',
-            organ: null,
-          },
-        ],
-      },
+      data: result(PROFILE, [
+        {
+          id: 'image-1',
+          sourceUrl: 'https://example.org/tomato.jpg',
+          license: 'cc_by',
+          attribution: 'A. Botanist',
+          organ: null,
+        },
+      ]),
     } as never);
 
     render(<TaxonProfile taxonomyReferenceId="taxon-1" />);
 
     expect(screen.getByRole('img', { name: /reference photograph/i })).toBeTruthy();
     expect(screen.getByText('Photograph: A. Botanist')).toBeTruthy();
+  });
+
+  it('always shows the canonical botanical identity even before reviewed care facts exist', () => {
+    mockedUseTaxonProfile.mockReturnValue({
+      isPending: false,
+      isError: false,
+      data: result(null),
+    } as never);
+
+    renderProfile();
+
+    expect(screen.getByRole('heading', { name: 'Green ash' })).toBeTruthy();
+    expect(screen.getByText('Fraxinus pennsylvanica')).toBeTruthy();
+    expect(screen.getByText('Oleaceae')).toBeTruthy();
   });
 });

@@ -292,6 +292,8 @@ TaxonomyReference:
       scientificName,
       commonName,
       varietyName,
+      family,
+      genus,
       source,
       createdByProfileId,
       createdAt,
@@ -306,6 +308,12 @@ TaxonomyReference:
       type: [string, 'null']
     varietyName:
       type: [string, 'null']
+    family:
+      type: [string, 'null']
+      description: Botanical family, or null when it has not been catalogued.
+    genus:
+      type: [string, 'null']
+      description: Botanical genus, or null when it has not been catalogued.
     source:
       $ref: '#/TaxonomySource'
     createdByProfileId:

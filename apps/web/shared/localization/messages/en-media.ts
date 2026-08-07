@@ -25,6 +25,10 @@ export const englishMediaMessages = {
   'media.discardRecovered': 'Discard',
   'media.previewLoading': 'Loading preview.',
   'media.previewAlt': 'Uploaded photo: {filename}',
+  'media.previewOpenFullscreen': 'Open photo full screen',
+  'media.previewCloseFullscreen': 'Close full-screen photo',
+  'media.previewPrevious': 'Previous photo',
+  'media.previewNext': 'Next photo',
   'media.rejectedDescription':
     'This file could not be verified — what actually arrived did not match what was declared when the upload started. Choose the file again and retry.',
   'media.processingFailedDescription':

@@ -13,8 +13,10 @@ const HEADER_LIMIT_BYTES = 64 * 1024;
 
 /**
  * Streams a private GCS object to an isolated temporary directory while
- * enforcing the byte ceiling and computing SHA-256. No object bytes enter
- * PostgreSQL, Cloud Tasks, or the interactive API.
+ * enforcing a class ceiling when one exists and computing SHA-256. A null
+ * ceiling streams the whole object for product-unlimited garden photos; the
+ * declared size is still checked by upload completion and media validation.
+ * No object bytes enter PostgreSQL, Cloud Tasks, or the interactive API.
  */
 export class GcsMediaObjectSource implements MediaObjectSource {
   constructor(private readonly storage: Storage) {}
@@ -22,7 +24,7 @@ export class GcsMediaObjectSource implements MediaObjectSource {
   async materialize(
     bucketName: string,
     objectKey: string,
-    maxBytes: number,
+    maxBytes: number | null,
   ): Promise<MaterializedMediaObject> {
     const directory = await mkdtemp(join(tmpdir(), 'verdery-media-'));
     const path = join(directory, 'input');
@@ -37,7 +39,7 @@ export class GcsMediaObjectSource implements MediaObjectSource {
       for await (const rawChunk of input as AsyncIterable<Uint8Array>) {
         const chunk = Buffer.from(rawChunk);
         byteSize += chunk.length;
-        if (byteSize > maxBytes) {
+        if (maxBytes !== null && byteSize > maxBytes) {
           throw new ObjectTooLargeError(byteSize, maxBytes);
         }
         hash.update(chunk);

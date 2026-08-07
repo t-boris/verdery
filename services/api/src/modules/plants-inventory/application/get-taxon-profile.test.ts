@@ -1,7 +1,30 @@
 import { describe, expect, it } from 'vitest';
+import { NotFoundError } from '../../../platform/errors/application-error.js';
 import { GetTaxonProfile } from './get-taxon-profile.js';
+import type { TaxonomyReferenceRepository } from './taxonomy-reference-repository.js';
 
 const TAXONOMY_ID = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a0b';
+
+const TAXONOMY_REFERENCE = {
+  id: TAXONOMY_ID,
+  scientificName: 'Fraxinus pennsylvanica',
+  commonName: 'Green ash',
+  varietyName: null,
+  family: 'Oleaceae',
+  genus: 'Fraxinus',
+  source: 'system_catalog' as const,
+  createdByProfileId: null,
+  createdAt: new Date('2026-01-01T00:00:00Z'),
+};
+
+function taxonomyReferences(found = true): TaxonomyReferenceRepository {
+  return {
+    findById: () => Promise.resolve(found ? TAXONOMY_REFERENCE : null),
+    search: () => Promise.resolve([]),
+    searchAcrossNames: () => Promise.resolve([]),
+    resolveProviderSuggestion: () => Promise.resolve(TAXONOMY_REFERENCE),
+  };
+}
 
 /** No provider imagery — the state every taxon starts in. */
 function noImages() {
@@ -25,7 +48,12 @@ describe('GetTaxonProfile', () => {
           createdAt: new Date('2026-07-29T00:00:00Z'),
         });
     })();
-    const getTaxonProfile = new GetTaxonProfile(profileVersions, noImages(), noEnrichment());
+    const getTaxonProfile = new GetTaxonProfile(
+      taxonomyReferences(),
+      profileVersions,
+      noImages(),
+      noEnrichment(),
+    );
 
     const result = await getTaxonProfile.execute(TAXONOMY_ID);
     expect(result.profile?.taxonomyReferenceId).toBe(TAXONOMY_ID);
@@ -37,9 +65,26 @@ describe('GetTaxonProfile', () => {
       insert = () => Promise.resolve();
       findLatest = () => Promise.resolve(null);
     })();
-    const getTaxonProfile = new GetTaxonProfile(profileVersions, noImages(), noEnrichment());
+    const getTaxonProfile = new GetTaxonProfile(
+      taxonomyReferences(),
+      profileVersions,
+      noImages(),
+      noEnrichment(),
+    );
 
     await expect(getTaxonProfile.execute(TAXONOMY_ID)).resolves.toEqual({
+      taxonomyReference: {
+        id: TAXONOMY_ID,
+        scientificName: 'Fraxinus pennsylvanica',
+        commonName: 'Green ash',
+        varietyName: null,
+        family: 'Oleaceae',
+        genus: 'Fraxinus',
+        source: 'system_catalog',
+        createdByProfileId: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        matchedName: null,
+      },
       profile: null,
       images: [],
     });
@@ -64,6 +109,7 @@ describe('GetTaxonProfile', () => {
       organ: null,
     };
     const getTaxonProfile = new GetTaxonProfile(
+      taxonomyReferences(),
       profileVersions,
       { listPresentable: () => Promise.resolve([image]) },
       noEnrichment(),
@@ -88,6 +134,7 @@ describe('GetTaxonProfile', () => {
     };
     let enriched = false;
     const getTaxonProfile = new GetTaxonProfile(
+      taxonomyReferences(),
       profileVersions,
       { listPresentable: () => Promise.resolve(enriched ? [image] : []) },
       {
@@ -98,9 +145,21 @@ describe('GetTaxonProfile', () => {
       },
     );
 
-    await expect(getTaxonProfile.execute(TAXONOMY_ID)).resolves.toEqual({
-      profile: null,
-      images: [image],
-    });
+    const result = await getTaxonProfile.execute(TAXONOMY_ID);
+
+    expect(result.taxonomyReference.id).toBe(TAXONOMY_ID);
+    expect(result.profile).toBeNull();
+    expect(result.images).toEqual([image]);
+  });
+
+  it('rejects an unknown taxonomy reference instead of returning an anonymous profile', async () => {
+    const getTaxonProfile = new GetTaxonProfile(
+      taxonomyReferences(false),
+      { insert: () => Promise.resolve(), findLatest: () => Promise.resolve(null) },
+      noImages(),
+      noEnrichment(),
+    );
+
+    await expect(getTaxonProfile.execute(TAXONOMY_ID)).rejects.toBeInstanceOf(NotFoundError);
   });
 });

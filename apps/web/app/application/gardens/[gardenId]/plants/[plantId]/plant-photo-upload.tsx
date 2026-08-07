@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ChangeEvent } from 'react';
+import type { ChangeEvent } from 'react';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { formatBytes, useMediaUpload } from '@/features/media/public';
@@ -11,7 +11,6 @@ import { Button, FailureAlert, FilePicker, ProgressBar } from '@/shared/ui/publi
 import styles from './plant-photo-upload.module.css';
 
 const ACCEPTED_TYPES = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
-const MAX_PHOTO_BYTES = 50 * 1024 * 1024;
 
 export interface PlantPhotoUploadProps {
   readonly gardenId: string;
@@ -28,7 +27,6 @@ export function PlantPhotoUpload({ gardenId, plantId }: PlantPhotoUploadProps) {
   const isOnline = useIsOnline();
   const upload = useMediaUpload(gardenId, 'garden_photo');
   const attach = useAttachPlantPhoto(gardenId, plantId);
-  const [validationError, setValidationError] = useState<string | null>(null);
 
   const inProgress =
     upload.phase === 'registering' || upload.phase === 'uploading' || upload.phase === 'completing';
@@ -38,11 +36,6 @@ export function PlantPhotoUpload({ gardenId, plantId }: PlantPhotoUploadProps) {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (file === undefined) return;
-    if (file.size > MAX_PHOTO_BYTES) {
-      setValidationError(t('media.tooLarge', { max: formatBytes(MAX_PHOTO_BYTES, locale) }));
-      return;
-    }
-    setValidationError(null);
     attach.reset();
     upload.startUpload(file);
   };
@@ -67,7 +60,6 @@ export function PlantPhotoUpload({ gardenId, plantId }: PlantPhotoUploadProps) {
           accept={ACCEPTED_TYPES}
           disabled={!isOnline}
           onChange={onFileChange}
-          {...(validationError === null ? {} : { error: validationError })}
         />
       )}
 

@@ -242,7 +242,11 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
               id: 'properties',
               labelKey: 'map.inspector.tabProperties',
               content: (
-                <MapPropertyPanel actions={actions} selectedRecord={actions.selectedRecord} />
+                <MapPropertyPanel
+                  gardenId={gardenId}
+                  actions={actions}
+                  selectedRecord={actions.selectedRecord}
+                />
               ),
             },
             {

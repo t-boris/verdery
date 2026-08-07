@@ -121,6 +121,7 @@ describe('createPlantGateway', () => {
       status: ['active'],
       groupingKind: ['individual', 'row'],
       identified: true,
+      hasMapPlacement: false,
       cursor: 'opaque-cursor',
       limit: 25,
     });
@@ -132,6 +133,7 @@ describe('createPlantGateway', () => {
     expect(url.searchParams.get('status')).toBe('active');
     expect(url.searchParams.get('groupingKind')).toBe('individual,row');
     expect(url.searchParams.get('identified')).toBe('true');
+    expect(url.searchParams.get('hasMapPlacement')).toBe('false');
     expect(url.searchParams.get('cursor')).toBe('opaque-cursor');
     expect(url.searchParams.get('limit')).toBe('25');
   });

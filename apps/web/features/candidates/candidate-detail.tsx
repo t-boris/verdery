@@ -72,10 +72,10 @@ function CandidateTaxonomySummary({
  * Once `status === 'converted'`, the edit/status/convert sections are
  * replaced with a plain notice and a link to the resulting plant
  * (`convertedByProfileId`/`convertedAt` themselves live on
- * `CandidateConversion`, not surfaced here — a converted candidate is a
- * frozen historical record, not something this page still lets a caller
- * act on). The suitability panel stays visible either way: it is a useful
- * historical read regardless of the candidate's current status.
+ * `CandidateConversion`, not surfaced here). Permanent deletion remains
+ * available: the API permits it after the resulting plant has been removed.
+ * The suitability panel stays visible either way: it is a useful historical
+ * read regardless of the candidate's current status.
  *
  * `PlantCandidate` carries no `alternativeToCandidateId` display yet — a
  * single, deliberately narrow self-reference the schema itself describes as
@@ -170,25 +170,27 @@ export function CandidateDetail({ gardenId, candidateId }: CandidateDetailProps)
         <CandidateSuitabilityPanel gardenId={gardenId} candidateId={candidate.id} />
       </Card>
 
-      {!isConverted && (
-        <div className={styles['actionsGrid']}>
-          <ActionDisclosure title={t('candidates.editTitle')} icon={<TypeIcon />}>
-            <CandidateDetailsForm gardenId={gardenId} candidate={candidate} />
-          </ActionDisclosure>
+      <div className={styles['actionsGrid']}>
+        {!isConverted && (
+          <>
+            <ActionDisclosure title={t('candidates.editTitle')} icon={<TypeIcon />}>
+              <CandidateDetailsForm gardenId={gardenId} candidate={candidate} />
+            </ActionDisclosure>
 
-          <ActionDisclosure title={t('candidates.statusTitle')} icon={<PulseIcon />}>
-            <CandidateStatusControls gardenId={gardenId} candidate={candidate} />
-          </ActionDisclosure>
+            <ActionDisclosure title={t('candidates.statusTitle')} icon={<PulseIcon />}>
+              <CandidateStatusControls gardenId={gardenId} candidate={candidate} />
+            </ActionDisclosure>
 
-          <ActionDisclosure title={t('candidates.convertTitle')} icon={<SparklesIcon />}>
-            <CandidateConvertForm gardenId={gardenId} candidate={candidate} />
-          </ActionDisclosure>
+            <ActionDisclosure title={t('candidates.convertTitle')} icon={<SparklesIcon />}>
+              <CandidateConvertForm gardenId={gardenId} candidate={candidate} />
+            </ActionDisclosure>
+          </>
+        )}
 
-          <ActionDisclosure title={t('candidates.deleteTitle')} icon={<TrashIcon />}>
-            <CandidateDeleteControl gardenId={gardenId} candidate={candidate} />
-          </ActionDisclosure>
-        </div>
-      )}
+        <ActionDisclosure title={t('candidates.deleteTitle')} icon={<TrashIcon />}>
+          <CandidateDeleteControl gardenId={gardenId} candidate={candidate} />
+        </ActionDisclosure>
+      </div>
     </div>
   );
 }

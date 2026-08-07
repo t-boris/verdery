@@ -22,6 +22,10 @@ export interface PlantSearchFilters {
   readonly groupingKind: readonly GroupingKind[] | null;
   /** `true` = has a resolved `taxonomyReferenceId`; `false` = does not; `null` = no restriction (P11-SEARCH-01's "identity" filter). */
   readonly identified: boolean | null;
+  /** `true` = linked to any map object; `false` = still unassigned; `null` = no restriction. */
+  readonly hasMapPlacement: boolean | null;
+  /** Exact map object reverse lookup. `null` means no restriction. */
+  readonly placementMapObjectId: Uuid | null;
 
   /**
    * Journal recency, as two independent bounds rather than one range.
@@ -65,6 +69,8 @@ export const NO_PLANT_SEARCH_FILTERS: PlantSearchFilters = {
   status: null,
   groupingKind: null,
   identified: null,
+  hasMapPlacement: null,
+  placementMapObjectId: null,
   observedWithinDays: null,
   notObservedForDays: null,
   healthConcern: null,

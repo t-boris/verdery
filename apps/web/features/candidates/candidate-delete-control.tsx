@@ -18,9 +18,9 @@ export interface CandidateDeleteControlProps {
 
 /**
  * Permanent deletion, the counterpart to `candidate-status-controls.tsx`'s
- * archive and reject. Never rendered for a `converted` candidate — the API
- * refuses those, and offering an action that can only fail is worse than not
- * offering it (`candidate-detail.tsx` already gates this whole region).
+ * archive and reject. A converted candidate is deletable only after its
+ * resulting plant reaches `removed`; the API owns that invariant and returns
+ * an actionable conflict if the plant is still present.
  *
  * KEEPS ITS TEXT LABEL, unlike the icon-only controls elsewhere in this app.
  * An icon-only square is readable when it sits in a rail among its siblings

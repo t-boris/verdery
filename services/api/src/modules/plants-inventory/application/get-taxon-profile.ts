@@ -15,9 +15,16 @@ import type { PlantProfileVersionRepository } from './plant-profile-version-repo
 import type { PlantProfileVersion } from '../domain/plant-profile-version.js';
 import type { TaxonImage, TaxonImageSource } from './taxon-image-source.js';
 import type { TaxonImageEnricher } from './taxon-image-enricher.js';
+import type { TaxonomyReferenceRepository } from './taxonomy-reference-repository.js';
+import {
+  toTaxonomyReferenceResource,
+  type TaxonomyReferenceResource,
+} from './taxonomy-reference-view.js';
+import { taxonomyReferenceNotFoundError } from './plant-errors.js';
 
 /** The read: the stored projection plus the imagery permitted to accompany it. */
 export interface PlantTaxonProfileResult {
+  readonly taxonomyReference: TaxonomyReferenceResource;
   readonly profile: PlantProfileVersion | null;
   readonly images: readonly TaxonImage[];
 }
@@ -33,12 +40,17 @@ const PROFILE_IMAGE_LIMIT = 8;
 
 export class GetTaxonProfile {
   constructor(
+    private readonly taxonomyReferences: TaxonomyReferenceRepository,
     private readonly profileVersions: PlantProfileVersionRepository,
     private readonly images: TaxonImageSource,
     private readonly imageEnricher: TaxonImageEnricher,
   ) {}
 
   async execute(taxonomyReferenceId: Uuid): Promise<PlantTaxonProfileResult> {
+    const taxonomyReference = await this.taxonomyReferences.findById(taxonomyReferenceId);
+    if (taxonomyReference === null) {
+      throw taxonomyReferenceNotFoundError();
+    }
     const profile = await this.profileVersions.findLatest(taxonomyReferenceId);
     let images = await this.images.listPresentable(taxonomyReferenceId, PROFILE_IMAGE_LIMIT);
     if (images.length === 0) {
@@ -46,6 +58,10 @@ export class GetTaxonProfile {
       images = await this.images.listPresentable(taxonomyReferenceId, PROFILE_IMAGE_LIMIT);
     }
 
-    return { profile, images };
+    return {
+      taxonomyReference: toTaxonomyReferenceResource(taxonomyReference),
+      profile,
+      images,
+    };
   }
 }

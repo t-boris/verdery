@@ -1602,10 +1602,11 @@ export interface paths {
          *     candidate that should never have been created at all, and it does not
          *     preserve anything.
          *
-         *     A `converted` candidate CANNOT be deleted and returns `409`: its
-         *     conversion record is the resulting plant's provenance, and FR-19
-         *     requires conversion to preserve the evaluation and decision history.
-         *     Archive the plant instead.
+         *     A `converted` candidate can be deleted only after its resulting plant has
+         *     reached `removed`. Until then the conversion record is the plant's
+         *     provenance and deletion returns `409`. Once both records have explicitly
+         *     been disposed of, the conversion link is removed in the same transaction
+         *     as the candidate.
          *
          *     Deletes the candidate's suitability assessments and its photo LINKS,
          *     and clears the reference from any candidate that named this one as its
@@ -6232,6 +6233,10 @@ export interface components {
             scientificName: string;
             commonName: string | null;
             varietyName: string | null;
+            /** @description Botanical family, or null when it has not been catalogued. */
+            family: string | null;
+            /** @description Botanical genus, or null when it has not been catalogued. */
+            genus: string | null;
             source: components["schemas"]["TaxonomySource"];
             createdByProfileId: components["schemas"]["Uuid"] | null;
             createdAt: components["schemas"]["Timestamp"];
@@ -6535,6 +6540,7 @@ export interface components {
          *     from being returned.
          */
         PlantTaxonProfileResult: {
+            taxonomyReference: components["schemas"]["TaxonomyReference"];
             /** @description The latest reviewed fact projection, or null when no fact projection has been assembled yet. */
             profile: components["schemas"]["PlantProfileVersion"] | null;
             images: components["schemas"]["PlantTaxonImage"][];
@@ -9740,6 +9746,10 @@ export interface operations {
                  *     (P11-SEARCH-01).
                  */
                 identified?: boolean;
+                /** @description `false` returns inventory plants not yet linked to any map object; `true` returns linked plants. */
+                hasMapPlacement?: boolean;
+                /** @description Restricts to the plant linked to this exact map object. */
+                placementMapObjectId?: components["schemas"]["Uuid"];
                 /**
                  * @description Restricts to plants whose most recent observation is newer than
                  *     this many days — "what have I actually been looking at". Plants

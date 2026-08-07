@@ -79,4 +79,17 @@ describe('parseSearchPlantsQuery — P11-SEARCH-01 filters', () => {
       ValidationError,
     );
   });
+
+  it('parses map-placement filters and rejects contradictory placement criteria', () => {
+    const placementMapObjectId = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a11';
+    expect(
+      parseSearchPlantsQuery(request({ hasMapPlacement: 'false' })).filters.hasMapPlacement,
+    ).toBe(false);
+    expect(
+      parseSearchPlantsQuery(request({ placementMapObjectId })).filters.placementMapObjectId,
+    ).toBe(placementMapObjectId);
+    expect(() =>
+      parseSearchPlantsQuery(request({ hasMapPlacement: 'false', placementMapObjectId })),
+    ).toThrow(ValidationError);
+  });
 });

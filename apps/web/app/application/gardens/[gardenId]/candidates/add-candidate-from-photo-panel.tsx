@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, type ChangeEvent } from 'react';
+import { useEffect, type ChangeEvent } from 'react';
 import { CloseIcon, PauseIcon, RefreshIcon, FilePicker } from '@/shared/ui/public';
 
 import { useIsOnline } from '@/core/connectivity/public';
@@ -25,7 +25,6 @@ export interface AddCandidateFromPhotoPanelProps {
 
 /** Section 8.1's accepted garden-photo raster types — reused as-is, mirroring `add-plant-from-photo-panel.tsx`'s identical constant. */
 const ACCEPTED_TYPES = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
-const MAX_PHOTO_BYTES = 50 * 1024 * 1024;
 
 const PICKER_PHASES = new Set(['idle', 'processed', 'rejected', 'processingFailed']);
 const CANCELLABLE_PHASES = new Set([
@@ -66,7 +65,6 @@ export function AddCandidateFromPhotoPanel({ gardenId }: AddCandidateFromPhotoPa
   const isOnline = useIsOnline();
   const upload = useMediaUpload(gardenId, 'garden_photo');
   const addFromPhoto = useAddCandidateFromPhoto(gardenId);
-  const [validationError, setValidationError] = useState<string | null>(null);
 
   /* Same gate, same reason as `add-plant-from-photo-panel.tsx`: `mediaId`
      exists from registration, and the photo has to be one the identification
@@ -99,11 +97,6 @@ export function AddCandidateFromPhotoPanel({ gardenId }: AddCandidateFromPhotoPa
     if (file === undefined) {
       return;
     }
-    if (file.size > MAX_PHOTO_BYTES) {
-      setValidationError(t('media.tooLarge', { max: formatBytes(MAX_PHOTO_BYTES, locale) }));
-      return;
-    }
-    setValidationError(null);
     upload.startUpload(file);
   };
 
@@ -151,7 +144,6 @@ export function AddCandidateFromPhotoPanel({ gardenId }: AddCandidateFromPhotoPa
           accept={ACCEPTED_TYPES}
           disabled={!isOnline}
           onChange={onFileChange}
-          {...(validationError === null ? {} : { error: validationError })}
         />
       )}
 

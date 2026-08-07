@@ -30,8 +30,6 @@ export interface ObservationPhotosPanelProps {
 
 /** Section 8.1's accepted raster types, the same set `garden-photo-upload.tsx` accepts. */
 const ACCEPTED_TYPES = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
-/** Section 8.1's declared ceiling — checked here for fast feedback; the server enforces it authoritatively. */
-const MAX_PHOTO_BYTES = 50 * 1024 * 1024;
 
 function percentOf(uploadedBytes: number, totalBytes: number): number {
   return totalBytes <= 0 ? 0 : (uploadedBytes / totalBytes) * 100;
@@ -75,7 +73,6 @@ export function ObservationPhotosPanel({ gardenId, value, onChange }: Observatio
   const duplicates = useExactDuplicateMedia(gardenId, upload.checksumSha256, upload.mediaId);
   const similar = useSimilarMedia(gardenId, upload.mediaId);
   const [purpose, setPurpose] = useState<ObservationPhotoPurpose>('whole_plant');
-  const [tooLarge, setTooLarge] = useState(false);
 
   const percent = percentOf(upload.uploadedBytes, upload.totalBytes);
   const inProgress =
@@ -89,11 +86,6 @@ export function ObservationPhotosPanel({ gardenId, value, onChange }: Observatio
     if (file === undefined) {
       return;
     }
-    if (file.size > MAX_PHOTO_BYTES) {
-      setTooLarge(true);
-      return;
-    }
-    setTooLarge(false);
     upload.startUpload(file);
   };
 
@@ -142,7 +134,6 @@ export function ObservationPhotosPanel({ gardenId, value, onChange }: Observatio
             disabled={!isOnline}
             onChange={onFileChange}
           />
-          {tooLarge && <p className={styles['error']}>{t('observations.photoTooLarge')}</p>}
         </div>
       )}
 

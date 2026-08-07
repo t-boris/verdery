@@ -218,6 +218,42 @@ describe('SearchPlants', () => {
     expect(unidentified.items.map((p) => p.id)).toEqual([PLANT_ID_2]);
   });
 
+  it('finds unassigned plants and resolves the plant linked to one map object', async () => {
+    const fakes = createPlantsInventoryFakes();
+    const mapObjectId = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a11';
+    fakes.plants.plants.set(
+      PLANT_ID_1,
+      buildPlant({ id: PLANT_ID_1, gardenId: GARDEN_ID, placementMapObjectId: mapObjectId }),
+    );
+    fakes.plants.plants.set(
+      PLANT_ID_2,
+      buildPlant({ id: PLANT_ID_2, gardenId: GARDEN_ID, placementMapObjectId: null }),
+    );
+    const searchPlants = new SearchPlants(
+      fakes.plants,
+      authorizationGranting(VIEWER_MEMBERSHIP),
+      fakes.plantPhotos,
+    );
+
+    const unassigned = await searchPlants.execute(
+      GARDEN_ID,
+      PROFILE_ID,
+      { hasMapPlacement: false },
+      null,
+      50,
+    );
+    const linked = await searchPlants.execute(
+      GARDEN_ID,
+      PROFILE_ID,
+      { placementMapObjectId: mapObjectId },
+      null,
+      50,
+    );
+
+    expect(unassigned.items.map((plant) => plant.id)).toEqual([PLANT_ID_2]);
+    expect(linked.items.map((plant) => plant.id)).toEqual([PLANT_ID_1]);
+  });
+
   it('treats an empty filter array the same as an omitted filter', async () => {
     const fakes = createPlantsInventoryFakes();
     fakes.plants.plants.set(PLANT_ID_1, buildPlant({ id: PLANT_ID_1, gardenId: GARDEN_ID }));
