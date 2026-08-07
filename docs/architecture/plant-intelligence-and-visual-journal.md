@@ -484,7 +484,11 @@ complete before or after the observation command without losing association, and
 follow media cleanup policy.
 
 Taxon knowledge profiles are reference projections delivered through versioned reads and cached
-locally. They are not inserted into the operational mutation outbox as user-authored garden state.
+locally. The web treats one profile as fresh for 24 hours and retains it for seven days within a
+live application session; opening the plant and catalog views for the same canonical taxon shares
+that one cache key. Reference-image elements are eager so their thumbnail download is also the byte
+source reused by the full-screen viewer. Profiles are not inserted into the operational mutation
+outbox as user-authored garden state.
 
 ## 15. Sharing and Privacy
 

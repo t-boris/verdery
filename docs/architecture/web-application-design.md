@@ -273,9 +273,11 @@ full-width responsive row with identity, role, and owner actions aligned as a si
 not introduce a narrower nested card that leaves an arbitrary empty column beside the controls.
 
 Photo identification invalidates every cached taxonomy browse result for that garden, and catalog
-search/profile reads reconcile with the server whenever their route mounts. A newly resolved
-canonical taxon therefore appears without a hard reload, while the profile remains keyed by the
-canonical taxonomy-reference identifier rather than a mutable display name.
+search reconciles with the server whenever its route mounts. A taxon profile is keyed by the
+canonical taxonomy-reference identifier rather than a mutable display name and stays fresh in the
+web query cache for 24 hours (retained for seven days in a live application session). Reference
+images load eagerly when their gallery mounts, so the thumbnail and full-screen viewer reuse the
+same browser-cached bytes instead of remounting a cold, lazy image request on every visit.
 
 Uploading needs the media feature, so any form that attaches media is composed at the route layer rather than inside another feature — see section 20. The observation form receives its attachments as a prop; the route owns the list and clears it when the record succeeds.
 

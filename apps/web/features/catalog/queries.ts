@@ -30,6 +30,8 @@ import {
 
 /** How many results a browse page shows before asking the reader to narrow the name. */
 export const TAXON_SEARCH_LIMIT = 25;
+const TAXON_PROFILE_STALE_TIME_MS = 24 * 60 * 60 * 1000;
+const TAXON_PROFILE_CACHE_TIME_MS = 7 * TAXON_PROFILE_STALE_TIME_MS;
 
 function unwrap<TData>(result: ApiResult<TData>): TData {
   if (isFailure(result)) {
@@ -73,6 +75,8 @@ export function useTaxonProfile(taxonomyReferenceId: string) {
     queryFn: async ({ signal }) =>
       unwrap(await gateway.getTaxonProfile(taxonomyReferenceId, signal)),
     retry: false,
-    refetchOnMount: 'always',
+    staleTime: TAXON_PROFILE_STALE_TIME_MS,
+    gcTime: TAXON_PROFILE_CACHE_TIME_MS,
+    refetchOnWindowFocus: false,
   });
 }

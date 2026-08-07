@@ -56,6 +56,8 @@ const taxonomySearchQueryKey = (gardenId: string, query: string) =>
   ['taxonomy-references', gardenId, query] as const;
 const taxonProfileQueryKey = (taxonomyReferenceId: string) =>
   ['plant-catalog', 'profile', taxonomyReferenceId] as const;
+const TAXON_PROFILE_STALE_TIME_MS = 24 * 60 * 60 * 1000;
+const TAXON_PROFILE_CACHE_TIME_MS = 7 * TAXON_PROFILE_STALE_TIME_MS;
 const taxonomySearchQueryKeyPrefix = (gardenId: string) =>
   ['taxonomy-references', gardenId] as const;
 
@@ -344,6 +346,9 @@ export function usePlantTaxonProfile(taxonomyReferenceId: string) {
     queryFn: async ({ signal }) =>
       unwrap(await gateway.getTaxonProfile(taxonomyReferenceId, signal)),
     retry: false,
+    staleTime: TAXON_PROFILE_STALE_TIME_MS,
+    gcTime: TAXON_PROFILE_CACHE_TIME_MS,
+    refetchOnWindowFocus: false,
   });
 }
 

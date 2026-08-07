@@ -51,7 +51,8 @@ export function PlantReferenceGallery({ taxonomyReferenceId }: PlantReferenceGal
                 <img
                   src={image.sourceUrl}
                   alt={t('plants.referencePhotoAlt', { number: index + 1 })}
-                  loading="lazy"
+                  loading="eager"
+                  decoding="async"
                 />
               </button>
               {image.attribution !== null && <small>{image.attribution}</small>}

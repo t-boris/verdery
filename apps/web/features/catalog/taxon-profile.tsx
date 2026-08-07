@@ -164,9 +164,14 @@ export function TaxonProfile({ taxonomyReferenceId }: TaxonProfileProps) {
                 onClick={() => setActiveImageIndex(index)}
                 aria-label={lightboxPhotos[index]?.openLabel}
               >
-                {/* Not next/image: these are third-party URLs on hosts this
-                    application does not control or configure. */}
-                <img src={image.sourceUrl} alt={lightboxPhotos[index]?.alt} loading="lazy" />
+                {/* Provider images are fetched immediately so the gallery and
+                    lightbox reuse the same browser-cached bytes. */}
+                <img
+                  src={image.sourceUrl}
+                  alt={lightboxPhotos[index]?.alt}
+                  loading="eager"
+                  decoding="async"
+                />
               </button>
               {/* Rendered whenever the server sent one: for CC-BY it is the
                   condition the licence was granted under, not a nicety. */}

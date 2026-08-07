@@ -32,6 +32,14 @@ export interface MapObjectRepository {
    */
   update(object: MapObject, expectedRevision: number): Promise<boolean>;
 
+  /**
+   * Changes only lifecycle metadata under the same optimistic revision guard.
+   * Delete/restore must not rewrite geometry or category details: those fields
+   * are unchanged by a lifecycle transition, and reserializing legacy or
+   * imported PostGIS geometry can make an otherwise valid removal fail.
+   */
+  updateLifecycle(object: MapObject, expectedRevision: number): Promise<boolean>;
+
   /** Every active object in the garden, optionally restricted to a viewport bounding box via the geometry GiST index. */
   listForGarden(gardenId: Uuid, viewport: ViewportBoundingBox | null): Promise<MapObject[]>;
 }

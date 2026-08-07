@@ -186,6 +186,22 @@ export class KyselyMapObjectRepository implements MapObjectRepository {
     return true;
   }
 
+  async updateLifecycle(object: MapObject, expectedRevision: number): Promise<boolean> {
+    const result = await this.db
+      .updateTable('gardens_mapping.garden_object')
+      .set({
+        lifecycle_state: object.lifecycleState,
+        current_revision: object.currentRevision,
+        updated_at: object.updatedAt,
+      })
+      .where('id', '=', object.id)
+      .where('garden_id', '=', object.gardenId)
+      .where('current_revision', '=', expectedRevision)
+      .executeTakeFirst();
+
+    return (result.numUpdatedRows ?? 0n) === 1n;
+  }
+
   async listForGarden(gardenId: Uuid, viewport: ViewportBoundingBox | null): Promise<MapObject[]> {
     let query = this.db
       .selectFrom('gardens_mapping.garden_object')

@@ -57,7 +57,7 @@ export class DeleteMapObject {
       }
 
       const deleted = transitionMapObjectLifecycle(object, 'deleted', now);
-      const applied = await context.mapObjects.update(deleted, object.currentRevision);
+      const applied = await context.mapObjects.updateLifecycle(deleted, object.currentRevision);
       if (!applied) {
         throw mapObjectStaleRevisionError(object.currentRevision);
       }

@@ -214,6 +214,10 @@ export class FakeMapObjectRepository implements MapObjectRepository {
     throw new Error('not used by this test');
   }
 
+  updateLifecycle(): Promise<boolean> {
+    throw new Error('not used by this test');
+  }
+
   listForGarden(_gardenId: Uuid, _viewport: ViewportBoundingBox | null): Promise<MapObject[]> {
     throw new Error('not used by this test');
   }

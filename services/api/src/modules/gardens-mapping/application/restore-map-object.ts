@@ -46,7 +46,7 @@ export class RestoreMapObject {
       }
 
       const restored = transitionMapObjectLifecycle(object, 'active', now);
-      const applied = await context.mapObjects.update(restored, object.currentRevision);
+      const applied = await context.mapObjects.updateLifecycle(restored, object.currentRevision);
       if (!applied) {
         throw mapObjectStaleRevisionError(object.currentRevision);
       }

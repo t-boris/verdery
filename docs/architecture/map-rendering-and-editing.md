@@ -404,6 +404,12 @@ geometry validation (overlaps, containment) is not yet implemented for any categ
 needs a special exemption from yet; when those rules land, a background's non-authoritative nature
 (this section) excludes it by design.
 
+`deleteObject` and its inverse `restoreObject` update lifecycle metadata only: lifecycle state,
+revision, and update timestamp. They do not serialize or rewrite unchanged geometry, provenance,
+labels, confidence, or category-detail rows. This keeps deletion independent from geometry editing,
+avoids unnecessary PostGIS validation work in the interaction path, and lets an existing object be
+removed even when its stored geometry predates the current serializer.
+
 Web display renders the plan's screen-preview derivative "contain"-fit inside the background
 object's placeholder polygon, under all garden geometry. Tile CONSUMPTION is deferred even though
 the server-side pyramid exists (section 11.1 of the media design) — see
