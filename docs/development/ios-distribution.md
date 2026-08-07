@@ -21,7 +21,9 @@ enumerated once in [1. Owner action checklist](#1-owner-action-checklist).
 | Store listing copy, English and Russian               | Done — [6](#6-store-listing-english) and [7](#7-store-listing-russian)     |
 | App Privacy declarations                              | Done, derived from the code — [8](#8-app-privacy-declarations)             |
 | Review notes and demo account                         | Drafted — [9](#9-app-review-notes); the account itself is an owner action  |
-| In-app account deletion                               | **Blocked** on `P8-DELETE-01` — [10](#10-account-deletion-a-hard-blocker)  |
+| In-app account deletion                               | **Built** — [10](#10-account-deletion)                                     |
+| In-app data export                                    | Built — beside deletion on the account screen                              |
+| Notification inbox, preferences, push registration    | Built — one owner action left, see [1](#1-owner-action-checklist)          |
 | Screenshots                                           | **Not captured** — [11](#11-screenshots)                                   |
 
 Bundle identifier `com.verdery.app`. Apple Developer team `3M68DG8S7N`. Deployment target iOS 18.0,
@@ -45,6 +47,17 @@ the signing path locally proved that several prerequisites are already satisfied
   started processing it.
 - A distribution signing certificate and a matching provisioning profile exist.
 - The signed upload path through the Xcode account is operational.
+
+**Still needed, in order:**
+
+1. **Push Notifications capability on the App ID `com.verdery.app`**, in the developer portal, plus
+   an **APNs authentication key uploaded to the Firebase project**. Unblocks push entirely: until
+   both exist no device is issued a token, so the client registers nothing. Everything built on
+   notifications still works — the inbox is the durable record and push only announces it — but the
+   announcement never arrives. This is the one owner action the notification work left open.
+2. **Screenshots**, one set — see [11](#11-screenshots). iPhone only since ADR-0019, so this is a
+   single set rather than two.
+3. **A demo account for App Review**, per [9](#9-app-review-notes).
 
 **Still required, in order:**
 
@@ -382,32 +395,33 @@ testing.
 The account-deletion paragraph above **describes something that does not exist yet**. Do not submit
 this text until [10](#10-account-deletion-a-hard-blocker) is resolved.
 
-## 10. Account deletion — a hard blocker
+## 10. Account deletion
 
 App Store Review Guideline **5.1.1(v)** requires any app that supports account creation to offer
-account deletion _from within the app_. Verdery creates accounts and currently offers only sign-out.
-There is no `deleteAccount` path anywhere in `apps/ios/Sources/`. **This alone will fail review.** It
-does not affect TestFlight.
+account deletion _from within the app_. This was the single largest blocker between the client and a
+submittable build. It is built.
 
-`P8-DELETE-01` is building the server side in parallel. What the iOS client must then add:
+`FeatureAuthentication.DeleteAccountView`, reached from the account sheet — which is itself two taps
+from anywhere, via the console strip's initials medallion — and the flow does all five things Apple
+checks for:
 
-1. A **Settings → Account** screen with a "Delete Account" action, reachable in a small number of
-   taps from the app's main navigation — Apple checks that it is not buried.
-2. A confirmation step that names what is destroyed: every garden, map, plant, observation, task, and
-   photo — not just the login.
-3. A call to `P8-DELETE-01`'s account-deletion endpoint, plus local teardown: sign out of Firebase,
-   delete the per-profile SQLite database (`CorePersistence.LocalDatabase`), and discard any queued
-   outbox operations and pending media in `CoreMediaTransfer`'s local store. A deletion that leaves
-   the local database intact would repopulate the UI from cache and look like it failed.
-4. Honest handling of the asynchronous case. If deletion is queued rather than immediate, the app
-   must say so and state when it completes; Apple accepts a grace period that is disclosed and
-   rejects one that is not.
-5. If the account was created with Sign in with Apple, **revoke the Apple token** at deletion
-   (`Auth.auth().revokeToken(withAuthorizationCode:)`). Apple requires this specifically and checks
-   for it.
+1. The action is on the account screen, not buried.
+2. The confirmation names what is destroyed: every garden, map, plant, observation, task and
+   photograph, not merely the login.
+3. It calls the account-deletion endpoint and then tears down locally — Firebase sign-out, the
+   per-profile SQLite database, the queued outbox and any pending media. A deletion that left the
+   local database intact would repopulate the interface from cache and look like it had failed.
+4. An asynchronous deletion is stated as one, with when it completes. Apple accepts a disclosed
+   grace period and rejects an undisclosed one.
+5. **The Apple token is revoked** when the account was created with Sign in with Apple. This is the
+   requirement Apple checks for specifically, and it is why `CoreAuthentication` retains the
+   authorization code in the Keychain at sign-in
+   (`AppleAuthorizationCodeStore`, `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`) — the token
+   cannot be revoked without it, and it is not obtainable again later.
 
-This is the single largest remaining item between the current state and a submittable app, and it is
-client work that cannot start until `P8-DELETE-01`'s endpoint contract lands.
+**Verify on a real device before submitting.** Token revocation cannot be exercised in the
+Simulator, and a revocation that silently fails leaves an Apple relay address behind that Apple's
+own reviewer can detect.
 
 ## 11. Screenshots
 
