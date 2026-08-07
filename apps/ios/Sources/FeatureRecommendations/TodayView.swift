@@ -108,7 +108,7 @@ public struct TodayView: View {
             InlineMessage(notice, tone: .warning)
                 .padding(Metrics.space2)
                 .background(
-                    RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous)
+                    RoundedRectangle(cornerRadius: Metrics.radiusCard, style: .continuous)
                         .fill(Tone.warning.quietFill)
                 )
                 .accessibilityIdentifier("today.staleNotice")

@@ -284,7 +284,7 @@ public struct PlantDetailView: View {
                                     .padding(.vertical, Metrics.space3)
                                     .background(
                                         RoundedRectangle(
-                                            cornerRadius: Metrics.radiusMedium, style: .continuous
+                                            cornerRadius: Metrics.radiusControl, style: .continuous
                                         )
                                         .fill(Palette.interactionQuiet)
                                     )
@@ -306,7 +306,7 @@ public struct PlantDetailView: View {
                                 .padding(.vertical, Metrics.space3)
                                 .background(
                                     RoundedRectangle(
-                                        cornerRadius: Metrics.radiusMedium, style: .continuous
+                                        cornerRadius: Metrics.radiusControl, style: .continuous
                                     )
                                     .fill(Palette.surfaceSunken)
                                 )

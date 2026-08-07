@@ -110,7 +110,7 @@ public struct IconMedallion: View {
             .foregroundStyle(tone.foreground)
             .frame(width: isLarge ? discSize * 1.6 : discSize, height: isLarge ? discSize * 1.6 : discSize)
             .background(
-                RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous)
+                RoundedRectangle(cornerRadius: Metrics.radiusCard, style: .continuous)
                     .fill(tone.quietFill)
             )
             .accessibilityLabel(label)

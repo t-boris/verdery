@@ -45,7 +45,7 @@ struct PlantCoverThumbnailView: View {
             }
         }
         .frame(width: thumbnailSize, height: thumbnailSize)
-        .clipShape(RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Metrics.radiusCard, style: .continuous))
         .task(id: mediaId) {
             url = nil
             guard let mediaId, let mediaGateway else { return }
@@ -54,7 +54,7 @@ struct PlantCoverThumbnailView: View {
     }
 
     private var fallback: some View {
-        RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous)
+        RoundedRectangle(cornerRadius: Metrics.radiusCard, style: .continuous)
             .fill(PlantSymbols.lifecycleTone(lifecycleStage).quietFill)
             .overlay(
                 Image(systemName: PlantSymbols.lifecycleStage(lifecycleStage))

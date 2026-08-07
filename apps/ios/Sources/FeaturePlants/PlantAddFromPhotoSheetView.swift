@@ -113,7 +113,7 @@ public struct PlantAddFromPhotoSheetView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, Metrics.space3)
                                 .background(
-                                    RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous)
+                                    RoundedRectangle(cornerRadius: Metrics.radiusControl, style: .continuous)
                                         .fill(Palette.interactionQuiet)
                                 )
                         }
@@ -133,7 +133,7 @@ public struct PlantAddFromPhotoSheetView: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, Metrics.space3)
                             .background(
-                                RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous)
+                                RoundedRectangle(cornerRadius: Metrics.radiusControl, style: .continuous)
                                     .fill(Palette.surfaceSunken)
                             )
                     }

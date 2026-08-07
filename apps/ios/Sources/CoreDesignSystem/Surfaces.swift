@@ -19,11 +19,11 @@ public struct SurfaceCard<Content: View>: View {
             .padding(Metrics.space3)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: Metrics.radiusLarge, style: .continuous)
+                RoundedRectangle(cornerRadius: Metrics.radiusCard, style: .continuous)
                     .fill(tone?.quietFill ?? Palette.surface)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: Metrics.radiusLarge, style: .continuous)
+                RoundedRectangle(cornerRadius: Metrics.radiusCard, style: .continuous)
                     .strokeBorder(Palette.border, lineWidth: Metrics.hairline)
             )
     }
@@ -150,7 +150,7 @@ public struct MetricTile: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Metrics.space3)
         .background(
-            RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous)
+            RoundedRectangle(cornerRadius: Metrics.radiusCard, style: .continuous)
                 .fill(tone.quietFill)
         )
         .accessibilityElement(children: .ignore)

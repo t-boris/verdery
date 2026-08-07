@@ -16,7 +16,7 @@ public struct PrimaryButtonStyle: ButtonStyle {
             .frame(minHeight: minimumHeight)
             .frame(maxWidth: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous)
+                RoundedRectangle(cornerRadius: Metrics.radiusControl, style: .continuous)
                     .fill(Palette.interaction)
             )
             .opacity(isEnabled ? (configuration.isPressed ? 0.82 : 1) : 0.45)
@@ -54,11 +54,11 @@ public struct SecondaryButtonStyle: ButtonStyle {
             .frame(minHeight: minimumHeight)
             .frame(maxWidth: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous)
+                RoundedRectangle(cornerRadius: Metrics.radiusControl, style: .continuous)
                     .fill(Palette.surface)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous)
+                RoundedRectangle(cornerRadius: Metrics.radiusControl, style: .continuous)
                     .strokeBorder(
                         tone == .neutral ? Palette.controlBorder : tone.foreground,
                         lineWidth: Metrics.hairline
@@ -104,7 +104,7 @@ public struct CompactActionButton: View {
             .frame(maxWidth: .infinity, minHeight: minimumSize)
             .padding(.vertical, Metrics.space2)
             .background(
-                RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous)
+                RoundedRectangle(cornerRadius: Metrics.radiusControl, style: .continuous)
                     .fill(tone.quietFill)
             )
         }

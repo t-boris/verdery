@@ -61,11 +61,11 @@ public struct PlantPhotoGalleryView: View {
         AsyncImage(url: photo.url) { image in
             image.resizable().scaledToFill()
         } placeholder: {
-            RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous)
+            RoundedRectangle(cornerRadius: Metrics.radiusCard, style: .continuous)
                 .fill(Palette.surfaceSunken)
                 .overlay(ProgressView())
         }
         .frame(width: thumbnailSize, height: thumbnailSize)
-        .clipShape(RoundedRectangle(cornerRadius: Metrics.radiusMedium, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Metrics.radiusCard, style: .continuous))
     }
 }

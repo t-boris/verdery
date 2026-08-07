@@ -12,7 +12,7 @@ import SwiftUI
 /// `Tests/ArchitectureTests/AccessibilityConventionTests.swift` for the rule
 /// that keeps it that way.
 public enum Metrics {
-    // Spacing scale, matching `--space-1` … `--space-7`.
+    // Spacing scale, matching `--space-1` … `--space-8`.
     public static let space1: CGFloat = 4
     public static let space2: CGFloat = 8
     public static let space3: CGFloat = 12
@@ -20,14 +20,52 @@ public enum Metrics {
     public static let space5: CGFloat = 24
     public static let space6: CGFloat = 32
     public static let space7: CGFloat = 48
+    public static let space8: CGFloat = 64
 
-    // Radii, matching `--radius-sm` … `--radius-xl`.
-    public static let radiusSmall: CGFloat = 6
-    public static let radiusMedium: CGFloat = 10
-    public static let radiusLarge: CGFloat = 14
-    public static let radiusExtraLarge: CGFloat = 20
+    // MARK: - Radii
+    //
+    // Named for what they wrap rather than by size, which the previous
+    // `small`/`medium`/`large`/`extraLarge` scale could not survive: Field
+    // Console's control radius is 6 and its card radius is 10, and the old
+    // `radiusMedium` was 10. Re-valuing that name would have silently pulled
+    // every card in to a control's corner while looking like a no-op. A
+    // semantic name also answers the question a call site actually has, which
+    // is never "how round" but "what is this".
+    //
+    // Source: apps/web/shared/ui/tokens.css, `--radius-sm` … `--radius-pill`.
+
+    /// `--radius-sm`. A swatch, a colour dot, a progress bar's cap.
+    public static let radiusSmall: CGFloat = 4
+
+    /// `--radius-md`. Buttons, inputs, and anything a finger commits with.
+    /// The token file's own note is the argument for keeping it this tight:
+    /// "a control reads as a control at 6px".
+    public static let radiusControl: CGFloat = 6
+
+    /// `--radius-lg`. Cards, medallions, bounded panels — a surface holding
+    /// content rather than a control accepting a tap.
+    public static let radiusCard: CGFloat = 10
+
+    /// `--radius-xl`. Sheets and other detached surfaces, whose corner has to
+    /// read from across the screen.
+    public static let radiusSheet: CGFloat = 14
+
+    /// `--radius-pill`. Chips, capsules, the search strip.
+    public static let radiusPill: CGFloat = 999
+
+    // MARK: - Lines and focus
 
     public static let hairline: CGFloat = 1
+    /// `--focus-ring-width` and `--focus-ring-offset`.
+    public static let focusRingWidth: CGFloat = 3
+    public static let focusRingOffset: CGFloat = 2
+
+    // MARK: - The chassis
+
+    /// `--console-mobile-nav-size`. The tab bar's own height.
+    public static let consoleChassisHeight: CGFloat = 56
+    /// `--shell-status-size`. The permanent status strip above it.
+    public static let statusStripHeight: CGFloat = 24
 
     /// The minimum width and height of any standalone control.
     ///
@@ -35,6 +73,9 @@ public enum Metrics {
     /// own "touch targets and map controls must remain usable outdoors"
     /// requirement is measured against. A dense, icon-led layout draws the
     /// *symbol* smaller than this; it never draws the *target* smaller.
+    ///
+    /// The web token this mirrors relaxes to 32 for a fine pointer on a wide
+    /// viewport. There is no such case here: every pointer is a fingertip.
     public static let minimumTouchTarget: CGFloat = 44
 
     /// Symbols are deliberately absent from this table.
