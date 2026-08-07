@@ -273,9 +273,9 @@ themselves.
 | Field            | Value                                                                                                                                                                                                                       |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Tier / category  | `ordinary_care` / `sowing`; urgency `normal`                                                                                                                                                                                |
-| Recommends       | Names which reviewed sow-indoors/sow-outdoors/transplant window a taxon is within or approaching, for the garden's own hemisphere                                                                                           |
-| Trigger          | Today falls within, or within `approachWindowDays` (14) of, a `horticulturally_reviewed` window for the plant's own taxon; the whole rule skips on an unknown hemisphere                                                    |
-| Eligible plants  | Active, with a known taxon whose reviewed seasonal fact configures at least one window                                                                                                                                      |
+| Recommends       | Names which accepted sow-indoors/sow-outdoors/transplant window a taxon is within or approaching, for the garden's own hemisphere                                                                                           |
+| Trigger          | Today falls within, or within `approachWindowDays` (14) of, a window the GARDEN HAS ACCEPTED for the plant's own taxon (see 5.8); the whole rule skips on an unknown hemisphere                                             |
+| Eligible plants  | Active, with a known taxon whose accepted seasonal fact configures at least one window                                                                                                                                      |
 | Timing           | 14-day validity window, 14-day recurrence interval; no weather                                                                                                                                                              |
 | Month wraparound | A window like November–February is handled correctly (`monthInRange`/`daysUntilNextMonthStart`, `rule-support.ts`), unit-tested directly and via a dedicated fixture                                                        |
 | Priority         | 60: urgency 15 + seasonal constraint 20 + plant impact 10 + confidence 15 (reviewed fact)                                                                                                                                   |
@@ -288,8 +288,8 @@ themselves.
 | Field             | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Tier / category   | `ordinary_care` / `succession_planting`; urgency `normal`                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Recommends        | Reminds the gardener to sow another batch for a taxon with a reviewed `successionIntervalDays`, quoting the real configured interval                                                                                                                                                                                                                                                                                                                      |
-| Trigger           | Active plant with a known taxon whose reviewed seasonal fact configures `successionIntervalDays`; the whole rule skips on an unknown hemisphere                                                                                                                                                                                                                                                                                                           |
+| Recommends        | Reminds the gardener to sow another batch for a taxon with an accepted `successionIntervalDays`, quoting the real configured interval                                                                                                                                                                                                                                                                                                                     |
+| Trigger           | Active plant with a known taxon whose accepted seasonal fact configures `successionIntervalDays`; the whole rule skips on an unknown hemisphere                                                                                                                                                                                                                                                                                                           |
 | Recurrence design | The engine's own `timing.recurrenceIntervalMs` mechanism is reused (not a new one), but that field is ONE static value per rule version, while `successionIntervalDays` genuinely varies per taxon — see the rule file's own header for the full reasoning. Resolution: `recurrenceIntervalDaysFallback` (21 days) is a garden-wide placeholder spacing value; the real per-taxon number is always quoted honestly in evidence and explanation regardless |
 | Timing            | 10-day validity window, 21-day recurrence interval (fallback, see above); no weather                                                                                                                                                                                                                                                                                                                                                                      |
 | Priority          | 60: urgency 15 + seasonal constraint 20 + plant impact 10 + confidence 15 (reviewed fact)                                                                                                                                                                                                                                                                                                                                                                 |
@@ -302,7 +302,7 @@ themselves.
 | Field               | Value                                                                                                                                                                                                                                 |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Tier / category     | `ordinary_care` / `crop_rotation`; urgency `normal`                                                                                                                                                                                   |
-| Recommends          | Warns when a plant's own bed most recently grew the SAME botanical family within the taxon's own reviewed `rotationRestSeasons` — never a disease diagnosis, only the prior family and elapsed days                                   |
+| Recommends          | Warns when a plant's own bed most recently grew the SAME botanical family within the taxon's own accepted `rotationRestSeasons` — never a disease diagnosis, only the prior family and elapsed days                                   |
 | Trigger             | Active, placed plant with known family, a configured `rotationRestSeasons`, and a known departed prior bed occupant of the SAME family within the rest period; the whole rule skips on an unknown hemisphere                          |
 | Season length       | One rotation "season" = 365 days (`rotationSeasonDays`) — this codebase has no other season-boundary concept; the rule file's own header explains why one year is the conservative reading (a shorter season would under-warn)        |
 | Bed-occupancy input | `PriorBedOccupantFact` (`gather-seasonal-facts.ts`), derived from `BedOccupancyHistoryReader` inside the SAME transaction as the rest of fact-gathering — unit-tested directly in `gather-seasonal-facts.test.ts`                     |
@@ -312,7 +312,41 @@ themselves.
 | Review questions    | Is one season == one year the right reading? Is 730 days (2 seasons) a sensible DEFAULT rest period for the fixture's own Solanaceae example, and is the caution itself (vs. a stronger warning) the right posture?                   |
 | Status              | **Awaiting horticultural review**                                                                                                                                                                                                     |
 
-### 5.8 Cross-rule behavior (reviewed as content, not per rule)
+### 5.8 Who accepts seasonal timing, and what that changes here
+
+Amended August 7, 2026, together with ADR-0013's own amendment; the three rules in 5.5-5.7 all
+depend on it.
+
+Those rules read seasonal timing only when **the garden itself has accepted it**, recorded in
+`garden_seasonal_fact_acceptance` and gated by the `editGardenContent` capability — the garden's
+own owner or editor, never a viewer. Timing no acceptance row matches is invisible to the engine:
+the rule-facing read is an inner join, so there is no query shape that hands an unaccepted fact to
+a rule.
+
+**What this replaced, and why.** The gate used to be a single global `horticulturally_reviewed`
+status set by a named horticulturist from `PLANT_REVIEWER_EMAILS`. That allowlist was never passed
+to the deployed service, so it was empty, nothing could ever be promoted, and all three rules were
+silent in every garden, permanently. The stricter-looking control was an unoperable one.
+
+**Why per garden rather than simply widening who may set the global status.**
+`taxonomy_seasonal_fact` has no `garden_id` — a row is the timing for a taxon in a hemisphere,
+shared by every garden. Letting a gardener set the global status would have published their
+judgment into everyone else's gardens, which is the exact authority the horticulturist gate existed
+to withhold. Keying the decision by garden keeps the content single and shared while confining the
+consequence to the garden that chose it.
+
+**What a reviewer of THIS catalog still owns.** Everything in 5.5-5.7 other than the source of the
+timing values: the thresholds, the approach horizon, the fallback cadence, the season length, and
+the priority arithmetic. Those are rule content, still `awaiting_horticultural_review`, and no
+gardener's acceptance touches them. Acceptance decides whether a taxon's months are used at all;
+it does not confirm that 14 days is the right approach horizon.
+
+**What a gardener's acceptance is worth.** A gardener is not a horticulturist. Timing accepted this
+way carries an interested amateur's judgment, which the rule surface continues to disclose, and its
+consequences stop at their own garden. A horticulturist-reviewed tier remains a pure addition: one
+more reason a fact is readable, alongside acceptance.
+
+### 5.9 Cross-rule behavior (reviewed as content, not per rule)
 
 `cross-rule.fixtures.ts`, 3 scenarios: idempotent re-evaluation (live candidates suppress
 exact re-generation), suppression by a converted task vs the −15 `task_overlap` penalty for

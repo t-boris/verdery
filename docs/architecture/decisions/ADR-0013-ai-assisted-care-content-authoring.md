@@ -63,6 +63,46 @@ this project, AI-assisted, reviewed by a named reviewer on a date, against a rec
 prompt version. This is not a way to acquire someone else's data without licensing it; it is
 ordinary authorship with a drafting aid, and it is recorded as such.
 
+### Amendment, August 7, 2026: who reviews seasonal timing
+
+This amendment changes **who** may accept a proposal, for **seasonal timing only**. It does not
+change what a model may draft, what it may not, or when it may run.
+
+As originally written, "a human reviewer" meant a named horticulturist drawn from a deployment-level
+allowlist (`PLANT_REVIEWER_EMAILS`). For seasonal timing that control turned out to be unoperable
+rather than strict: the allowlist was never passed to the deployed service, so it was empty, no row
+could ever be promoted, and the three rules that read seasonal timing were silent in every garden,
+permanently. The seeded taxa sat unreadable. That is not the conservative failure it looks like — it
+is a feature that does not exist, wearing the costume of a safety control.
+
+**Seasonal timing is now accepted per garden, by that garden's own owner or editor.** The scope of
+the authority is what makes this sound. `taxonomy_seasonal_fact` has no `garden_id`: one row is the
+timing for a taxon in a hemisphere, shared by everyone. Granting a gardener the global reviewed
+status would therefore have published one person's judgment into every other garden — precisely the
+authority the horticulturist gate existed to withhold. So the acceptance is recorded as a decision,
+not a status: content stays single and shared, while `garden_seasonal_fact_acceptance` is keyed by
+garden and reaches only the garden that made it. A gardener decides what applies to their own
+garden, which is a scope they already control.
+
+Unchanged by this amendment, deliberately:
+
+- **Edibility, toxicity and chemical guidance remain excluded from AI authoring entirely**, per the
+  section below. No acceptance path touches them, and none exists to build.
+- **Proposals remain inert until accepted.** The rule-facing read is an inner join against a
+  garden's own acceptances, so a fact nobody accepted is invisible to the engine, exactly as before.
+- **Plant assertions keep the named-reviewer allowlist.** Those are claims about a species, not a
+  decision about one garden, so the reasoning above does not transfer and `PLANT_REVIEWER_EMAILS`
+  still gates them.
+- **Provenance still says what it is.** Acceptance records who accepted and when; it never rewrites
+  the fact's own `authoring_method`, so AI-drafted timing continues to identify itself as such no
+  matter how many gardens adopt it.
+
+The cost this accepts: a gardener is not a horticulturist, so timing accepted this way carries the
+judgment of an interested amateur rather than an expert. That is disclosed rather than hidden — the
+rule surface still reports that its thresholds are unconfirmed — and it is bounded to the garden of
+the person who chose it. A future horticulturist-reviewed tier remains a pure addition: another
+reason a fact is readable, alongside acceptance.
+
 ### Excluded from AI authoring entirely
 
 Edibility, toxicity, and any chemical-application guidance are authored by a human from a cited

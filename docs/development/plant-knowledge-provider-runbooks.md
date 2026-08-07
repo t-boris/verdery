@@ -308,30 +308,43 @@ shape every other scheduled sweep in this codebase already uses.
 northern-hemisphere sowing, transplant and harvest windows, extracted from cited public-domain
 USDA publications under ADR-0013's extraction lane.
 
-**Every seeded row is `awaiting_horticultural_review`, and that is the control, not an oversight.**
-`findReviewedForTaxonomyAndHemisphere` treats an unreviewed row as absent, so
+**A seeded row is not usable until a garden accepts it, and that is the control, not an oversight.**
+`findAcceptedForGarden` inner-joins `garden_seasonal_fact_acceptance`, so
 `seasonal.sowing-window-check`, `succession.replanting-reminder` and
-`rotation.crop-rotation-caution` see nothing until a named reviewer signs off. A migration cannot
-forge that sign-off — `seasonal-timing-seed.test.ts` asserts it.
+`rotation.crop-rotation-caution` see nothing in a garden whose owner has not accepted the timing.
+A migration cannot forge an acceptance — `seasonal-timing-seed.test.ts` asserts the seed writes
+none.
 
-**Who may review.** The same `PLANT_REVIEWER_EMAILS` allowlist that gates the plant-assertion
-queue. "Reviewer" is one role in this system: a person trusted to sign off a plant fact is the
-person trusted to sign off when to sow it. Set the variable and redeploy the API to grant it.
+**Who may accept.** The garden's own owner or editor, checked with the existing
+`editGardenContent` capability; a viewer is refused. There is nothing to configure and no allowlist
+to set — this replaced a global `PLANT_REVIEWER_EMAILS` sign-off that could never be operated
+because the variable was never passed to the deployed service. See ADR-0013's August 7, 2026
+amendment for why the authority is scoped to the garden rather than granted globally.
+
+`PLANT_REVIEWER_EMAILS` still gates the plant-assertion queue above; it no longer has anything to
+do with seasonal timing.
 
 **The queue.**
 
-| Operation                 | Route                                                             |
-| ------------------------- | ----------------------------------------------------------------- |
-| List rows awaiting review | `GET /v1/plant-knowledge/seasonal-facts/awaiting-review?limit=25` |
-| Sign one off              | `POST /v1/plant-knowledge/seasonal-facts/{factId}/approve`        |
+| Operation                       | Route                                                           |
+| ------------------------------- | --------------------------------------------------------------- |
+| List timing awaiting acceptance | `GET /v1/gardens/{gardenId}/seasonal-facts/awaiting-acceptance` |
+| Accept one                      | `POST /v1/gardens/{gardenId}/seasonal-facts/{factId}/accept`    |
 
-Both are authenticated ordinary routes; the allowlist check runs inside the use case. `reviewedBy`
-is always the caller's own verified email — a reviewer can only ever record themselves, which is
-what makes the column an accountable claim.
+Both are authenticated ordinary garden routes; the capability check runs inside the use case. The
+queue lists only taxa the garden actually grows, for the garden's own hemisphere — a gardener
+decides about the plants in front of them, not a catalogue-wide backlog. `hemisphereKnown: false`
+means the garden has no location yet, reported separately so "nothing to decide" and "cannot decide
+anything" are not the same empty list.
 
-Approval is the only transition. The table's CHECK admits two review states, so there is nothing
-to reject into; correcting a bad window is authoring, not reviewing. A repeated or raced approval
-answers `alreadyReviewedOrMissing`, which is deliberately indistinguishable from an unknown id.
+`accepted_by_profile_id` is always the calling actor — a person can only record themselves as
+having accepted, which is what makes the column an accountable claim.
+
+Accepting is the only transition. A fact a garden has not accepted is already unreadable, so
+declining is simply not accepting; correcting a bad window is authoring, not accepting. Accepting
+twice is one decision recorded once and still answers `accepted`. An unknown id and a fact for the
+other hemisphere both answer `notAcceptableHere`, deliberately indistinguishable so a probe cannot
+confirm an id exists.
 
 **What to check before signing off a row.** The months are northern-hemisphere and were extracted,
 not authored — confirm each window against your own region and practice, and correct rather than
