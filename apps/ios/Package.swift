@@ -432,6 +432,12 @@ let package = Package(
             name: "CoreDomainTests",
             dependencies: ["CoreDomain"]
         ),
+        // Why a design-system suite exists at all, given no simulator runs
+        // here: Tests/CoreDesignSystemTests/FieldConsoleContrastTests.swift.
+        .testTarget(
+            name: "CoreDesignSystemTests",
+            dependencies: ["CoreDesignSystem"]
+        ),
         .testTarget(
             name: "CoreNetworkingTests",
             dependencies: ["CoreNetworking"]
