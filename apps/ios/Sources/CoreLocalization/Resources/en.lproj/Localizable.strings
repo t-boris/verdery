@@ -1032,3 +1032,23 @@
 "deleteAccount.reauthenticate" = "For your safety this needs a recent sign-in. Sign out, sign in again, and come back.";
 "deleteAccount.failed" = "The request could not be sent. Nothing has been deleted.";
 "deleteAccount.done" = "Your account is scheduled for deletion and this device has been cleared.";
+
+/* Data export. The consistency boundary and the expiry are both stated
+   because a package that quietly excludes today's work, or quietly stops
+   downloading, is worse than one that says so. */
+"export.title" = "Export my data";
+"export.open" = "Export my data";
+"export.explanation" = "We build a package of your records and give you a link to download it. Everything is read at one instant, so anything you change afterwards is not in it.";
+"export.scopeLabel" = "What to include";
+"export.scopeAccount" = "Everything I own";
+"export.scopeGarden" = "This garden";
+"export.includeMedia" = "Include photographs";
+"export.includeMediaHint" = "Photograph details and checksums are always included. This adds the picture files themselves, which makes the package much larger.";
+"export.submit" = "Prepare my package";
+"export.preparing" = "Preparing your package. This can take a while, and you can leave this screen.";
+"export.ready" = "Your package is ready.";
+"export.download" = "Download";
+"export.expires" = "The link stops working %@.";
+"export.failed" = "The package could not be built. Nothing was sent anywhere.";
+"export.alreadyRunning" = "One package is already being built. It has to finish before another can start.";
+"export.reauthenticate" = "For your safety this needs a recent sign-in. Sign out, sign in again, and come back.";

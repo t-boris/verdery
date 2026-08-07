@@ -22,13 +22,17 @@ public struct ProfileView: View {
     /// closure only the composition root can write, and this feature must not
     /// learn about databases or media files.
     private let makeDeleteModel: (() -> DeleteAccountViewModel)?
+    private let makeExportModel: (() -> ExportViewModel)?
+    @State private var isExportPresented = false
 
     public init(
         model: ProfileViewModel,
-        makeDeleteModel: (() -> DeleteAccountViewModel)? = nil
+        makeDeleteModel: (() -> DeleteAccountViewModel)? = nil,
+        makeExportModel: (() -> ExportViewModel)? = nil
     ) {
         _model = State(wrappedValue: model)
         self.makeDeleteModel = makeDeleteModel
+        self.makeExportModel = makeExportModel
     }
 
     public var body: some View {
@@ -36,6 +40,7 @@ public struct ProfileView: View {
             VStack(alignment: .leading, spacing: Metrics.space5) {
                 identityCard
                 aboutSection
+                exportSection
                 signOutSection
                 deleteAccountSection
             }
@@ -109,6 +114,24 @@ public struct ProfileView: View {
                         )
                     }
                 }
+            }
+        }
+    }
+
+    /// Beside deletion on purpose: "delete everything" is a far easier
+    /// decision with "download everything" next to it.
+    @ViewBuilder
+    private var exportSection: some View {
+        if let makeExportModel {
+            Button {
+                isExportPresented = true
+            } label: {
+                Label(model.exportTitle, systemImage: "arrow.down.circle")
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .accessibilityIdentifier("profile.export")
+            .sheet(isPresented: $isExportPresented) {
+                ExportView(model: makeExportModel()) { isExportPresented = false }
             }
         }
     }

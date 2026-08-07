@@ -1031,3 +1031,23 @@
 "deleteAccount.reauthenticate" = "Для безопасности нужен свежий вход. Выйдите, войдите снова и вернитесь сюда.";
 "deleteAccount.failed" = "Запрос не удалось отправить. Ничего не удалено.";
 "deleteAccount.done" = "Аккаунт поставлен на удаление, данные на этом устройстве стёрты.";
+
+/* Data export. The consistency boundary and the expiry are both stated
+   because a package that quietly excludes today's work, or quietly stops
+   downloading, is worse than one that says so. */
+"export.title" = "Выгрузка данных";
+"export.open" = "Выгрузить мои данные";
+"export.explanation" = "Мы соберём архив с вашими записями и дадим ссылку на скачивание. Всё читается на один момент времени, поэтому изменения после него в архив не попадут.";
+"export.scopeLabel" = "Что включить";
+"export.scopeAccount" = "Всё, чем я владею";
+"export.scopeGarden" = "Этот сад";
+"export.includeMedia" = "Включить фотографии";
+"export.includeMediaHint" = "Сведения о фотографиях и контрольные суммы включаются всегда. Это добавит сами файлы, и архив станет заметно больше.";
+"export.submit" = "Собрать архив";
+"export.preparing" = "Архив собирается. Это может занять время, экран можно закрыть.";
+"export.ready" = "Архив готов.";
+"export.download" = "Скачать";
+"export.expires" = "Ссылка перестанет работать %@.";
+"export.failed" = "Архив собрать не удалось. Никуда ничего не отправлено.";
+"export.alreadyRunning" = "Один архив уже собирается. Нужно дождаться его завершения.";
+"export.reauthenticate" = "Для безопасности нужен свежий вход. Выйдите, войдите снова и вернитесь сюда.";

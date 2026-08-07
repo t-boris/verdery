@@ -46,6 +46,16 @@ extension AppCompositionRoot {
         }
     }
 
+    /// The data-export screen.
+    ///
+    /// Scoped to the account rather than to a garden: the account sheet is
+    /// reachable from every screen including the gardens list, where no garden
+    /// is chosen, so offering "this garden" from here would sometimes mean
+    /// nothing.
+    public func makeExportViewModel() -> ExportViewModel {
+        ExportViewModel(gateway: exportGateway, gardenId: nil, strings: localizedStrings)
+    }
+
     /// The account screen (see `FeatureAuthentication.ProfileView`).
     ///
     /// The identity is read from `sessionObserver` at the moment the sheet is
@@ -103,7 +113,8 @@ struct AccountToolbarModifier: ViewModifier {
                 NavigationStack {
                     ProfileView(
                         model: composition.makeProfileViewModel(),
-                        makeDeleteModel: composition.makeDeleteAccountViewModel
+                        makeDeleteModel: composition.makeDeleteAccountViewModel,
+                        makeExportModel: composition.makeExportViewModel
                     )
                         .toolbar {
                             ToolbarItem(placement: .confirmationAction) {
@@ -137,7 +148,8 @@ extension View {
             NavigationStack {
                 ProfileView(
                         model: composition.makeProfileViewModel(),
-                        makeDeleteModel: composition.makeDeleteAccountViewModel
+                        makeDeleteModel: composition.makeDeleteAccountViewModel,
+                        makeExportModel: composition.makeExportViewModel
                     )
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {

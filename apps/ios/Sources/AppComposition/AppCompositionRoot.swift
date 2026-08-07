@@ -75,6 +75,8 @@ public final class AppCompositionRoot {
     /// The caller's own account — deletion, and withdrawing a deletion.
     /// `let`, not `private let`: read by `AccountEntryPoint.swift`'s factory.
     let accountGateway: any AccountGateway
+    /// Taking a copy of your own data. Same scope as `accountGateway`.
+    let exportGateway: any ExportGateway
     // `let`, not `private let`: read by `AppCompositionRoot+Plants.swift`'s
     // `makePlantDetailViewModel`, the same reason `mapGateway` above is `let`.
     let mediaGateway: any MediaGateway
@@ -312,6 +314,13 @@ public final class AppCompositionRoot {
         )
         // Same scope as every Phase 4/5 gateway above.
         self.syncGateway = URLSessionSyncGateway(
+            configuration: configuration,
+            session: session,
+            authTokenProvider: tokenProvider,
+            appCheckTokenProvider: appCheckTokenProvider,
+            log: log
+        )
+        self.exportGateway = URLSessionExportGateway(
             configuration: configuration,
             session: session,
             authTokenProvider: tokenProvider,
