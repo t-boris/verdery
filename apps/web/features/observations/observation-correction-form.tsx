@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { z } from '@/shared/validation/zod';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, Select, TextField } from '@/shared/ui/public';
+import { Button, CommandSurface, FailureAlert, Select, TextField } from '@/shared/ui/public';
 
 import { OBSERVATION_CORRECTION_KINDS, correctionKindLabel } from './labels';
 import styles from './observation-correction-form.module.css';
@@ -72,7 +72,7 @@ export function ObservationCorrectionForm({
   });
 
   return (
-    <form className={styles['form']} onSubmit={(event) => void onSubmit(event)} noValidate>
+    <CommandSurface className={styles['form']} onCommit={() => void onSubmit()}>
       <p className={styles['hint']}>{t('observations.correctionExplanation')}</p>
       <Select
         label={t('observations.correctionKindLabel')}
@@ -96,6 +96,6 @@ export function ObservationCorrectionForm({
         </Button>
       </div>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
-    </form>
+    </CommandSurface>
   );
 }

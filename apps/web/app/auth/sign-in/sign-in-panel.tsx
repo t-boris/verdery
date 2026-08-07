@@ -19,7 +19,7 @@ import {
   signInWithGoogle,
 } from '@/core/auth/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Alert, Button, TextField } from '@/shared/ui/public';
+import { Alert, Button, CommandSurface, TextField } from '@/shared/ui/public';
 
 import { AppleMark, GoogleMark } from './provider-marks';
 import styles from './sign-in-panel.module.css';
@@ -137,11 +137,7 @@ export function SignInPanel() {
           <p>{t('auth.emailLinkSentDescription')}</p>
         </Alert>
       ) : (
-        <form
-          className={styles['emailForm']}
-          onSubmit={(event) => void onEmailSubmit(event)}
-          noValidate
-        >
+        <CommandSurface className={styles['emailForm']} onCommit={() => void onEmailSubmit()}>
           <TextField
             label={t('auth.emailLabel')}
             type="email"
@@ -157,7 +153,7 @@ export function SignInPanel() {
               <p>{emailError}</p>
             </Alert>
           )}
-        </form>
+        </CommandSurface>
       )}
     </div>
   );

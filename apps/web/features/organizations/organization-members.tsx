@@ -2,7 +2,14 @@
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, Card, FailureAlert, StaleIndicator } from '@/shared/ui/public';
+import {
+  ActionDisclosure,
+  Button,
+  Card,
+  FailureAlert,
+  PlusIcon,
+  StaleIndicator,
+} from '@/shared/ui/public';
 
 import { AddOrganizationMemberForm } from './add-organization-member-form';
 import { OrganizationMemberRow } from './organization-member-row';
@@ -72,7 +79,11 @@ export function OrganizationMembers({ organizationId }: OrganizationMembersProps
         )}
       </Card>
 
-      {callerIsAdmin && <AddOrganizationMemberForm organizationId={organizationId} />}
+      {callerIsAdmin && (
+        <ActionDisclosure title={t('organizations.addMemberTitle')} icon={<PlusIcon />}>
+          <AddOrganizationMemberForm organizationId={organizationId} />
+        </ActionDisclosure>
+      )}
     </div>
   );
 }

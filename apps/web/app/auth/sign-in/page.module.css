@@ -1,21 +1,38 @@
 .page {
-  display: grid;
-  place-items: center;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
   min-block-size: calc(100dvh - var(--console-header-size) - var(--space-8));
-  padding-block: var(--space-6);
+  padding: var(--space-6);
+  overflow: hidden;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent 20%,
+      color-mix(in srgb, var(--color-canvas) 88%, transparent) 72%
+    ),
+    linear-gradient(0deg, color-mix(in srgb, var(--color-console) 44%, transparent), transparent),
+    url('/images/field-console-botanical.webp');
+  background-position: center;
+  background-size: cover;
+  box-shadow: var(--shadow-lg);
 }
 
 .card {
   position: relative;
   display: flex;
   flex-direction: column;
-  width: min(27rem, 100%);
+  width: min(28rem, 100%);
   padding: var(--space-6);
   overflow: hidden;
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-lg);
-  background-color: var(--color-surface);
+  background-color: color-mix(in srgb, var(--color-surface) 91%, transparent);
   box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(20px);
 }
 
 .card::before {
@@ -54,7 +71,8 @@
   .page {
     align-items: start;
     min-block-size: 0;
-    padding-block: var(--space-3);
+    padding: var(--space-3);
+    background-position: 72% center;
   }
 
   .card {

@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { CreateManualTaskRequest, TaskTargetKind } from '@verdery/api-contracts';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from '@/shared/validation/zod';
 
@@ -11,10 +11,13 @@ import { useRecoverableDraft } from '@/core/drafts/public';
 import { useLocalization } from '@/shared/localization/public';
 import {
   PlusIcon,
+  CalendarIcon,
   Button,
+  CommandSurface,
   FailureAlert,
   RecoveredDraftNotice,
-  Select,
+  MapIcon,
+  TagIcon,
   StaleIndicator,
   TextField,
 } from '@/shared/ui/public';
@@ -102,8 +105,9 @@ export function CreateManualTaskForm({ gardenId }: { readonly gardenId: string }
   const { t } = useLocalization();
   const mutation = useCreateManualTask(gardenId);
   const isOnline = useIsOnline();
+  const [activePart, setActivePart] = useState<string | null>(null);
 
-  const { register, handleSubmit, formState, watch, reset } = useForm<CreateTaskValues>({
+  const { register, handleSubmit, formState, watch, reset, setValue } = useForm<CreateTaskValues>({
     resolver: zodResolver(createTaskSchema),
     defaultValues: DEFAULT_VALUES,
     shouldUnregister: true,
@@ -137,6 +141,10 @@ export function CreateManualTaskForm({ gardenId }: { readonly gardenId: string }
     reset(DEFAULT_VALUES);
   };
 
+  const togglePart = (part: string) => {
+    setActivePart((current) => (current === part ? null : part));
+  };
+
   const onSubmit = handleSubmit((values) => {
     const timeWindow = buildTimeWindow(values);
     const input: CreateManualTaskRequest = {
@@ -160,70 +168,131 @@ export function CreateManualTaskForm({ gardenId }: { readonly gardenId: string }
   });
 
   return (
-    <form className={styles['form']} onSubmit={(event) => void onSubmit(event)} noValidate>
+    <CommandSurface className={styles['form']} onCommit={() => void onSubmit()}>
       {draft.recovered && <RecoveredDraftNotice onDiscard={discardRecoveredDraft} />}
-      <TextField
-        label={t('tasks.titleLabel')}
-        maxLength={200}
-        error={formState.errors.title === undefined ? undefined : t('tasks.titleRequired')}
-        {...register('title')}
-      />
-      <TextField label={t('tasks.notesLabel')} {...register('notes')} />
-
-      <Select
-        label={t('tasks.targetKindLabel')}
-        options={TASK_TARGET_KINDS.map((kind: TaskTargetKind) => ({
-          value: kind,
-          label: t(targetKindLabel(kind)),
-        }))}
-        {...register('targetKind')}
-      />
-      {targetKind !== 'garden' && (
+      <div className={styles['commandRow']}>
         <TextField
-          label={
-            targetKind === 'plant'
-              ? t('tasks.targetPlantIdLabel')
-              : t('tasks.targetGardenAreaIdLabel')
-          }
-          error={formState.errors.targetId === undefined ? undefined : t('tasks.targetIdRequired')}
-          {...register('targetId')}
+          label={t('tasks.titleLabel')}
+          maxLength={200}
+          error={formState.errors.title === undefined ? undefined : t('tasks.titleRequired')}
+          {...register('title')}
         />
-      )}
-      <p className={styles['hint']}>{t('tasks.mapObjectIdHint')}</p>
-
-      <div className={styles['row']}>
-        <TextField label={t('tasks.dueDateLabel')} type="date" {...register('dueDate')} />
-        <Select
-          label={t('tasks.urgencyLabel')}
-          options={TASK_URGENCIES.map((urgency) => ({
-            value: urgency,
-            label: t(urgencyLabel(urgency)),
-          }))}
-          {...register('urgency')}
-        />
+        <Button
+          type="submit"
+          variant="primary"
+          busy={mutation.isPending}
+          disabled={!isOnline}
+          iconOnly
+          aria-label={t('tasks.createSubmit')}
+          title={t('tasks.createSubmit')}
+        >
+          <PlusIcon />
+        </Button>
       </div>
 
-      <div className={styles['row']}>
-        <TextField
-          label={t('tasks.timeWindowStartLabel')}
-          type="datetime-local"
-          {...register('timeWindowStart')}
-        />
-        <TextField
-          label={t('tasks.timeWindowEndLabel')}
-          type="datetime-local"
-          {...register('timeWindowEnd')}
-        />
+      <div className={styles['quickActions']}>
+        <Button
+          variant="secondary"
+          aria-pressed={activePart === 'target'}
+          onClick={() => togglePart('target')}
+        >
+          <MapIcon />
+          {t('tasks.targetKindLabel')}
+        </Button>
+        <Button
+          variant="secondary"
+          aria-pressed={activePart === 'timing'}
+          onClick={() => togglePart('timing')}
+        >
+          <CalendarIcon />
+          {t('tasks.dueDateLabel')}
+        </Button>
+        <Button
+          variant="secondary"
+          aria-pressed={activePart === 'notes'}
+          onClick={() => togglePart('notes')}
+        >
+          <TagIcon />
+          {t('tasks.notesLabel')}
+        </Button>
       </div>
 
-      <TextField label={t('tasks.originObservationIdLabel')} {...register('originObservationId')} />
+      <div className={styles['canvas']}>
+        {activePart === 'target' && (
+          <div className={styles['editorGrid']}>
+            <div className={styles['choiceField']}>
+              <span>{t('tasks.targetKindLabel')}</span>
+              <div className={styles['choices']}>
+                {TASK_TARGET_KINDS.map((kind: TaskTargetKind) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    aria-pressed={targetKind === kind}
+                    onClick={() => setValue('targetKind', kind, { shouldDirty: true })}
+                  >
+                    {t(targetKindLabel(kind))}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {targetKind !== 'garden' && (
+              <TextField
+                label={
+                  targetKind === 'plant'
+                    ? t('tasks.targetPlantIdLabel')
+                    : t('tasks.targetGardenAreaIdLabel')
+                }
+                error={
+                  formState.errors.targetId === undefined ? undefined : t('tasks.targetIdRequired')
+                }
+                {...register('targetId')}
+              />
+            )}
+          </div>
+        )}
+        {activePart === 'timing' && (
+          <div className={styles['editorGrid']}>
+            <TextField label={t('tasks.dueDateLabel')} type="date" {...register('dueDate')} />
+            <div className={styles['choiceField']}>
+              <span>{t('tasks.urgencyLabel')}</span>
+              <div className={styles['choices']}>
+                {TASK_URGENCIES.map((urgency) => (
+                  <button
+                    key={urgency}
+                    type="button"
+                    aria-pressed={currentValues.urgency === urgency}
+                    onClick={() => setValue('urgency', urgency, { shouldDirty: true })}
+                  >
+                    {t(urgencyLabel(urgency))}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <TextField
+              label={t('tasks.timeWindowStartLabel')}
+              type="datetime-local"
+              {...register('timeWindowStart')}
+            />
+            <TextField
+              label={t('tasks.timeWindowEndLabel')}
+              type="datetime-local"
+              {...register('timeWindowEnd')}
+            />
+          </div>
+        )}
+        {activePart === 'notes' && (
+          <div className={styles['editorGrid']}>
+            <TextField label={t('tasks.notesLabel')} {...register('notes')} />
+            <TextField
+              label={t('tasks.originObservationIdLabel')}
+              {...register('originObservationId')}
+            />
+          </div>
+        )}
+      </div>
 
       <StaleIndicator />
-      <Button type="submit" variant="primary" busy={mutation.isPending} disabled={!isOnline}>
-        <PlusIcon />
-        {t('tasks.createSubmit')}
-      </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
-    </form>
+    </CommandSurface>
   );
 }

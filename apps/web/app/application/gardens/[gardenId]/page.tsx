@@ -10,7 +10,7 @@ import {
   GardenEngagementsSection,
 } from '@/features/organizations/public';
 
-import { RouteBody, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
+import { HomeIcon, RouteBody, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
 
 import styles from './page.module.css';
 
@@ -41,7 +41,7 @@ export default async function GardenSettingsPage({
 
   return (
     <RoutePage>
-      <RouteHeader title={t('gardens.settingsTitle')} />
+      <RouteHeader title={t('gardens.settingsTitle')} icon={<HomeIcon size={18} />} />
       <RouteBody>
         {/*
          * Ordered by how often an owner needs each one, which is not the

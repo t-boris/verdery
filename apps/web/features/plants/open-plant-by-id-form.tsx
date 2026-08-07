@@ -1,10 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Button, EyeIcon, TextField } from '@/shared/ui/public';
+import { Button, CommandSurface, EyeIcon, TextField } from '@/shared/ui/public';
 
 import styles from './open-plant-by-id-form.module.css';
 
@@ -26,8 +26,7 @@ export function OpenPlantByIdForm({ gardenId }: { readonly gardenId: string }) {
   const router = useRouter();
   const [plantId, setPlantId] = useState('');
 
-  const onSubmit = (event: FormEvent) => {
-    event.preventDefault();
+  const onSubmit = () => {
     const trimmed = plantId.trim();
     if (trimmed === '') {
       return;
@@ -36,7 +35,7 @@ export function OpenPlantByIdForm({ gardenId }: { readonly gardenId: string }) {
   };
 
   return (
-    <form className={styles['form']} onSubmit={onSubmit} noValidate>
+    <CommandSurface className={styles['form']} onCommit={onSubmit}>
       <TextField
         label={t('plants.openByIdLabel')}
         value={plantId}
@@ -51,6 +50,6 @@ export function OpenPlantByIdForm({ gardenId }: { readonly gardenId: string }) {
       >
         <EyeIcon />
       </Button>
-    </form>
+    </CommandSurface>
   );
 }

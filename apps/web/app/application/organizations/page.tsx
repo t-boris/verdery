@@ -1,7 +1,16 @@
 import { getRequestTranslator } from '@/shared/localization/server';
 
 import { CreateOrganizationForm, OrganizationList } from '@/features/organizations/public';
-import { RouteBody, RouteDashboard, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
+import {
+  ActionDisclosure,
+  BuildingIcon,
+  PlusIcon,
+  RouteBody,
+  RouteDashboard,
+  RouteHeader,
+  RoutePage,
+  RoutePanel,
+} from '@/shared/ui/public';
 
 /**
  * The professional workspace's own root route: every service organization
@@ -22,15 +31,19 @@ export default async function OrganizationsPage() {
 
   return (
     <RoutePage>
-      <RouteHeader title={t('organizations.title')} description={t('organizations.description')} />
+      <RouteHeader
+        title={t('organizations.title')}
+        description={t('organizations.description')}
+        icon={<BuildingIcon size={18} />}
+      />
       <RouteBody>
         <RouteDashboard>
           <RoutePanel>
             <OrganizationList />
           </RoutePanel>
-          <RoutePanel title={t('organizations.createTitle')}>
+          <ActionDisclosure title={t('organizations.createTitle')} icon={<PlusIcon />}>
             <CreateOrganizationForm />
-          </RoutePanel>
+          </ActionDisclosure>
         </RouteDashboard>
       </RouteBody>
     </RoutePage>

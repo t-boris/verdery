@@ -5,7 +5,15 @@ import { useId, useState } from 'react';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { formatCalendarDay, formatInstant, useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, StatusPill, TextField } from '@/shared/ui/public';
+import {
+  Button,
+  CheckIcon,
+  CloseIcon,
+  FailureAlert,
+  StatusPill,
+  TextField,
+  TrashIcon,
+} from '@/shared/ui/public';
 
 import {
   isTaskMutable,
@@ -26,7 +34,7 @@ export interface TaskRowProps {
   readonly task: Task;
 }
 
-type OpenPanel = 'none' | 'edit' | 'reschedule' | 'assign' | 'activity';
+type OpenPanel = 'none' | 'edit' | 'reschedule' | 'assign' | 'activity' | 'complete' | 'dismiss';
 
 /**
  * One task, and every state-transition command the contract allows for it.
@@ -169,20 +177,30 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
             {t('tasks.assign')}
           </Button>
           <Button
+            variant="primary"
+            aria-expanded={openPanel === 'complete'}
+            disabled={!isOnline}
+            onClick={() => setOpenPanel(openPanel === 'complete' ? 'none' : 'complete')}
+          >
+            <CheckIcon />
+            {t('tasks.complete')}
+          </Button>
+          <Button
+            variant="secondary"
+            aria-expanded={openPanel === 'dismiss'}
+            disabled={!isOnline}
+            onClick={() => setOpenPanel(openPanel === 'dismiss' ? 'none' : 'dismiss')}
+          >
+            <CloseIcon />
+            {t('tasks.dismiss')}
+          </Button>
+          <Button
             variant="secondary"
             busy={skipMutation.isPending}
             disabled={!isOnline}
             onClick={onSkip}
           >
             {t('tasks.skip')}
-          </Button>
-          <Button
-            variant="destructive"
-            busy={deleteMutation.isPending}
-            disabled={!isOnline}
-            onClick={onDelete}
-          >
-            {t('tasks.delete')}
           </Button>
         </div>
       )}
@@ -217,7 +235,7 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
         {openPanel === 'activity' && <TaskActivityView gardenId={gardenId} taskId={task.id} />}
       </div>
 
-      {mutable && (
+      {mutable && openPanel === 'complete' && (
         <div className={styles['completeRow']}>
           <TextField
             label={t('tasks.completionNoteLabel')}
@@ -230,11 +248,12 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
             disabled={!isOnline}
             onClick={onComplete}
           >
+            <CheckIcon />
             {t('tasks.complete')}
           </Button>
         </div>
       )}
-      {mutable && (
+      {mutable && openPanel === 'dismiss' && (
         <div className={styles['completeRow']}>
           <TextField
             label={t('tasks.dismissReasonLabel')}
@@ -247,6 +266,7 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
             disabled={!isOnline}
             onClick={onDismiss}
           >
+            <CloseIcon />
             {t('tasks.dismiss')}
           </Button>
         </div>
@@ -256,6 +276,19 @@ export function TaskRow({ gardenId, task }: TaskRowProps) {
       {dismissMutation.isError && <FailureAlert failure={dismissMutation.error.failure} />}
       {skipMutation.isError && <FailureAlert failure={skipMutation.error.failure} />}
       {deleteMutation.isError && <FailureAlert failure={deleteMutation.error.failure} />}
+      {mutable && (
+        <div className={styles['dangerZone']}>
+          <Button
+            variant="destructive"
+            busy={deleteMutation.isPending}
+            disabled={!isOnline}
+            onClick={onDelete}
+          >
+            <TrashIcon />
+            {t('tasks.delete')}
+          </Button>
+        </div>
+      )}
     </li>
   );
 }

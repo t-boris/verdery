@@ -4,13 +4,21 @@ import type {
   ObservationPhotoAttachmentRequest,
   ObservationPhotoPurpose,
 } from '@verdery/api-contracts';
-import { useId, useState, type ChangeEvent } from 'react';
+import { useState, type ChangeEvent } from 'react';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { useExactDuplicateMedia, useMediaUpload, useSimilarMedia } from '@/features/media/public';
 import { OBSERVATION_PHOTO_PURPOSES, photoPurposeLabel } from '@/features/observations/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, CloseIcon, FailureAlert, PlusIcon, ProgressBar, Select } from '@/shared/ui/public';
+import {
+  Button,
+  CloseIcon,
+  FailureAlert,
+  FilePicker,
+  PlusIcon,
+  ProgressBar,
+  Select,
+} from '@/shared/ui/public';
 
 import styles from './observation-photos-panel.module.css';
 
@@ -68,7 +76,6 @@ export function ObservationPhotosPanel({ gardenId, value, onChange }: Observatio
   const similar = useSimilarMedia(gardenId, upload.mediaId);
   const [purpose, setPurpose] = useState<ObservationPhotoPurpose>('whole_plant');
   const [tooLarge, setTooLarge] = useState(false);
-  const inputId = useId();
 
   const percent = percentOf(upload.uploadedBytes, upload.totalBytes);
   const inProgress =
@@ -127,12 +134,10 @@ export function ObservationPhotosPanel({ gardenId, value, onChange }: Observatio
 
       {!attachable && !inProgress && (
         <div className={styles['picker']}>
-          <label className={styles['fileLabel']} htmlFor={inputId}>
-            {t('observations.photoSelect')}
-          </label>
-          <input
-            id={inputId}
-            type="file"
+          <FilePicker
+            label={t('observations.photoSelect')}
+            action={t('observations.photoSelect')}
+            emptyText={t('observations.photoSelect')}
             accept={ACCEPTED_TYPES}
             disabled={!isOnline}
             onChange={onFileChange}

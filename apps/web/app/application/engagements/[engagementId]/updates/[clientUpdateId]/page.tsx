@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import { ClientUpdateDetail } from '@/features/publications/public';
 import { getRequestTranslator } from '@/shared/localization/server';
+import { BookIcon, RouteBody, RouteHeader, RoutePage } from '@/shared/ui/public';
 
 import styles from './page.module.css';
 
@@ -20,12 +21,20 @@ export default async function ClientUpdateDetailPage({
   const t = await getRequestTranslator();
 
   return (
-    <div className={styles['page']}>
-      <Link className={styles['backLink']} href={`/application/engagements/${engagementId}`}>
-        {t('publications.backToList')}
-      </Link>
+    <RoutePage>
+      <RouteHeader
+        title={t('publications.editTitle')}
+        icon={<BookIcon size={18} />}
+        actions={
+          <Link className={styles['backLink']} href={`/application/engagements/${engagementId}`}>
+            {t('publications.backToList')}
+          </Link>
+        }
+      />
 
-      <ClientUpdateDetail engagementId={engagementId} clientUpdateId={clientUpdateId} />
-    </div>
+      <RouteBody>
+        <ClientUpdateDetail engagementId={engagementId} clientUpdateId={clientUpdateId} />
+      </RouteBody>
+    </RoutePage>
   );
 }

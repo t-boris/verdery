@@ -24,6 +24,8 @@ export function RoutePage({ children }: { readonly children: ReactNode }) {
 export interface RouteHeaderProps {
   readonly title: string;
   readonly description?: string;
+  /** Decorative route identity. Defaults to the product leaf. */
+  readonly icon?: ReactNode;
   /** Controls belonging to the route as a whole, laid out at the trailing edge. */
   readonly actions?: ReactNode;
 }
@@ -37,14 +39,12 @@ export interface RouteHeaderProps {
  * pushed a route's own subtitle to the far edge of the screen, a thousand
  * pixels from the title it belongs to.
  */
-export function RouteHeader({ title, description, actions }: RouteHeaderProps) {
+export function RouteHeader({ title, description, icon, actions }: RouteHeaderProps) {
   return (
     <div className={styles['header']}>
       <div className={styles['heading']}>
         <div className={styles['titleRow']}>
-          <span className={styles['headerIcon']}>
-            <LeafIcon size={18} />
-          </span>
+          <span className={styles['headerIcon']}>{icon ?? <LeafIcon size={18} />}</span>
           <h1 className={styles['title']}>{title}</h1>
         </div>
         {description !== undefined && <p className={styles['description']}>{description}</p>}

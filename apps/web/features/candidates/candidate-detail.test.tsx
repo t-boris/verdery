@@ -90,7 +90,7 @@ describe('CandidateDetail — active candidate', () => {
 
     expect(screen.getByRole('heading', { name: 'Fig tree' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Save details' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Save status' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Active' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Convert to plant' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Delete permanently' })).toBeTruthy();
     expect(
@@ -158,7 +158,7 @@ describe('CandidateDetail — converted candidate', () => {
       screen.getByText('This candidate has already been converted and cannot be edited.'),
     ).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Save details' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Save status' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Active' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Convert to plant' })).toBeNull();
     expect(screen.getByText('Suitability for this garden')).toBeTruthy();
   });

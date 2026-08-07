@@ -6,7 +6,14 @@ import { useForm } from 'react-hook-form';
 import { z } from '@/shared/validation/zod';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, PlusIcon, SparklesIcon, SproutIcon } from '@/shared/ui/public';
+import {
+  Button,
+  CommandSurface,
+  FailureAlert,
+  PlusIcon,
+  SparklesIcon,
+  SproutIcon,
+} from '@/shared/ui/public';
 
 import { useCreateGarden } from './queries';
 import styles from './create-garden-form.module.css';
@@ -44,7 +51,7 @@ export function CreateGardenForm() {
   });
 
   return (
-    <form className={styles['form']} onSubmit={(event) => void onSubmit(event)} noValidate>
+    <CommandSurface className={styles['form']} onCommit={() => void onSubmit()}>
       <div className={styles['composer']}>
         <span className={styles['composerIcon']}>
           <SproutIcon size={20} />
@@ -101,6 +108,6 @@ export function CreateGardenForm() {
       </div>
 
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
-    </form>
+    </CommandSurface>
   );
 }

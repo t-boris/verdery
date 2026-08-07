@@ -103,7 +103,7 @@ describe('OrganizationGardenAssignments — admin-only creation, everyone reads'
       </LocalizationProvider>,
     );
 
-    expect(screen.getByText('Assign a member to a garden')).toBeTruthy();
+    expect(screen.getAllByText('Assign a member to a garden').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'End' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Revoke' })).toBeTruthy();
   });

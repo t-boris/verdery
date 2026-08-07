@@ -1,12 +1,37 @@
-.form {
+.composer {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  max-width: 28rem;
+  gap: var(--space-4);
 }
 
-.hint {
+.quickActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.quickActions button {
+  min-block-size: 2.25rem;
+  padding-block: var(--space-1);
+  border-radius: var(--radius-pill);
+}
+
+.canvas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.canvas:empty {
+  display: none;
+}
+
+.canvas > fieldset {
+  grid-column: 1 / -1;
+}
+
+.validationMessage {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--color-negative);
   font-size: var(--font-size-sm);
 }

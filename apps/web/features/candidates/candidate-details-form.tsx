@@ -10,6 +10,7 @@ import { useLocalization } from '@/shared/localization/public';
 import {
   CheckIcon,
   Button,
+  CommandSurface,
   FailureAlert,
   HashIcon,
   PulseIcon,
@@ -141,7 +142,7 @@ export function CandidateDetailsForm({ gardenId, candidate }: CandidateDetailsFo
   });
 
   return (
-    <form className={styles['form']} onSubmit={(event) => void onSubmit(event)} noValidate>
+    <CommandSurface className={styles['form']} onCommit={() => void onSubmit()}>
       <TextField
         label={t('candidates.displayNameLabel')}
         icon={<TypeIcon />}
@@ -226,6 +227,6 @@ export function CandidateDetailsForm({ gardenId, candidate }: CandidateDetailsFo
       {savedAnnouncement && !mutation.isError && (
         <p role="status">{t('candidates.detailsSaved')}</p>
       )}
-    </form>
+    </CommandSurface>
   );
 }

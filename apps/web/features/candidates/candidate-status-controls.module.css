@@ -1,17 +1,16 @@
 .panel {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  max-width: 28rem;
-}
-
-.row {
-  display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 
-.row > *:first-child {
-  flex: 1;
+.panel button {
+  min-block-size: 2.25rem;
+  padding-block: var(--space-1);
+  border-radius: var(--radius-pill);
+}
+
+.panel > [role='alert'],
+.panel > [role='status'] {
+  flex-basis: 100%;
 }

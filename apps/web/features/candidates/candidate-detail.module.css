@@ -5,20 +5,57 @@
 }
 
 .summary {
+  position: relative;
   display: flex;
+  flex-direction: column;
   flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-  padding: var(--space-4) var(--space-5);
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-block-size: 10rem;
+  padding: var(--space-6);
+  overflow: hidden;
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-xs);
+  border-radius: var(--radius-xl);
+  background-image:
+    linear-gradient(90deg, var(--color-surface) 0 38%, transparent 72%),
+    linear-gradient(0deg, color-mix(in srgb, var(--color-console) 54%, transparent), transparent),
+    url('/images/field-console-botanical.webp');
+  background-position: center;
+  background-size: cover;
+  box-shadow: var(--shadow-md);
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
 
 .name {
-  margin-inline-end: auto;
   color: var(--color-text);
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  line-height: 0.98;
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.summary > * {
+  position: relative;
+  z-index: 1;
+}
+
+.summary > span:not(:global([class])) {
+  padding: var(--space-1) var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background-color: color-mix(in srgb, var(--color-surface) 86%, transparent);
+  color: var(--color-text);
+  backdrop-filter: blur(12px);
+}
+
+.actionsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+@media (max-width: 52rem) {
+  .actionsGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

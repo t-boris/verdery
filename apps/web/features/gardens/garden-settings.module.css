@@ -18,19 +18,52 @@
   font-size: var(--font-size-lg);
 }
 
+.nameEditor {
+  min-inline-size: min(26rem, 100%);
+  margin-inline-end: auto;
+}
+
+.nameInput {
+  inline-size: 100%;
+  padding: 0;
+  border: 0;
+  border-block-end: var(--border-width) solid transparent;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-family: var(--font-family-display);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+}
+
+.nameInput:hover,
+.nameInput:focus {
+  border-block-end-color: var(--color-accent);
+}
+
+.visuallyHidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.errorText {
+  margin: 0;
+  color: var(--color-negative);
+  font-size: var(--font-size-sm);
+}
+
 .metadata {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
-}
-
-.renameForm {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: var(--space-2);
 }
 
 .actions {

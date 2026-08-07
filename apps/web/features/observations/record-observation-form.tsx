@@ -128,6 +128,7 @@ export function RecordObservationForm({
   const isOnline = useIsOnline();
   const [measurements, setMeasurements] = useState<readonly ObservationMeasurementInput[]>([]);
   const [symptoms, setSymptoms] = useState<readonly ObservationSymptomInput[]>([]);
+  const [visibleParts, setVisibleParts] = useState<ReadonlySet<string>>(new Set());
 
   // Read at validation time, so attaching a photo satisfies the
   // note-or-summary-or-photo rule without rebuilding the resolver.
@@ -168,6 +169,10 @@ export function RecordObservationForm({
     reset(DEFAULT_VALUES);
   };
 
+  const reveal = (part: string) => {
+    setVisibleParts((current) => new Set([...current, part]));
+  };
+
   const onSubmit = handleSubmit((values) => {
     const input: RecordObservationRequest = {
       // Both carry a schema `default: []`, which the generated type surfaces
@@ -203,6 +208,7 @@ export function RecordObservationForm({
         reset();
         setMeasurements([]);
         setSymptoms([]);
+        setVisibleParts(new Set());
         draft.clearDraft();
         onRecorded?.();
       },
@@ -210,32 +216,87 @@ export function RecordObservationForm({
   });
 
   return (
-    <form className={styles['form']} onSubmit={(event) => void onSubmit(event)} noValidate>
+    <div className={styles['composer']}>
       {draft.recovered && <RecoveredDraftNotice onDiscard={discardRecoveredDraft} />}
-      <TextField
-        label={t('observations.noteTextLabel')}
-        error={
-          formState.errors.noteText === undefined
-            ? undefined
-            : t('observations.noteSummaryOrPhotoRequired')
-        }
-        {...register('noteText')}
-      />
-      <TextField
-        label={t('observations.conditionSummaryLabel')}
-        {...register('conditionSummary')}
-      />
-      {fixedPlantId === undefined && (
-        <TextField label={t('observations.plantIdLabel')} {...register('plantId')} />
+      <div className={styles['quickActions']}>
+        <Button variant="secondary" onClick={() => reveal('note')}>
+          <PlusIcon />
+          {t('observations.noteTextLabel')}
+        </Button>
+        <Button variant="secondary" onClick={() => reveal('condition')}>
+          <PlusIcon />
+          {t('observations.conditionSummaryLabel')}
+        </Button>
+        {fixedPlantId === undefined && (
+          <Button variant="secondary" onClick={() => reveal('plant')}>
+            <PlusIcon />
+            {t('observations.plantIdLabel')}
+          </Button>
+        )}
+        <Button variant="secondary" onClick={() => reveal('area')}>
+          <PlusIcon />
+          {t('observations.gardenObjectIdLabel')}
+        </Button>
+        <Button variant="secondary" onClick={() => reveal('time')}>
+          <PlusIcon />
+          {t('observations.observedAtLabel')}
+        </Button>
+        <Button variant="secondary" onClick={() => reveal('symptoms')}>
+          <PlusIcon />
+          {t('observations.symptomsLegend')}
+        </Button>
+        <Button variant="secondary" onClick={() => reveal('measurements')}>
+          <PlusIcon />
+          {t('observations.measurementsLegend')}
+        </Button>
+      </div>
+
+      <div className={styles['canvas']}>
+        {visibleParts.has('note') && (
+          <TextField
+            label={t('observations.noteTextLabel')}
+            error={
+              formState.errors.noteText === undefined
+                ? undefined
+                : t('observations.noteSummaryOrPhotoRequired')
+            }
+            {...register('noteText')}
+          />
+        )}
+        {visibleParts.has('condition') && (
+          <TextField
+            label={t('observations.conditionSummaryLabel')}
+            {...register('conditionSummary')}
+          />
+        )}
+        {fixedPlantId === undefined && visibleParts.has('plant') && (
+          <TextField label={t('observations.plantIdLabel')} {...register('plantId')} />
+        )}
+        {visibleParts.has('area') && (
+          <TextField
+            label={t('observations.gardenObjectIdLabel')}
+            {...register('gardenObjectId')}
+          />
+        )}
+        {visibleParts.has('time') && (
+          <TextField
+            label={t('observations.observedAtLabel')}
+            type="datetime-local"
+            {...register('observedAt')}
+          />
+        )}
+        {visibleParts.has('symptoms') && (
+          <ObservationSymptomsField value={symptoms} onChange={setSymptoms} />
+        )}
+        {visibleParts.has('measurements') && (
+          <ObservationMeasurementsField value={measurements} onChange={setMeasurements} />
+        )}
+      </div>
+      {formState.errors.noteText !== undefined && !visibleParts.has('note') && (
+        <p className={styles['validationMessage']}>
+          {t('observations.noteSummaryOrPhotoRequired')}
+        </p>
       )}
-      <TextField label={t('observations.gardenObjectIdLabel')} {...register('gardenObjectId')} />
-      <TextField
-        label={t('observations.observedAtLabel')}
-        type="datetime-local"
-        {...register('observedAt')}
-      />
-      <ObservationSymptomsField value={symptoms} onChange={setSymptoms} />
-      <ObservationMeasurementsField value={measurements} onChange={setMeasurements} />
       {/*
         The recoverable draft carries the text fields only. Measurements and
         attached photographs are not restored after a reload: a media id
@@ -244,11 +305,16 @@ export function RecordObservationForm({
         they cannot verify is worse than one they re-add.
       */}
       <StaleIndicator />
-      <Button type="submit" variant="primary" busy={mutation.isPending} disabled={!isOnline}>
+      <Button
+        variant="primary"
+        busy={mutation.isPending}
+        disabled={!isOnline}
+        onClick={() => void onSubmit()}
+      >
         <PlusIcon />
         {t('observations.recordSubmit')}
       </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
-    </form>
+    </div>
   );
 }

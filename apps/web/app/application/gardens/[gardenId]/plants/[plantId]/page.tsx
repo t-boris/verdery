@@ -3,6 +3,15 @@ import Link from 'next/link';
 import { PlantDetail } from '@/features/plants/public';
 import { ObservationTimeline, PlantJournalStrip } from '@/features/observations/public';
 import { getRequestTranslator } from '@/shared/localization/server';
+import {
+  ActionDisclosure,
+  EyeIcon,
+  RouteBody,
+  RouteHeader,
+  RoutePage,
+  RoutePanel,
+  SproutIcon,
+} from '@/shared/ui/public';
 
 import { RecordJournalEntryPanel } from './record-journal-entry-panel';
 import { PlantPhotoUpload } from './plant-photo-upload';
@@ -29,36 +38,38 @@ export default async function PlantDetailPage({
   const t = await getRequestTranslator();
 
   return (
-    <div className={styles['page']}>
-      <Link className={styles['back']} href={`/application/gardens/${gardenId}/plants`}>
-        {t('plants.backToPlants')}
-      </Link>
-
-      <PlantDetail
-        gardenId={gardenId}
-        plantId={plantId}
-        photoUpload={<PlantPhotoUpload gardenId={gardenId} plantId={plantId} />}
+    <RoutePage>
+      <RouteHeader
+        title={t('plants.pageTitle')}
+        icon={<SproutIcon size={18} />}
+        actions={
+          <Link className={styles['back']} href={`/application/gardens/${gardenId}/plants`}>
+            {t('plants.backToPlants')}
+          </Link>
+        }
       />
-
-      {/*
-        Above the record form and the timeline on purpose: the sequence is how
-        this plant has actually changed, and it is what a reader wants before
-        they write down what they see today.
-      */}
-      <div className={styles['section']}>
-        <h2 className={styles['sectionTitle']}>{t('observations.journalTitle')}</h2>
-        <PlantJournalStrip gardenId={gardenId} plantId={plantId} />
-      </div>
-
-      <section className={styles['panel']}>
-        <h2 className={styles['sectionTitle']}>{t('observations.recordTitle')}</h2>
-        <RecordJournalEntryPanel gardenId={gardenId} plantId={plantId} />
-      </section>
-
-      <div className={styles['section']}>
-        <h2 className={styles['sectionTitle']}>{t('observations.historyTitle')}</h2>
-        <ObservationTimeline gardenId={gardenId} plantId={plantId} />
-      </div>
-    </div>
+      <RouteBody>
+        <PlantDetail
+          gardenId={gardenId}
+          plantId={plantId}
+          photoUpload={<PlantPhotoUpload gardenId={gardenId} plantId={plantId} />}
+          journal={
+            <RoutePanel title={t('observations.journalTitle')}>
+              <PlantJournalStrip gardenId={gardenId} plantId={plantId} />
+            </RoutePanel>
+          }
+          observationComposer={
+            <ActionDisclosure title={t('observations.recordTitle')} icon={<EyeIcon />}>
+              <RecordJournalEntryPanel gardenId={gardenId} plantId={plantId} />
+            </ActionDisclosure>
+          }
+          history={
+            <RoutePanel title={t('observations.historyTitle')}>
+              <ObservationTimeline gardenId={gardenId} plantId={plantId} />
+            </RoutePanel>
+          }
+        />
+      </RouteBody>
+    </RoutePage>
   );
 }

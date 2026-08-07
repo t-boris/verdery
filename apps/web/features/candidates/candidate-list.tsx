@@ -7,11 +7,11 @@ import type {
 } from '@verdery/api-contracts';
 import Link from 'next/link';
 import { useState } from 'react';
-import { ChevronDownIcon, LightbulbIcon, RefreshIcon } from '@/shared/ui/public';
+import { ChevronDownIcon, LightbulbIcon, RefreshIcon, SearchIcon } from '@/shared/ui/public';
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, StaleIndicator, StatusPill, TextField } from '@/shared/ui/public';
+import { Button, FailureAlert, StaleIndicator, StatusPill } from '@/shared/ui/public';
 
 import {
   CANDIDATE_PRIORITIES,
@@ -120,40 +120,46 @@ export function CandidateList({ gardenId }: CandidateListProps) {
 
   return (
     <div className={styles['panel']}>
-      <TextField
-        label={t('candidates.searchLabel')}
-        value={searchText}
-        onChange={(event) => onSearchChange(event.target.value)}
-      />
+      <label className={styles['search']}>
+        <SearchIcon />
+        <span className={styles['visuallyHidden']}>{t('candidates.searchLabel')}</span>
+        <input
+          type="search"
+          placeholder={t('candidates.searchLabel')}
+          aria-label={t('candidates.searchLabel')}
+          value={searchText}
+          onChange={(event) => onSearchChange(event.target.value)}
+        />
+      </label>
 
       <div className={styles['filters']}>
-        <fieldset className={styles['filterGroup']}>
-          <legend>{t('candidates.filterLegend')}</legend>
+        <div className={styles['filterGroup']} aria-label={t('candidates.filterLegend')}>
+          <span>{t('candidates.filterLegend')}</span>
           {CANDIDATE_STATUSES.map((status) => (
-            <label key={status} className={styles['filterOption']}>
-              <input
-                type="checkbox"
-                checked={selectedStatuses.includes(status)}
-                onChange={() => toggleStatus(status)}
-              />
+            <button
+              key={status}
+              type="button"
+              aria-pressed={selectedStatuses.includes(status)}
+              onClick={() => toggleStatus(status)}
+            >
               {t(candidateStatusLabel(status))}
-            </label>
+            </button>
           ))}
-        </fieldset>
+        </div>
 
-        <fieldset className={styles['filterGroup']}>
-          <legend>{t('candidates.filterPriorityLegend')}</legend>
+        <div className={styles['filterGroup']} aria-label={t('candidates.filterPriorityLegend')}>
+          <span>{t('candidates.filterPriorityLegend')}</span>
           {CANDIDATE_PRIORITIES.map((priority) => (
-            <label key={priority} className={styles['filterOption']}>
-              <input
-                type="checkbox"
-                checked={selectedPriorities.includes(priority)}
-                onChange={() => togglePriority(priority)}
-              />
+            <button
+              key={priority}
+              type="button"
+              aria-pressed={selectedPriorities.includes(priority)}
+              onClick={() => togglePriority(priority)}
+            >
               {t(candidatePriorityLabel(priority))}
-            </label>
+            </button>
           ))}
-        </fieldset>
+        </div>
       </div>
 
       {isFirstLoad && <p role="status">{t('candidates.listLoading')}</p>}

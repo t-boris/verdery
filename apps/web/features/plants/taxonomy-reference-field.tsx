@@ -1,10 +1,10 @@
 'use client';
 
 import type { TaxonomyReference } from '@verdery/api-contracts';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Select, TextField } from '@/shared/ui/public';
+import { SproutIcon, TextField } from '@/shared/ui/public';
 
 import { useTaxonomyReferenceSearch } from './queries';
 import styles from './taxonomy-reference-field.module.css';
@@ -15,8 +15,6 @@ export interface TaxonomyReferenceFieldProps {
   readonly initialSelectionLabel?: string;
   readonly onChange: (taxonomyReferenceId: string | null) => void;
 }
-
-const NONE_VALUE = '';
 
 function taxonomyReferenceLabel(reference: TaxonomyReference): string {
   const parts = [reference.scientificName];
@@ -33,8 +31,8 @@ function taxonomyReferenceLabel(reference: TaxonomyReference): string {
  * Search-select over `GET /gardens/{gardenId}/taxonomy-references`, the
  * catalog `AddPlant`/`UpdatePlantDetails` callers pick `taxonomyReferenceId`
  * from. A free-text query narrows the catalog; the result set is then a
- * native `<select>`, so choosing a match stays one accessible, keyboard-
- * operable control rather than a hand-rolled combobox widget.
+ * a compact set of direct choices. This keeps the catalog interaction visual
+ * and avoids opening a system dropdown that clashes with the application.
  *
  * Source: packages/api-contracts/openapi.yaml, operation `searchTaxonomyReferences`.
  */
@@ -66,20 +64,6 @@ export function TaxonomyReferenceField({
     }
   }, [initialSelectionLabel, selectedMatch, value]);
 
-  const options = useMemo(
-    () => [
-      { value: NONE_VALUE, label: t('plants.taxonomyNone') },
-      ...(value !== null && selectedMatch === undefined
-        ? [{ value, label: selectedLabel ?? initialSelectionLabel ?? value }]
-        : []),
-      ...matches.map((reference) => ({
-        value: reference.id,
-        label: taxonomyReferenceLabel(reference),
-      })),
-    ],
-    [initialSelectionLabel, matches, selectedLabel, selectedMatch, t, value],
-  );
-
   return (
     <div className={styles['field']}>
       <TextField
@@ -87,17 +71,35 @@ export function TaxonomyReferenceField({
         value={query}
         onChange={(event) => setQuery(event.target.value)}
       />
-      <Select
-        label={t('plants.taxonomySelectLabel')}
-        value={value ?? NONE_VALUE}
-        onChange={(event) => {
-          const nextValue = event.target.value === NONE_VALUE ? null : event.target.value;
-          const nextMatch = matches.find((reference) => reference.id === nextValue);
-          setSelectedLabel(nextMatch === undefined ? null : taxonomyReferenceLabel(nextMatch));
-          onChange(nextValue);
-        }}
-        options={options}
-      />
+      <div className={styles['results']} aria-label={t('plants.taxonomySelectLabel')}>
+        <button type="button" aria-pressed={value === null} onClick={() => onChange(null)}>
+          <SproutIcon />
+          {t('plants.taxonomyNone')}
+        </button>
+        {value !== null && selectedMatch === undefined && (
+          <button type="button" aria-pressed="true" onClick={() => onChange(value)}>
+            <SproutIcon />
+            {selectedLabel ?? initialSelectionLabel ?? value}
+          </button>
+        )}
+        {matches.map((reference) => {
+          const label = taxonomyReferenceLabel(reference);
+          return (
+            <button
+              key={reference.id}
+              type="button"
+              aria-pressed={value === reference.id}
+              onClick={() => {
+                setSelectedLabel(label);
+                onChange(reference.id);
+              }}
+            >
+              <SproutIcon />
+              {label}
+            </button>
+          );
+        })}
+      </div>
       {search.isError && <p className={styles['hint']}>{t('plants.taxonomySearchFailed')}</p>}
     </div>
   );

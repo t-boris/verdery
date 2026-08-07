@@ -1,6 +1,6 @@
 import { TodayList } from '@/features/recommendations/public';
 import { getRequestTranslator } from '@/shared/localization/server';
-import { RouteBody, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
+import { RouteBody, RouteHeader, RoutePage, RoutePanel, SunIcon } from '@/shared/ui/public';
 
 /**
  * The garden's Today view: the small prioritized set of actionable
@@ -20,7 +20,11 @@ export default async function TodayPage({
 
   return (
     <RoutePage>
-      <RouteHeader title={t('today.pageTitle')} description={t('today.pageDescription')} />
+      <RouteHeader
+        title={t('today.pageTitle')}
+        description={t('today.pageDescription')}
+        icon={<SunIcon size={18} />}
+      />
       <RouteBody>
         {/* No band heading: it would repeat the route title verbatim. */}
         <RoutePanel fill>

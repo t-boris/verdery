@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { z } from '@/shared/validation/zod';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, TextField } from '@/shared/ui/public';
+import { Button, CommandSurface, FailureAlert, TextField } from '@/shared/ui/public';
 
 import styles from './task-reschedule-form.module.css';
 import { useRescheduleTask } from './queries';
@@ -74,7 +74,7 @@ export function TaskRescheduleForm({ gardenId, task, onDone }: TaskRescheduleFor
   });
 
   return (
-    <form className={styles['form']} onSubmit={(event) => void onSubmit(event)} noValidate>
+    <CommandSurface className={styles['form']} onCommit={() => void onSubmit()}>
       <TextField label={t('tasks.dueDateLabel')} type="date" {...register('dueDate')} />
       <div className={styles['row']}>
         <TextField
@@ -97,6 +97,6 @@ export function TaskRescheduleForm({ gardenId, task, onDone }: TaskRescheduleFor
         </Button>
       </div>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
-    </form>
+    </CommandSurface>
   );
 }

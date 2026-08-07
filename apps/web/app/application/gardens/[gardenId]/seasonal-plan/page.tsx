@@ -1,6 +1,6 @@
 import { SeasonalPlanView } from '@/features/seasonal-plan/public';
 import { getRequestTranslator } from '@/shared/localization/server';
-import { RouteBody, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
+import { CalendarIcon, RouteBody, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
 
 /**
  * The garden's Seasonal plan section: configured sow/transplant/harvest
@@ -24,6 +24,7 @@ export default async function SeasonalPlanPage({
       <RouteHeader
         title={t('seasonalPlan.pageTitle')}
         description={t('seasonalPlan.pageDescription')}
+        icon={<CalendarIcon size={18} />}
       />
       <RouteBody>
         <RoutePanel fill>

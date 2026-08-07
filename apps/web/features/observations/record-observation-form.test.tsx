@@ -59,9 +59,11 @@ describe('RecordObservationForm', () => {
   it('sends the measurements the reader entered', async () => {
     renderForm();
 
+    fireEvent.click(screen.getByRole('button', { name: 'Note' }));
     fireEvent.change(screen.getByLabelText('Note'), {
       target: { value: 'Taller than last month' },
     });
+    fireEvent.click(screen.getByRole('button', { name: 'Measurements' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add a measurement' }));
     fireEvent.change(screen.getByLabelText('Value'), { target: { value: '42' } });
 
@@ -73,7 +75,9 @@ describe('RecordObservationForm', () => {
   it('drops a row left without a unit instead of losing the whole observation to it', async () => {
     renderForm();
 
+    fireEvent.click(screen.getByRole('button', { name: 'Note' }));
     fireEvent.change(screen.getByLabelText('Note'), { target: { value: 'Note' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Measurements' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add a measurement' }));
     fireEvent.change(screen.getByLabelText('Unit'), { target: { value: '  ' } });
 
@@ -85,7 +89,9 @@ describe('RecordObservationForm', () => {
   it('sends the symptoms the observer reported, distinct from any model suggestion', async () => {
     renderForm();
 
+    fireEvent.click(screen.getByRole('button', { name: 'Note' }));
     fireEvent.change(screen.getByLabelText('Note'), { target: { value: 'Spots appeared' } });
+    fireEvent.click(screen.getByRole('button', { name: 'What you see' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add a symptom' }));
     fireEvent.change(screen.getByLabelText('How bad'), { target: { value: 'severe' } });
 
@@ -99,6 +105,7 @@ describe('RecordObservationForm', () => {
   it('offers each symptom once and stops offering when all are reported', () => {
     renderForm();
 
+    fireEvent.click(screen.getByRole('button', { name: 'What you see' }));
     const addButton = () => screen.queryByRole('button', { name: 'Add a symptom' });
     for (let index = 0; index < 9; index += 1) {
       fireEvent.click(addButton()!);

@@ -55,15 +55,16 @@ describe('CandidateStatusControls', () => {
   it('never offers "converted" as a settable status', () => {
     renderControls();
 
-    const options = screen.getAllByRole<HTMLOptionElement>('option').map((option) => option.value);
-    expect(options).toEqual(['active', 'archived', 'rejected']);
+    expect(screen.getByRole('button', { name: 'Active' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Archived' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Rejected' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Converted' })).toBeNull();
   });
 
-  it('submits the newly selected status with the current revision', () => {
+  it('applies a newly selected status immediately with the current revision', () => {
     renderControls();
 
-    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'rejected' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save status' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Rejected' }));
 
     expect(mutateMock).toHaveBeenCalledWith({
       input: { status: 'rejected' },
@@ -74,21 +75,19 @@ describe('CandidateStatusControls', () => {
   it('does not submit when the selection did not change', () => {
     renderControls();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save status' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Active' }));
 
     expect(mutateMock).not.toHaveBeenCalled();
   });
 
-  it('disables the save button while offline and re-enables it on reconnect', () => {
+  it('disables direct status choices while offline and re-enables them on reconnect', () => {
     renderControls();
 
     act(() => onlineManager.setOnline(false));
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save status' }).disabled).toBe(
-      true,
-    );
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Rejected' }).disabled).toBe(true);
 
     act(() => onlineManager.setOnline(true));
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save status' }).disabled).toBe(
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Rejected' }).disabled).toBe(
       false,
     );
   });

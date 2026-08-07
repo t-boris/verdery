@@ -2,7 +2,14 @@ import { getRequestTranslator } from '@/shared/localization/server';
 
 import { IncomingOwnershipTransfers } from '@/features/collaboration/public';
 import { CreateGardenForm, GardenList } from '@/features/gardens/public';
-import { RouteBody, RouteDashboard, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
+import {
+  HomeIcon,
+  RouteBody,
+  RouteDashboard,
+  RouteHeader,
+  RoutePage,
+  RoutePanel,
+} from '@/shared/ui/public';
 
 /**
  * First-garden vertical slice: list and create.
@@ -26,7 +33,11 @@ export default async function GardensPage() {
 
   return (
     <RoutePage>
-      <RouteHeader title={t('gardens.title')} description={t('gardens.description')} />
+      <RouteHeader
+        title={t('gardens.title')}
+        description={t('gardens.description')}
+        icon={<HomeIcon size={18} />}
+      />
       <RouteBody>
         <RouteDashboard>
           <RoutePanel>

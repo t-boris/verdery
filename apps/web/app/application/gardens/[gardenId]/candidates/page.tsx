@@ -1,7 +1,16 @@
 import { AddCandidateForm, CandidateList } from '@/features/candidates/public';
 import { getRequestTranslator } from '@/shared/localization/server';
 
-import { RouteBody, RouteHeader, RoutePage, RoutePanel, RouteSplit } from '@/shared/ui/public';
+import {
+  ActionDisclosure,
+  ImageIcon,
+  LightbulbIcon,
+  PlusIcon,
+  RouteBody,
+  RouteHeader,
+  RoutePage,
+  RoutePanel,
+} from '@/shared/ui/public';
 
 import { AddCandidateFromPhotoPanel } from './add-candidate-from-photo-panel';
 
@@ -35,23 +44,27 @@ export default async function CandidatesPage({
       <RouteHeader
         title={t('candidates.pageTitle')}
         description={t('candidates.pageDescription')}
+        icon={<LightbulbIcon size={18} />}
       />
-      <RouteSplit>
-        <RouteBody>
-          <RoutePanel>
-            <CandidateList gardenId={gardenId} />
-          </RoutePanel>
-        </RouteBody>
-        <RouteBody>
-          {/* Photo first — the same reasoning as the plants route. */}
-          <RoutePanel title={t('candidates.addFromPhotoTitle')}>
+      <RouteBody>
+        <div>
+          <ActionDisclosure
+            title={t('candidates.addFromPhotoTitle')}
+            description={t('candidates.addFromPhotoDescription')}
+            icon={<ImageIcon />}
+          >
             <AddCandidateFromPhotoPanel gardenId={gardenId} />
-          </RoutePanel>
-          <RoutePanel title={t('candidates.addTitle')}>
+          </ActionDisclosure>
+        </div>
+        <div>
+          <ActionDisclosure title={t('candidates.addTitle')} icon={<PlusIcon />}>
             <AddCandidateForm gardenId={gardenId} />
-          </RoutePanel>
-        </RouteBody>
-      </RouteSplit>
+          </ActionDisclosure>
+        </div>
+        <RoutePanel>
+          <CandidateList gardenId={gardenId} />
+        </RoutePanel>
+      </RouteBody>
     </RoutePage>
   );
 }

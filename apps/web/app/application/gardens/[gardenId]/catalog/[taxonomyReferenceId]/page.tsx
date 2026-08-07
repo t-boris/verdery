@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { TaxonProfile } from '@/features/catalog/public';
 import { getRequestTranslator } from '@/shared/localization/server';
 
-import { RouteBody, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
+import { BookIcon, RouteBody, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
 
 /**
  * One taxon's materialized knowledge profile.
@@ -29,6 +29,7 @@ export default async function TaxonProfilePage({
       <RouteHeader
         title={t('catalog.profileTitle')}
         description={t('catalog.profileDescription')}
+        icon={<BookIcon size={18} />}
       />
       <RouteBody>
         <RoutePanel>

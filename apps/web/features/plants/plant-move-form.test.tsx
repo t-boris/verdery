@@ -54,16 +54,22 @@ afterEach(() => {
 });
 
 describe('PlantMoveForm — offline gate (P5-WEB-01 follow-up)', () => {
-  it('disables submission while offline and re-enables it on reconnect', () => {
+  it('disables direct placement selection while offline and re-enables it on reconnect', () => {
     renderForm();
 
     act(() => onlineManager.setOnline(false));
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save placement' }).disabled).toBe(
+    expect(screen.getAllByRole<HTMLButtonElement>('button', { name: 'None' })[0]?.disabled).toBe(
+      true,
+    );
+    expect(screen.getAllByRole<HTMLButtonElement>('button', { name: 'None' })[1]?.disabled).toBe(
       true,
     );
 
     act(() => onlineManager.setOnline(true));
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save placement' }).disabled).toBe(
+    expect(screen.getAllByRole<HTMLButtonElement>('button', { name: 'None' })[0]?.disabled).toBe(
+      false,
+    );
+    expect(screen.getAllByRole<HTMLButtonElement>('button', { name: 'None' })[1]?.disabled).toBe(
       false,
     );
   });

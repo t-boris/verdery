@@ -13,6 +13,7 @@
 }
 
 .thumbnail {
+  flex: 0 0 auto;
   width: 6rem;
   height: 6rem;
   border-radius: var(--radius-md);
@@ -75,6 +76,7 @@
 }
 
 .placeholder {
+  flex: 0 0 auto;
   width: 6rem;
   height: 6rem;
   border-radius: var(--radius-md);

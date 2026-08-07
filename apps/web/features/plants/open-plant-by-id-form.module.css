@@ -9,3 +9,9 @@
 .form > *:first-child {
   flex: 1;
 }
+
+.form > button {
+  align-self: flex-end;
+  inline-size: var(--control-min-size);
+  block-size: var(--control-min-size);
+}

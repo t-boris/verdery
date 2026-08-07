@@ -11,12 +11,16 @@ import { useIsOnline } from '@/core/connectivity/public';
 import { useRecoverableDraft } from '@/core/drafts/public';
 import { useLocalization } from '@/shared/localization/public';
 import {
+  MapIcon,
   PlusIcon,
   Button,
+  CommandSurface,
   FailureAlert,
+  LightbulbIcon,
   RecoveredDraftNotice,
-  Select,
+  SproutIcon,
   StaleIndicator,
+  TagIcon,
   TextField,
 } from '@/shared/ui/public';
 
@@ -32,6 +36,7 @@ import { useGardenMapObjects } from './map-object-queries';
 import { TaxonomyReferenceField } from './taxonomy-reference-field';
 
 const NONE_VALUE = '';
+const PRIORITY_CHOICES = [NONE_VALUE, ...CANDIDATE_PRIORITIES] as const;
 
 const addCandidateSchema = z
   .object({
@@ -104,6 +109,7 @@ export function AddCandidateForm({ gardenId }: { readonly gardenId: string }) {
   const mutation = useAddCandidate(gardenId);
   const isOnline = useIsOnline();
   const [taxonomyReferenceId, setTaxonomyReferenceId] = useState<string | null>(null);
+  const [activePart, setActivePart] = useState<string | null>(null);
   const mapObjectsQuery = useGardenMapObjects(gardenId);
   const mapObjectOptions = [
     { value: NONE_VALUE, label: t('candidates.mapObjectNone') },
@@ -113,14 +119,16 @@ export function AddCandidateForm({ gardenId }: { readonly gardenId: string }) {
     })),
   ];
 
-  const { register, handleSubmit, formState, watch, reset } = useForm<AddCandidateValues>({
-    resolver: zodResolver(addCandidateSchema),
-    defaultValues: DEFAULT_VALUES,
-    // `quantity` is conditionally rendered on `groupingKind`; unregistering it
-    // on unmount is what makes switching back to `individual` clear a
-    // previously typed value instead of leaving a hidden, unfixable error.
-    shouldUnregister: true,
-  });
+  const { register, handleSubmit, formState, watch, reset, setValue } = useForm<AddCandidateValues>(
+    {
+      resolver: zodResolver(addCandidateSchema),
+      defaultValues: DEFAULT_VALUES,
+      // `quantity` is conditionally rendered on `groupingKind`; unregistering it
+      // on unmount is what makes switching back to `individual` clear a
+      // previously typed value instead of leaving a hidden, unfixable error.
+      shouldUnregister: true,
+    },
+  );
 
   const groupingKind = watch('groupingKind');
   const currentValues = watch();
@@ -152,6 +160,10 @@ export function AddCandidateForm({ gardenId }: { readonly gardenId: string }) {
     draft.dismissRecovered();
     reset(DEFAULT_VALUES);
     setTaxonomyReferenceId(null);
+  };
+
+  const togglePart = (part: string) => {
+    setActivePart((current) => (current === part ? null : part));
   };
 
   const onSubmit = handleSubmit((values) => {
@@ -201,117 +213,191 @@ export function AddCandidateForm({ gardenId }: { readonly gardenId: string }) {
   });
 
   return (
-    <form className={styles['form']} onSubmit={(event) => void onSubmit(event)} noValidate>
+    <CommandSurface className={styles['form']} onCommit={() => void onSubmit()}>
       {draft.recovered && <RecoveredDraftNotice onDiscard={discardRecoveredDraft} />}
-      <TextField
-        label={t('candidates.displayNameLabel')}
-        maxLength={200}
-        error={
-          formState.errors.displayName === undefined
-            ? undefined
-            : t('candidates.displayNameRequired')
-        }
-        {...register('displayName')}
-      />
-
-      <TaxonomyReferenceField
-        gardenId={gardenId}
-        value={taxonomyReferenceId}
-        onChange={setTaxonomyReferenceId}
-      />
-
-      <TextField
-        label={t('candidates.varietyLabelLabel')}
-        maxLength={200}
-        {...register('varietyLabel')}
-      />
-
-      <Select
-        label={t('candidates.groupingKindLabel')}
-        options={CANDIDATE_GROUPING_KINDS.map((kind: PlantGroupingKind) => ({
-          value: kind,
-          label: t(candidateGroupingKindLabel(kind)),
-        }))}
-        {...register('groupingKind')}
-      />
-
-      {groupingKind !== 'individual' && (
+      <div className={styles['commandRow']}>
         <TextField
-          label={t('candidates.quantityLabel')}
-          type="number"
-          min={1}
+          label={t('candidates.displayNameLabel')}
+          maxLength={200}
           error={
-            formState.errors.quantity === undefined ? undefined : t('candidates.quantityInvalid')
+            formState.errors.displayName === undefined
+              ? undefined
+              : t('candidates.displayNameRequired')
           }
-          {...register('quantity')}
+          {...register('displayName')}
         />
-      )}
-
-      <TextField label={t('candidates.rationaleNoteLabel')} {...register('rationaleNote')} />
-
-      <div className={styles['row']}>
-        <Select
-          label={t('candidates.priorityLabel')}
-          options={[
-            { value: NONE_VALUE, label: t('candidates.priorityNone') },
-            ...CANDIDATE_PRIORITIES.map((priority) => ({
-              value: priority,
-              label: t(candidatePriorityLabel(priority)),
-            })),
-          ]}
-          {...register('priority')}
-        />
+        <Button
+          type="submit"
+          variant="primary"
+          busy={mutation.isPending}
+          disabled={!isOnline}
+          iconOnly
+          aria-label={t('candidates.addSubmit')}
+          title={t('candidates.addSubmit')}
+        >
+          <PlusIcon />
+        </Button>
       </div>
 
-      <div className={styles['row']}>
-        <TextField
-          label={t('candidates.priceAmountLabel')}
-          type="number"
-          min={0}
-          step="0.01"
-          {...register('priceAmount')}
-        />
-        <TextField
-          label={t('candidates.priceCurrencyLabel')}
-          maxLength={8}
-          {...register('priceCurrency')}
-        />
+      <div className={styles['quickActions']}>
+        {[
+          {
+            part: 'taxonomy',
+            icon: <SproutIcon key="icon" />,
+            label: t('candidates.taxonomySelectLabel'),
+          },
+          {
+            part: 'variety',
+            icon: <TagIcon key="icon" />,
+            label: t('candidates.varietyLabelLabel'),
+          },
+          {
+            part: 'grouping',
+            icon: <PlusIcon key="icon" />,
+            label: t('candidates.groupingKindLabel'),
+          },
+          {
+            part: 'planning',
+            icon: <LightbulbIcon key="icon" />,
+            label: t('candidates.priorityLabel'),
+          },
+          {
+            part: 'location',
+            icon: <MapIcon key="icon" />,
+            label: t('candidates.proposedGardenAreaMapObjectIdLabel'),
+          },
+        ].map(({ part, icon, label }) => (
+          <Button
+            key={part}
+            variant="secondary"
+            aria-pressed={activePart === part}
+            onClick={() => togglePart(part)}
+          >
+            {icon}
+            {label}
+          </Button>
+        ))}
       </div>
 
-      <TextField
-        label={t('candidates.purchaseSourceLabel')}
-        maxLength={200}
-        {...register('purchaseSource')}
-      />
-
-      <Select
-        label={t('candidates.proposedGardenAreaMapObjectIdLabel')}
-        options={mapObjectOptions}
-        {...register('proposedGardenAreaMapObjectId')}
-        aria-describedby="add-candidate-map-object-hint"
-      />
-      <Select
-        label={t('candidates.proposedPlacementMapObjectIdLabel')}
-        options={mapObjectOptions}
-        {...register('proposedPlacementMapObjectId')}
-      />
-      <p id="add-candidate-map-object-hint" className={styles['hint']}>
-        {t('candidates.mapObjectIdHint')}
-      </p>
+      <div className={styles['canvas']}>
+        {activePart === 'taxonomy' && (
+          <TaxonomyReferenceField
+            gardenId={gardenId}
+            value={taxonomyReferenceId}
+            onChange={setTaxonomyReferenceId}
+          />
+        )}
+        {activePart === 'variety' && (
+          <TextField
+            label={t('candidates.varietyLabelLabel')}
+            maxLength={200}
+            {...register('varietyLabel')}
+          />
+        )}
+        {activePart === 'grouping' && (
+          <div className={styles['row']}>
+            <div className={styles['choiceField']}>
+              <span>{t('candidates.groupingKindLabel')}</span>
+              <div className={styles['choices']}>
+                {CANDIDATE_GROUPING_KINDS.map((kind: PlantGroupingKind) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    aria-pressed={groupingKind === kind}
+                    onClick={() => setValue('groupingKind', kind, { shouldDirty: true })}
+                  >
+                    {t(candidateGroupingKindLabel(kind))}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {groupingKind !== 'individual' && (
+              <TextField
+                label={t('candidates.quantityLabel')}
+                type="number"
+                min={1}
+                error={
+                  formState.errors.quantity === undefined
+                    ? undefined
+                    : t('candidates.quantityInvalid')
+                }
+                {...register('quantity')}
+              />
+            )}
+          </div>
+        )}
+        {activePart === 'planning' && (
+          <div className={styles['planningGrid']}>
+            <div className={styles['choiceField']}>
+              <span>{t('candidates.priorityLabel')}</span>
+              <div className={styles['choices']}>
+                {PRIORITY_CHOICES.map((priority) => (
+                  <button
+                    key={priority || 'none'}
+                    type="button"
+                    aria-pressed={(currentValues.priority ?? NONE_VALUE) === priority}
+                    onClick={() => setValue('priority', priority, { shouldDirty: true })}
+                  >
+                    {priority === NONE_VALUE
+                      ? t('candidates.priorityNone')
+                      : t(candidatePriorityLabel(priority))}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <TextField label={t('candidates.rationaleNoteLabel')} {...register('rationaleNote')} />
+            <TextField
+              label={t('candidates.priceAmountLabel')}
+              type="number"
+              min={0}
+              step="0.01"
+              {...register('priceAmount')}
+            />
+            <TextField
+              label={t('candidates.priceCurrencyLabel')}
+              maxLength={8}
+              {...register('priceCurrency')}
+            />
+            <TextField
+              label={t('candidates.purchaseSourceLabel')}
+              maxLength={200}
+              {...register('purchaseSource')}
+            />
+          </div>
+        )}
+        {activePart === 'location' && (
+          <div className={styles['row']}>
+            {(['proposedGardenAreaMapObjectId', 'proposedPlacementMapObjectId'] as const).map(
+              (fieldName) => (
+                <div className={styles['choiceField']} key={fieldName}>
+                  <span>
+                    {t(
+                      fieldName === 'proposedGardenAreaMapObjectId'
+                        ? 'candidates.proposedGardenAreaMapObjectIdLabel'
+                        : 'candidates.proposedPlacementMapObjectIdLabel',
+                    )}
+                  </span>
+                  <div className={styles['choices']}>
+                    {mapObjectOptions.map((option) => (
+                      <button
+                        key={option.value || 'none'}
+                        type="button"
+                        aria-pressed={(currentValues[fieldName] ?? NONE_VALUE) === option.value}
+                        onClick={() => setValue(fieldName, option.value, { shouldDirty: true })}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ),
+            )}
+          </div>
+        )}
+      </div>
 
       <StaleIndicator />
-      <Button
-        type="submit"
-        variant="primary"
-        busy={mutation.isPending}
-        disabled={!isOnline}
-        iconOnly
-        aria-label={t('candidates.addSubmit')}
-        title={t('candidates.addSubmit')}
-      >
-        <PlusIcon />
-      </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
-    </form>
+    </CommandSurface>
   );
 }

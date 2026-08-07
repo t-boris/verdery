@@ -1,6 +1,14 @@
 import { ObservationTimeline, RecordObservationForm } from '@/features/observations/public';
 import { getRequestTranslator } from '@/shared/localization/server';
-import { RouteBody, RouteHeader, RoutePage, RoutePanel, RouteSplit } from '@/shared/ui/public';
+import {
+  ActionDisclosure,
+  EyeIcon,
+  PlusIcon,
+  RouteBody,
+  RouteHeader,
+  RoutePage,
+  RoutePanel,
+} from '@/shared/ui/public';
 
 /**
  * The garden-wide observation history: record a new one, and see the full
@@ -22,19 +30,16 @@ export default async function ObservationsPage({
       <RouteHeader
         title={t('observations.pageTitle')}
         description={t('observations.pageDescription')}
+        icon={<EyeIcon size={18} />}
       />
-      <RouteSplit>
-        <RouteBody>
-          <RoutePanel title={t('observations.historyTitle')}>
-            <ObservationTimeline gardenId={gardenId} />
-          </RoutePanel>
-        </RouteBody>
-        <RouteBody>
-          <RoutePanel title={t('observations.recordTitle')}>
-            <RecordObservationForm gardenId={gardenId} />
-          </RoutePanel>
-        </RouteBody>
-      </RouteSplit>
+      <RouteBody>
+        <ActionDisclosure title={t('observations.recordTitle')} icon={<PlusIcon />}>
+          <RecordObservationForm gardenId={gardenId} />
+        </ActionDisclosure>
+        <RoutePanel title={t('observations.historyTitle')}>
+          <ObservationTimeline gardenId={gardenId} />
+        </RoutePanel>
+      </RouteBody>
     </RoutePage>
   );
 }

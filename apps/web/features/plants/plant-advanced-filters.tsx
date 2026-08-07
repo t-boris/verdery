@@ -9,7 +9,7 @@ import type {
 import { useId, useState } from 'react';
 
 import { useLocalization } from '@/shared/localization/public';
-import { ChevronDownIcon, Select, TextField } from '@/shared/ui/public';
+import { ChevronDownIcon, TextField } from '@/shared/ui/public';
 
 import styles from './plant-advanced-filters.module.css';
 
@@ -94,6 +94,46 @@ export interface PlantAdvancedFiltersProps {
   readonly onChange: (next: PlantAdvancedFilterState) => void;
 }
 
+interface FacetOption {
+  readonly value: string;
+  readonly label: string;
+}
+
+function Facet({
+  label,
+  value,
+  options,
+  onSelect,
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly options: readonly FacetOption[];
+  readonly onSelect: (value: string) => void;
+}) {
+  const current = options.find((option) => option.value === value) ?? options[0];
+
+  return (
+    <details className={styles['facet']}>
+      <summary>
+        <span>{label}</span>
+        <strong>{current?.label}</strong>
+      </summary>
+      <div className={styles['options']} role="group" aria-label={label}>
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={option.value === value}
+            onClick={() => onSelect(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 export function PlantAdvancedFilters({ value, onChange }: PlantAdvancedFiltersProps) {
   const { t } = useLocalization();
   const [open, setOpen] = useState(false);
@@ -124,10 +164,10 @@ export function PlantAdvancedFilters({ value, onChange }: PlantAdvancedFiltersPr
 
       {open && (
         <div id={panelId} className={styles['fields']}>
-          <Select
+          <Facet
             label={t('plants.journalRecencyLabel')}
             value={value.journalRecency}
-            onChange={(event) => set('journalRecency', event.target.value as JournalRecencyFilter)}
+            onSelect={(next) => set('journalRecency', next as JournalRecencyFilter)}
             options={[
               anyOption,
               { value: 'seen_7', label: t('plants.recencySeen7') },
@@ -138,12 +178,10 @@ export function PlantAdvancedFilters({ value, onChange }: PlantAdvancedFiltersPr
             ]}
           />
 
-          <Select
+          <Facet
             label={t('plants.healthConcernLabel')}
             value={value.healthConcern}
-            onChange={(event) =>
-              set('healthConcern', event.target.value as ImageAnalysisKind | 'any')
-            }
+            onSelect={(next) => set('healthConcern', next as ImageAnalysisKind | 'any')}
             options={[
               anyOption,
               { value: 'stress', label: t('plants.healthStress') },
@@ -153,12 +191,10 @@ export function PlantAdvancedFilters({ value, onChange }: PlantAdvancedFiltersPr
             ]}
           />
 
-          <Select
+          <Facet
             label={t('plants.seasonalActivityLabel')}
             value={value.seasonalActivity}
-            onChange={(event) =>
-              set('seasonalActivity', event.target.value as TaxonSeasonalActivity | 'any')
-            }
+            onSelect={(next) => set('seasonalActivity', next as TaxonSeasonalActivity | 'any')}
             options={[
               anyOption,
               { value: 'sow_indoors', label: t('plants.seasonSowIndoors') },
@@ -168,28 +204,25 @@ export function PlantAdvancedFilters({ value, onChange }: PlantAdvancedFiltersPr
             ]}
           />
 
-          <Select
-            label={t('plants.seasonalMonthLabel')}
-            value={value.seasonalMonth === null ? '' : String(value.seasonalMonth)}
-            disabled={value.seasonalActivity === 'any'}
-            onChange={(event) =>
-              set('seasonalMonth', event.target.value === '' ? null : Number(event.target.value))
-            }
-            options={[
-              { value: '', label: t('plants.filterAnyMonth') },
-              ...MONTH_LABEL_KEYS.map((key, index) => ({
-                value: String(index + 1),
-                label: t(key),
-              })),
-            ]}
-          />
+          {value.seasonalActivity !== 'any' && (
+            <Facet
+              label={t('plants.seasonalMonthLabel')}
+              value={value.seasonalMonth === null ? '' : String(value.seasonalMonth)}
+              onSelect={(next) => set('seasonalMonth', next === '' ? null : Number(next))}
+              options={[
+                { value: '', label: t('plants.filterAnyMonth') },
+                ...MONTH_LABEL_KEYS.map((key, index) => ({
+                  value: String(index + 1),
+                  label: t(key),
+                })),
+              ]}
+            />
+          )}
 
-          <Select
+          <Facet
             label={t('plants.distributionStatusLabel')}
             value={value.distributionStatus}
-            onChange={(event) =>
-              set('distributionStatus', event.target.value as PlantDistributionStatus | 'any')
-            }
+            onSelect={(next) => set('distributionStatus', next as PlantDistributionStatus | 'any')}
             options={[
               anyOption,
               { value: 'native', label: t('plants.distributionNative') },
@@ -199,18 +232,21 @@ export function PlantAdvancedFilters({ value, onChange }: PlantAdvancedFiltersPr
             ]}
           />
 
-          <TextField
-            label={t('plants.distributionRegionLabel')}
-            value={value.distributionRegion}
-            disabled={value.distributionStatus === 'any'}
-            onChange={(event) => set('distributionRegion', event.target.value)}
-          />
+          {value.distributionStatus !== 'any' && (
+            <div className={styles['region']}>
+              <TextField
+                label={t('plants.distributionRegionLabel')}
+                value={value.distributionRegion}
+                onChange={(event) => set('distributionRegion', event.target.value)}
+              />
+            </div>
+          )}
 
-          <Select
+          <Facet
             label={t('plants.profileCompletenessLabel')}
             value={value.profileCompleteness}
-            onChange={(event) =>
-              set('profileCompleteness', event.target.value as PlantProfileCompleteness | 'any')
+            onSelect={(next) =>
+              set('profileCompleteness', next as PlantProfileCompleteness | 'any')
             }
             options={[
               anyOption,

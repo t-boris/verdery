@@ -36,6 +36,80 @@
 
 .fields {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: var(--space-2);
+}
+
+.facet,
+.region {
+  min-inline-size: 0;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+}
+
+.facet summary {
+  display: flex;
+  min-block-size: 3rem;
+  cursor: pointer;
+  list-style: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+}
+
+.facet summary::-webkit-details-marker {
+  display: none;
+}
+
+.facet summary span {
+  color: var(--color-text-muted);
+  font-family: var(--font-family-mono);
+  font-size: var(--label-size);
+  letter-spacing: var(--label-letter-spacing);
+  text-transform: uppercase;
+}
+
+.facet summary strong {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.facet[open] {
+  grid-column: span 2;
+  border-color: var(--color-positive);
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-block-start: var(--border-width) solid var(--color-border);
+}
+
+.options button {
+  min-block-size: 2rem;
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+  border: var(--border-width) solid var(--color-control-border);
+  border-radius: var(--radius-pill);
+  background-color: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+}
+
+.options button[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
+.region {
+  padding: var(--space-2);
 }

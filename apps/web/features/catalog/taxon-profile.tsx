@@ -35,8 +35,9 @@ function factValue(fact: ResolvedFact): string {
  * is incomplete in a way the reader must not mistake for "nothing more is
  * true".
  *
- * Facts and reference images have independent lifecycles. A null fact profile
- * therefore still renders any licensed images returned by the server.
+ * A `404` is the honest answer for a taxon nobody has assembled a profile for.
+ * It is shown as that sentence, not as a failure alert — the request was fine,
+ * the knowledge simply does not exist yet.
  *
  * Source: packages/api-contracts/openapi.yaml, operation `getTaxonProfile`.
  */
@@ -49,7 +50,11 @@ export function TaxonProfile({ taxonomyReferenceId }: TaxonProfileProps) {
   }
 
   if (query.isError) {
-    return <FailureAlert failure={query.error.failure} />;
+    return query.error.failure.status === 404 ? (
+      <p className={styles['status']}>{t('catalog.profileMissing')}</p>
+    ) : (
+      <FailureAlert failure={query.error.failure} />
+    );
   }
 
   const { profile, images } = query.data;
@@ -89,7 +94,7 @@ export function TaxonProfile({ taxonomyReferenceId }: TaxonProfileProps) {
         </ul>
       )}
 
-      {profile?.isPartial === true && (
+      {profile?.isPartial && (
         <Alert tone="info" title={t('catalog.profilePartialTitle')}>
           {t('catalog.profilePartial')}
         </Alert>

@@ -1,18 +1,47 @@
 .page {
+  position: relative;
   display: flex;
+  align-items: center;
   justify-content: center;
-  padding-block: var(--space-6) var(--space-7);
+  min-block-size: calc(100dvh - var(--console-header-size) - var(--space-8));
+  padding: var(--space-6);
+  overflow: hidden;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background-image:
+    linear-gradient(
+      110deg,
+      color-mix(in srgb, var(--color-canvas) 92%, transparent) 18%,
+      transparent
+    ),
+    linear-gradient(0deg, color-mix(in srgb, var(--color-console) 46%, transparent), transparent),
+    url('/images/field-console-botanical.webp');
+  background-position: center;
+  background-size: cover;
+  box-shadow: var(--shadow-lg);
 }
 
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: min(26.5rem, 100%);
   padding: var(--space-6);
-  background-color: var(--color-surface);
+  overflow: hidden;
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-md);
+  background-color: color-mix(in srgb, var(--color-surface) 91%, transparent);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(20px);
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: 3px;
+  background-color: var(--color-accent);
 }
 
 .mark {
@@ -22,12 +51,25 @@
   inline-size: 2.75rem;
   block-size: 2.75rem;
   margin-bottom: var(--space-4);
-  border-radius: var(--radius-lg);
-  background-color: var(--color-accent);
-  color: var(--color-accent-text);
-  box-shadow: var(--shadow-sm);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-sunken);
+  color: var(--color-accent);
 }
 
 .title {
   margin-bottom: var(--space-4);
+}
+
+@media (max-width: 30rem) {
+  .page {
+    align-items: start;
+    min-block-size: 0;
+    padding: var(--space-3);
+    background-position: 72% center;
+  }
+
+  .card {
+    padding: var(--space-5);
+  }
 }

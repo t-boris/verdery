@@ -2,21 +2,92 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  max-width: 28rem;
 }
 
-.row {
+.commandRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-2);
+}
+
+.commandRow > button {
+  align-self: end;
+  inline-size: var(--control-min-size);
+  block-size: var(--control-min-size);
+}
+
+.quickActions,
+.choices {
   display: flex;
   flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.quickActions button {
+  min-block-size: 2.25rem;
+  padding-block: var(--space-1);
+  border-radius: var(--radius-pill);
+}
+
+.canvas:not(:empty) {
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-surface-raised) 72%, transparent);
+  animation: editor-reveal 160ms ease-out;
+}
+
+.editorGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
 }
 
-.row > * {
-  flex: 1;
+.choiceField {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+}
+
+.choiceField > span {
+  color: var(--color-text-muted);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.choices button {
+  min-block-size: 2.25rem;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--color-text);
+  background: transparent;
+  cursor: pointer;
+}
+
+.choices button[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  color: var(--color-accent-strong);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
 }
 
 .hint {
   margin: calc(var(--space-2) * -1) 0 0;
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
+}
+
+@keyframes editor-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

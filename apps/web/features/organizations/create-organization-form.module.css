@@ -13,6 +13,8 @@
 
 .form > button {
   align-self: end;
+  inline-size: var(--control-min-size);
+  block-size: var(--control-min-size);
 }
 
 @media (max-width: 22rem) {

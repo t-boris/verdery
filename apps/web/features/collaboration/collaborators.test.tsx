@@ -210,7 +210,7 @@ describe('Collaborators — owner-only sections', () => {
 
     renderCollaborators();
 
-    expect(screen.getByText('Invite someone')).toBeTruthy();
+    expect(screen.getAllByText('Invite someone').length).toBeGreaterThan(0);
     expect(screen.getByText('Transfer ownership')).toBeTruthy();
   });
 });

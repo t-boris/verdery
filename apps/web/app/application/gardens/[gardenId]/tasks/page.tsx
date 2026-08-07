@@ -1,6 +1,14 @@
 import { CreateManualTaskForm, TaskList } from '@/features/tasks/public';
 import { getRequestTranslator } from '@/shared/localization/server';
-import { RouteBody, RouteHeader, RoutePage, RoutePanel, RouteSplit } from '@/shared/ui/public';
+import {
+  ActionDisclosure,
+  CheckCircleIcon,
+  PlusIcon,
+  RouteBody,
+  RouteHeader,
+  RoutePage,
+  RoutePanel,
+} from '@/shared/ui/public';
 
 /**
  * The garden's manual tasks: create one, and manage every one through its
@@ -19,22 +27,22 @@ export default async function TasksPage({
 
   return (
     <RoutePage>
-      <RouteHeader title={t('tasks.pageTitle')} description={t('tasks.pageDescription')} />
-      <RouteSplit>
+      <RouteHeader
+        title={t('tasks.pageTitle')}
+        description={t('tasks.pageDescription')}
+        icon={<CheckCircleIcon size={18} />}
+      />
+      <RouteBody>
+        <ActionDisclosure title={t('tasks.createTitle')} icon={<PlusIcon />}>
+          <CreateManualTaskForm gardenId={gardenId} />
+        </ActionDisclosure>
         {/* No band heading on the list: it would repeat the route title
             verbatim ("Tasks" above "Tasks"), which the deployed page showed
             plainly. The filter panel and list are self-describing. */}
-        <RouteBody>
-          <RoutePanel>
-            <TaskList gardenId={gardenId} />
-          </RoutePanel>
-        </RouteBody>
-        <RouteBody>
-          <RoutePanel title={t('tasks.createTitle')}>
-            <CreateManualTaskForm gardenId={gardenId} />
-          </RoutePanel>
-        </RouteBody>
-      </RouteSplit>
+        <RoutePanel>
+          <TaskList gardenId={gardenId} />
+        </RoutePanel>
+      </RouteBody>
     </RoutePage>
   );
 }

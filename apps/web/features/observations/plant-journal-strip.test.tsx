@@ -99,9 +99,7 @@ describe('PlantJournalStrip', () => {
     // photographs carrying no purpose label at all.
     expect(mockedUseFrames).toHaveBeenLastCalledWith('garden-1', 'plant-1', { purpose: null });
 
-    fireEvent.change(screen.getByLabelText('Compare shots of'), {
-      target: { value: 'leaf_front' },
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Leaf, front' }));
 
     expect(mockedUseFrames).toHaveBeenLastCalledWith('garden-1', 'plant-1', {
       purpose: 'leaf_front',
@@ -118,7 +116,7 @@ describe('PlantJournalStrip', () => {
     // The second message is the one a reader can act on: it names the filter
     // as the reason, so they know to widen it rather than conclude the plant
     // has no history.
-    fireEvent.change(screen.getByLabelText('Compare shots of'), { target: { value: 'fruit' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Fruit' }));
 
     expect(
       screen.getByText('No photographs of this kind yet. Try another shot type.'),

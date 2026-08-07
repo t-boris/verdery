@@ -179,7 +179,7 @@ describe('CandidateList — search, filters, and pagination', () => {
       limit: 20,
     });
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Archived' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Archived' }));
 
     expect(mockedUseListCandidates).toHaveBeenLastCalledWith('garden-1', {
       query: null,
@@ -195,7 +195,7 @@ describe('CandidateList — search, filters, and pagination', () => {
 
     renderList();
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Active' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Active' }));
 
     expect(mockedUseListCandidates).toHaveBeenLastCalledWith('garden-1', {
       query: null,
@@ -211,7 +211,7 @@ describe('CandidateList — search, filters, and pagination', () => {
 
     renderList();
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'High' }));
+    fireEvent.click(screen.getByRole('button', { name: 'High' }));
 
     expect(mockedUseListCandidates).toHaveBeenLastCalledWith('garden-1', {
       query: null,

@@ -58,9 +58,8 @@ describe('AddPlantForm — recoverable local draft', () => {
     fireEvent.change(screen.getByLabelText('Display name'), {
       target: { value: 'Cherry tomato' },
     });
-    fireEvent.change(screen.getByLabelText('Taxonomy reference'), {
-      target: { value: 'taxonomy-42' },
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Taxonomy reference' }));
+    fireEvent.click(screen.getByRole('button', { name: /Solanum lycopersicum/ }));
     vi.advanceTimersByTime(1000);
     vi.useRealTimers();
 
@@ -69,9 +68,10 @@ describe('AddPlantForm — recoverable local draft', () => {
     renderForm();
 
     expect(screen.getByLabelText<HTMLInputElement>('Display name').value).toBe('Cherry tomato');
-    expect(screen.getByLabelText<HTMLSelectElement>('Taxonomy reference').value).toBe(
-      'taxonomy-42',
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Taxonomy reference' }));
+    expect(
+      screen.getByRole('button', { name: /Solanum lycopersicum/ }).getAttribute('aria-pressed'),
+    ).toBe('true');
     expect(screen.getByText('Unsaved work recovered')).toBeTruthy();
   });
 });

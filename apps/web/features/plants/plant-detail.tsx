@@ -2,23 +2,26 @@
 
 import type { PlantIdentificationSuggestion } from '@verdery/api-contracts';
 import { useRouter } from 'next/navigation';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect } from 'react';
+import type { ReactNode } from 'react';
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
 import {
   Alert,
+  ActionDisclosure,
   Button,
   CalendarIcon,
-  Card,
   DetailRow,
   FailureAlert,
+  ImageIcon,
   LightbulbIcon,
   PulseIcon,
   SproutIcon,
   StaleIndicator,
   StatusPill,
   TagIcon,
+  TrashIcon,
 } from '@/shared/ui/public';
 
 import { groupingKindLabel, lifecycleStageLabel, statusLabel, statusTone } from './labels';
@@ -41,6 +44,9 @@ export interface PlantDetailProps {
   readonly gardenId: string;
   readonly plantId: string;
   readonly photoUpload?: ReactNode;
+  readonly journal?: ReactNode;
+  readonly observationComposer?: ReactNode;
+  readonly history?: ReactNode;
 }
 
 function PlantTaxonomySummary({
@@ -84,9 +90,11 @@ function rawSuggestionLabel(commonName: string, scientificName: string | null): 
  * A single plant: its current facts, and every command this phase wires
  * against it.
  *
- * This plant's attached photos are shown via `PlantPhotoGallery`; the route
- * supplies a real upload-and-attach control through `photoUpload`, and the
- * gallery exposes the separate primary-photo command. Photo identification
+ * This plant's attached photos are shown via `PlantPhotoGallery`
+ * (`listPlantPhotos`), while the route supplies its upload-and-attach control
+ * through `photoUpload`; the gallery also exposes the separate primary-photo
+ * command used by inventory covers.
+ * Photo identification
  * (`AddPlantFromPhoto`) and its confirmation (`ConfirmPlantIdentification`)
  * are no longer part of that gap: `add-plant-from-photo-panel.tsx`
  * (ADR-0015) creates a plant from a photo, and this screen's own pending-
@@ -96,7 +104,14 @@ function rawSuggestionLabel(commonName: string, scientificName: string | null): 
  * Source: implementation-plan.md work package P4-WEB-01;
  * packages/api-contracts/openapi.yaml, operation `getPlant`; ADR-0015.
  */
-export function PlantDetail({ gardenId, plantId, photoUpload }: PlantDetailProps) {
+export function PlantDetail({
+  gardenId,
+  plantId,
+  photoUpload,
+  journal,
+  observationComposer,
+  history,
+}: PlantDetailProps) {
   const { t } = useLocalization();
   const router = useRouter();
   const query = usePlant(gardenId, plantId);
@@ -167,41 +182,56 @@ export function PlantDetail({ gardenId, plantId, photoUpload }: PlantDetailProps
       {query.isError && !isConnectivityFailure(query.error.failure) && (
         <FailureAlert failure={query.error.failure} />
       )}
-      <div className={styles['summary']}>
-        {/* The plant's own name is this page's `<h1>`: the route renders no
-            other top-level heading, so without it the page's `<h2>` sections
-            hung off nothing and a screen-reader user landed on a document
-            with no title of its own. */}
-        <h1 className={styles['name']}>{plant.displayName}</h1>
-        <StatusPill tone={statusTone(plant.status)} label={t(statusLabel(plant.status))} />
-        <span>{t(lifecycleStageLabel(plant.lifecycleStage))}</span>
-        <span>{t(groupingKindLabel(plant.groupingKind))}</span>
-        {plant.quantity !== null && (
-          <span>{t('plants.quantityDisplay', { quantity: plant.quantity })}</span>
-        )}
-        {plant.taxonomyReferenceId === null ? (
-          <span>{t('plants.taxonomyNone')}</span>
-        ) : (
-          <PlantTaxonomySummary
-            gardenId={gardenId}
-            taxonomyReferenceId={plant.taxonomyReferenceId}
-            displayName={plant.displayName}
-          />
-        )}
-      </div>
+      <section className={styles['profileCard']}>
+        <div className={styles['summary']}>
+          {/* RouteHeader owns the page-level heading; the plant name begins the
+              visual workspace below it without creating a second `<h1>`. */}
+          <h2 className={styles['name']}>{plant.displayName}</h2>
+          <div className={styles['facts']}>
+            <StatusPill tone={statusTone(plant.status)} label={t(statusLabel(plant.status))} />
+            <span className={styles['fact']}>
+              <SproutIcon size={14} />
+              {t(lifecycleStageLabel(plant.lifecycleStage))}
+            </span>
+            <span className={styles['fact']}>
+              <TagIcon size={14} />
+              {t(groupingKindLabel(plant.groupingKind))}
+            </span>
+            {plant.quantity !== null && (
+              <span className={styles['fact']}>
+                {t('plants.quantityDisplay', { quantity: plant.quantity })}
+              </span>
+            )}
+            <span className={styles['taxonomy']}>
+              {plant.taxonomyReferenceId === null ? (
+                t('plants.taxonomyNone')
+              ) : (
+                <PlantTaxonomySummary
+                  gardenId={gardenId}
+                  taxonomyReferenceId={plant.taxonomyReferenceId}
+                  displayName={plant.displayName}
+                />
+              )}
+            </span>
+          </div>
+        </div>
+        <PlantDetailsForm gardenId={gardenId} plant={plant} />
+        <PlantLifecycleControls gardenId={gardenId} plant={plant} />
+        <PlantMoveForm gardenId={gardenId} plant={plant} />
+      </section>
 
       <PlantPhotoGallery gardenId={gardenId} plantId={plant.id} />
       {photoUpload !== undefined && (
-        <Card title={t('plants.addPhotoTitle')}>
-          <p className={styles['sectionDescription']}>{t('plants.addPhotoDescription')}</p>
+        <ActionDisclosure
+          title={t('plants.addPhotoTitle')}
+          description={t('plants.addPhotoDescription')}
+          icon={<ImageIcon />}
+        >
           {photoUpload}
-        </Card>
+        </ActionDisclosure>
       )}
       {plant.taxonomyReferenceId !== null && (
-        <PlantReferenceGallery
-          taxonomyReferenceId={plant.taxonomyReferenceId}
-          displayName={plant.displayName}
-        />
+        <PlantReferenceGallery taxonomyReferenceId={plant.taxonomyReferenceId} />
       )}
 
       {(hasConfirmableSuggestion || suggestedConditionNote !== null) &&
@@ -293,19 +323,15 @@ export function PlantDetail({ gardenId, plantId, photoUpload }: PlantDetailProps
           </Alert>
         )}
 
-      <Card title={t('plants.editTitle')}>
-        <PlantDetailsForm gardenId={gardenId} plant={plant} />
-      </Card>
+      {journal}
+      {observationComposer}
+      {history}
 
-      <Card title={t('plants.lifecycleTitle')}>
-        <PlantLifecycleControls gardenId={gardenId} plant={plant} />
-      </Card>
-
-      <Card title={t('plants.moveTitle')}>
-        <PlantMoveForm gardenId={gardenId} plant={plant} />
-      </Card>
-
-      <PlantDeleteSection gardenId={gardenId} plant={plant} />
+      <div className={styles['dangerAction']}>
+        <ActionDisclosure title={t('plants.deleteSectionTitle')} icon={<TrashIcon />}>
+          <PlantDeleteSection gardenId={gardenId} plant={plant} />
+        </ActionDisclosure>
+      </div>
     </div>
   );
 }

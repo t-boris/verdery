@@ -13,10 +13,14 @@ import { useLocalization } from '@/shared/localization/public';
 import {
   PlusIcon,
   Button,
+  CommandSurface,
+  CalendarIcon,
   FailureAlert,
+  MapIcon,
   RecoveredDraftNotice,
-  Select,
+  SproutIcon,
   StaleIndicator,
+  TagIcon,
   TextField,
 } from '@/shared/ui/public';
 
@@ -32,6 +36,7 @@ import styles from './add-plant-form.module.css';
 import { TaxonomyReferenceField } from './taxonomy-reference-field';
 
 const NONE_VALUE = '';
+const ACQUISITION_CHOICES = [NONE_VALUE, ...PLANT_ACQUISITION_DATE_TYPES] as const;
 
 const addPlantSchema = z
   .object({
@@ -109,6 +114,7 @@ export function AddPlantForm({ gardenId }: { readonly gardenId: string }) {
   const mutation = useAddPlant(gardenId);
   const isOnline = useIsOnline();
   const [taxonomyReferenceId, setTaxonomyReferenceId] = useState<string | null>(null);
+  const [activePart, setActivePart] = useState<string | null>(null);
   const mapObjectsQuery = useGardenMapObjects(gardenId);
   const mapObjectOptions = [
     { value: NONE_VALUE, label: t('plants.mapObjectNone') },
@@ -118,7 +124,7 @@ export function AddPlantForm({ gardenId }: { readonly gardenId: string }) {
     })),
   ];
 
-  const { register, handleSubmit, formState, watch, reset } = useForm<AddPlantValues>({
+  const { register, handleSubmit, formState, watch, reset, setValue } = useForm<AddPlantValues>({
     resolver: zodResolver(addPlantSchema),
     defaultValues: DEFAULT_VALUES,
     // `quantity` is conditionally rendered on `groupingKind`; unregistering it
@@ -162,6 +168,10 @@ export function AddPlantForm({ gardenId }: { readonly gardenId: string }) {
     setTaxonomyReferenceId(null);
   };
 
+  const togglePart = (part: string) => {
+    setActivePart((current) => (current === part ? null : part));
+  };
+
   const onSubmit = handleSubmit((values) => {
     const input: AddPlantRequest = {
       displayName: values.displayName,
@@ -198,95 +208,175 @@ export function AddPlantForm({ gardenId }: { readonly gardenId: string }) {
   });
 
   return (
-    <form className={styles['form']} onSubmit={(event) => void onSubmit(event)} noValidate>
+    <CommandSurface className={styles['form']} onCommit={() => void onSubmit()}>
       {draft.recovered && <RecoveredDraftNotice onDiscard={discardRecoveredDraft} />}
-      <TextField
-        label={t('plants.displayNameLabel')}
-        maxLength={200}
-        error={
-          formState.errors.displayName === undefined ? undefined : t('plants.displayNameRequired')
-        }
-        {...register('displayName')}
-      />
-
-      <TaxonomyReferenceField
-        gardenId={gardenId}
-        value={taxonomyReferenceId}
-        onChange={setTaxonomyReferenceId}
-      />
-
-      <TextField
-        label={t('plants.varietyLabelLabel')}
-        maxLength={200}
-        {...register('varietyLabel')}
-      />
-
-      <div className={styles['row']}>
+      <div className={styles['commandRow']}>
         <TextField
-          label={t('plants.acquisitionDateLabel')}
-          type="date"
-          {...register('acquisitionDate')}
+          label={t('plants.displayNameLabel')}
+          maxLength={200}
+          error={
+            formState.errors.displayName === undefined ? undefined : t('plants.displayNameRequired')
+          }
+          {...register('displayName')}
         />
-        <Select
-          label={t('plants.acquisitionDateTypeLabel')}
-          options={[
-            { value: NONE_VALUE, label: t('plants.acquisitionDateTypeNone') },
-            ...PLANT_ACQUISITION_DATE_TYPES.map((type) => ({
-              value: type,
-              label: t(acquisitionDateTypeLabel(type)),
-            })),
-          ]}
-          {...register('acquisitionDateType')}
-        />
+        <Button
+          type="submit"
+          variant="primary"
+          busy={mutation.isPending}
+          disabled={!isOnline}
+          iconOnly
+          aria-label={t('plants.addSubmit')}
+          title={t('plants.addSubmit')}
+        >
+          <PlusIcon />
+        </Button>
       </div>
 
-      <Select
-        label={t('plants.groupingKindLabel')}
-        options={PLANT_GROUPING_KINDS.map((kind: PlantGroupingKind) => ({
-          value: kind,
-          label: t(groupingKindLabel(kind)),
-        }))}
-        {...register('groupingKind')}
-      />
+      <div className={styles['quickActions']}>
+        <Button
+          variant="secondary"
+          aria-pressed={activePart === 'taxonomy'}
+          onClick={() => togglePart('taxonomy')}
+        >
+          <SproutIcon />
+          {t('plants.taxonomySelectLabel')}
+        </Button>
+        <Button
+          variant="secondary"
+          aria-pressed={activePart === 'variety'}
+          onClick={() => togglePart('variety')}
+        >
+          <TagIcon />
+          {t('plants.varietyLabelLabel')}
+        </Button>
+        <Button
+          variant="secondary"
+          aria-pressed={activePart === 'acquisition'}
+          onClick={() => togglePart('acquisition')}
+        >
+          <CalendarIcon />
+          {t('plants.acquisitionDateLabel')}
+        </Button>
+        <Button
+          variant="secondary"
+          aria-pressed={activePart === 'grouping'}
+          onClick={() => togglePart('grouping')}
+        >
+          <PlusIcon />
+          {t('plants.groupingKindLabel')}
+        </Button>
+        <Button
+          variant="secondary"
+          aria-pressed={activePart === 'placement'}
+          onClick={() => togglePart('placement')}
+        >
+          <MapIcon />
+          {t('plants.moveTitle')}
+        </Button>
+      </div>
 
-      {groupingKind !== 'individual' && (
-        <TextField
-          label={t('plants.quantityLabel')}
-          type="number"
-          min={1}
-          error={formState.errors.quantity === undefined ? undefined : t('plants.quantityInvalid')}
-          {...register('quantity')}
-        />
-      )}
-
-      <Select
-        label={t('plants.gardenAreaMapObjectIdLabel')}
-        options={mapObjectOptions}
-        {...register('gardenAreaMapObjectId')}
-        aria-describedby="add-plant-map-object-hint"
-      />
-      <Select
-        label={t('plants.placementMapObjectIdLabel')}
-        options={mapObjectOptions}
-        {...register('placementMapObjectId')}
-      />
-      <p id="add-plant-map-object-hint" className={styles['hint']}>
-        {t('plants.mapObjectIdHint')}
-      </p>
+      <div className={styles['canvas']}>
+        {activePart === 'taxonomy' && (
+          <TaxonomyReferenceField
+            gardenId={gardenId}
+            value={taxonomyReferenceId}
+            onChange={setTaxonomyReferenceId}
+          />
+        )}
+        {activePart === 'variety' && (
+          <TextField
+            label={t('plants.varietyLabelLabel')}
+            maxLength={200}
+            {...register('varietyLabel')}
+          />
+        )}
+        {activePart === 'acquisition' && (
+          <div className={styles['row']}>
+            <TextField
+              label={t('plants.acquisitionDateLabel')}
+              type="date"
+              {...register('acquisitionDate')}
+            />
+            <div className={styles['choiceField']}>
+              <span>{t('plants.acquisitionDateTypeLabel')}</span>
+              <div className={styles['choices']}>
+                {ACQUISITION_CHOICES.map((type) => (
+                  <button
+                    key={type || 'none'}
+                    type="button"
+                    aria-pressed={(currentValues.acquisitionDateType ?? NONE_VALUE) === type}
+                    onClick={() => setValue('acquisitionDateType', type, { shouldDirty: true })}
+                  >
+                    {type === NONE_VALUE
+                      ? t('plants.acquisitionDateTypeNone')
+                      : t(acquisitionDateTypeLabel(type))}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+        {activePart === 'grouping' && (
+          <div className={styles['row']}>
+            <div className={styles['choiceField']}>
+              <span>{t('plants.groupingKindLabel')}</span>
+              <div className={styles['choices']}>
+                {PLANT_GROUPING_KINDS.map((kind: PlantGroupingKind) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    aria-pressed={groupingKind === kind}
+                    onClick={() => setValue('groupingKind', kind, { shouldDirty: true })}
+                  >
+                    {t(groupingKindLabel(kind))}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {groupingKind !== 'individual' && (
+              <TextField
+                label={t('plants.quantityLabel')}
+                type="number"
+                min={1}
+                error={
+                  formState.errors.quantity === undefined ? undefined : t('plants.quantityInvalid')
+                }
+                {...register('quantity')}
+              />
+            )}
+          </div>
+        )}
+        {activePart === 'placement' && (
+          <div className={styles['row']}>
+            {(['gardenAreaMapObjectId', 'placementMapObjectId'] as const).map((fieldName) => (
+              <div className={styles['choiceField']} key={fieldName}>
+                <span>
+                  {t(
+                    fieldName === 'gardenAreaMapObjectId'
+                      ? 'plants.gardenAreaMapObjectIdLabel'
+                      : 'plants.placementMapObjectIdLabel',
+                  )}
+                </span>
+                <div className={styles['choices']}>
+                  {mapObjectOptions.map((option) => (
+                    <button
+                      key={option.value || 'none'}
+                      type="button"
+                      aria-pressed={(currentValues[fieldName] ?? NONE_VALUE) === option.value}
+                      onClick={() => setValue(fieldName, option.value, { shouldDirty: true })}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <StaleIndicator />
-      <Button
-        type="submit"
-        variant="primary"
-        busy={mutation.isPending}
-        disabled={!isOnline}
-        iconOnly
-        aria-label={t('plants.addSubmit')}
-        title={t('plants.addSubmit')}
-      >
-        <PlusIcon />
-      </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
-    </form>
+    </CommandSurface>
   );
 }

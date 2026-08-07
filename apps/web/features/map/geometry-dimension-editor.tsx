@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 
 import { formatFixed, useLocalization } from '@/shared/localization/public';
-import { Button, RulerIcon, TextField } from '@/shared/ui/public';
+import { Button, CommandSurface, RulerIcon, TextField } from '@/shared/ui/public';
 
 import {
   dimensionsOfGeometry,
@@ -42,8 +42,7 @@ export function GeometryDimensionEditor({
     return null;
   }
 
-  const applyDimensions = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const applyDimensions = async () => {
     const nextGeometry =
       dimensions.kind === 'area'
         ? resizeAreaGeometry(record.geometry, Number(width), Number(depth))
@@ -67,7 +66,7 @@ export function GeometryDimensionEditor({
       </div>
       <p className={styles['description']}>{t('map.properties.dimensionsDescription')}</p>
 
-      <form className={styles['form']} onSubmit={(event) => void applyDimensions(event)} noValidate>
+      <CommandSurface className={styles['form']} onCommit={applyDimensions}>
         <div className={styles['fieldGrid']}>
           {dimensions.kind === 'area' ? (
             <>
@@ -129,7 +128,7 @@ export function GeometryDimensionEditor({
         <Button type="submit" variant="primary" busy={actions.isSubmitting}>
           {t('map.properties.applyDimensions')}
         </Button>
-      </form>
+      </CommandSurface>
     </section>
   );
 }

@@ -2,7 +2,13 @@
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, StaleIndicator } from '@/shared/ui/public';
+import {
+  ActionDisclosure,
+  Button,
+  FailureAlert,
+  PlusIcon,
+  StaleIndicator,
+} from '@/shared/ui/public';
 
 import styles from './collaborators.module.css';
 import { InviteForm } from './invite-form';
@@ -72,7 +78,11 @@ export function Collaborators({ gardenId }: CollaboratorsProps) {
       )}
 
       <MemberTable gardenId={gardenId} callerIsOwner={callerIsOwner} />
-      {callerIsOwner && <InviteForm gardenId={gardenId} />}
+      {callerIsOwner && (
+        <ActionDisclosure title={t('invitations.inviteTitle')} icon={<PlusIcon />}>
+          <InviteForm gardenId={gardenId} />
+        </ActionDisclosure>
+      )}
       {callerIsOwner && <PendingInvitations gardenId={gardenId} />}
       {membersQuery.data !== undefined && (
         <OwnershipTransferPanel

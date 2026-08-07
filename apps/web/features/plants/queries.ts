@@ -10,8 +10,8 @@ import type {
   PlantLifecycleStage,
   PlantListResult,
   PlantPhoto,
-  PlantStatus,
   PlantTaxonProfileResult,
+  PlantStatus,
   TaxonomyReferenceListResult,
   UpdatePlantDetailsRequest,
 } from '@verdery/api-contracts';
@@ -59,10 +59,6 @@ const taxonProfileQueryKey = (taxonomyReferenceId: string) =>
 
 function usePlantGateway() {
   return useMemo(() => createPlantGateway(createBrowserApiClient()), []);
-}
-
-function usePlantCatalogGateway() {
-  return useMemo(() => createPlantCatalogGateway(createBrowserApiClient()), []);
 }
 
 function unwrap<TData>(result: ApiResult<TData>): TData {
@@ -324,9 +320,9 @@ export function usePlantPhotos(gardenId: string, plantId: string) {
   });
 }
 
-/** Licensed reference imagery and reviewed facts for an identified plant's taxon. */
+/** Reference imagery and reviewed facts for an identified plant's taxon. */
 export function usePlantTaxonProfile(taxonomyReferenceId: string) {
-  const gateway = usePlantCatalogGateway();
+  const gateway = useMemo(() => createPlantCatalogGateway(createBrowserApiClient()), []);
 
   return useQuery<PlantTaxonProfileResult, ApiFailureError>({
     queryKey: taxonProfileQueryKey(taxonomyReferenceId),

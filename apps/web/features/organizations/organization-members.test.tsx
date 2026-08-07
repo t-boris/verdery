@@ -95,7 +95,7 @@ describe('OrganizationMembers — admin-only administration', () => {
   it('shows the add-member form and per-row remove/change-role controls to an admin caller', () => {
     renderMembers('organizationAdmin');
 
-    expect(screen.getByText('Add a member')).toBeTruthy();
+    expect(screen.getAllByText('Add a member').length).toBeGreaterThan(0);
     expect(screen.getAllByRole('button', { name: 'Remove' }).length).toBe(2);
   });
 

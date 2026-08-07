@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { z } from '@/shared/validation/zod';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Button, Card, FailureAlert, Select, TextField } from '@/shared/ui/public';
+import { Button, CommandSurface, FailureAlert, PlusIcon, TextField } from '@/shared/ui/public';
 
 import styles from './add-organization-member-form.module.css';
 import { useAddOrganizationMember } from './queries';
@@ -39,7 +39,7 @@ export function AddOrganizationMemberForm({ organizationId }: { readonly organiz
   const { t } = useLocalization();
   const mutation = useAddOrganizationMember(organizationId);
 
-  const { register, handleSubmit, formState, reset } = useForm<AddMemberValues>({
+  const { register, handleSubmit, formState, reset, setValue, watch } = useForm<AddMemberValues>({
     resolver: zodResolver(addMemberSchema),
     defaultValues: { profileId: '', role: 'professional' },
   });
@@ -51,9 +51,11 @@ export function AddOrganizationMemberForm({ organizationId }: { readonly organiz
     );
   });
 
+  const selectedRole = watch('role');
+
   return (
-    <Card title={t('organizations.addMemberTitle')}>
-      <form className={styles['form']} onSubmit={(event) => void onSubmit(event)} noValidate>
+    <CommandSurface className={styles['form']} onCommit={() => void onSubmit()}>
+      <div className={styles['commandRow']}>
         <TextField
           label={t('organizations.addMemberProfileIdLabel')}
           error={
@@ -63,20 +65,31 @@ export function AddOrganizationMemberForm({ organizationId }: { readonly organiz
           }
           {...register('profileId')}
         />
-        <p className={styles['hint']}>{t('organizations.addMemberProfileIdHint')}</p>
-        <Select
-          label={t('organizations.addMemberRoleLabel')}
-          options={ROLE_OPTIONS.map((option) => ({
-            value: option.value,
-            label: t(option.labelKey),
-          }))}
-          {...register('role')}
-        />
-        <Button type="submit" variant="primary" busy={mutation.isPending}>
-          {t('organizations.addMemberSubmit')}
+        <Button
+          type="submit"
+          variant="primary"
+          busy={mutation.isPending}
+          iconOnly
+          aria-label={t('organizations.addMemberSubmit')}
+          title={t('organizations.addMemberSubmit')}
+        >
+          <PlusIcon />
         </Button>
-        {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
-      </form>
-    </Card>
+      </div>
+      <div className={styles['roles']} aria-label={t('organizations.addMemberRoleLabel')}>
+        {ROLE_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={selectedRole === option.value}
+            onClick={() => setValue('role', option.value, { shouldDirty: true })}
+          >
+            {t(option.labelKey)}
+          </button>
+        ))}
+      </div>
+      <p className={styles['hint']}>{t('organizations.addMemberProfileIdHint')}</p>
+      {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
+    </CommandSurface>
   );
 }

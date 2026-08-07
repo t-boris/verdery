@@ -18,10 +18,8 @@ export interface PlantCatalogGateway {
  * while every `Plants` operation is garden-scoped. Keeping them apart keeps
  * that difference visible at the call site.
  *
- * A taxon with no assembled profile is an honest `404` from this operation,
- * not an empty profile — see the contract's own wording. Callers therefore
- * distinguish "nothing known yet" from "known to be empty" by the failure,
- * and this gateway does not flatten it into `null`.
+ * Reviewed facts and licensed imagery are returned together but remain
+ * independent: `profile` may be null while provider imagery is available.
  *
  * Source: packages/api-contracts/openapi.yaml, tag `PlantCatalog`;
  * architecture/decisions/ADR-0016-phase-11-plant-intelligence-domain-and-providers.md, section 3.

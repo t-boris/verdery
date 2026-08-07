@@ -7,7 +7,14 @@ import { useForm } from 'react-hook-form';
 import { z } from '@/shared/validation/zod';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Alert, Button, Card, FailureAlert, Select, TextField } from '@/shared/ui/public';
+import {
+  Alert,
+  Button,
+  CommandSurface,
+  FailureAlert,
+  PlusIcon,
+  TextField,
+} from '@/shared/ui/public';
 
 import { useCreateInvitation } from './queries';
 import styles from './invite-form.module.css';
@@ -43,7 +50,7 @@ export function InviteForm({ gardenId }: { readonly gardenId: string }) {
   const [created, setCreated] = useState<CreateInvitationResult | null>(null);
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
 
-  const { register, handleSubmit, formState, reset } = useForm<InviteValues>({
+  const { register, handleSubmit, formState, reset, setValue, watch } = useForm<InviteValues>({
     resolver: zodResolver(inviteSchema),
     defaultValues: { intendedRole: 'editor', intendedEmail: '' },
   });
@@ -78,7 +85,7 @@ export function InviteForm({ gardenId }: { readonly gardenId: string }) {
 
   if (created !== null) {
     return (
-      <Card title={t('invitations.createdTitle')}>
+      <div className={styles['result']}>
         <Alert tone="info" title={t('invitations.createdTitle')}>
           <p>{t('invitations.createdDescription')}</p>
         </Alert>
@@ -98,21 +105,27 @@ export function InviteForm({ gardenId }: { readonly gardenId: string }) {
         </div>
         {copyState === 'copied' && <p role="status">{t('invitations.copied')}</p>}
         {copyState === 'failed' && <p role="status">{t('invitations.copyFailed')}</p>}
-      </Card>
+      </div>
     );
   }
 
+  const selectedRole = watch('intendedRole');
+
   return (
-    <Card title={t('invitations.inviteTitle')}>
-      <form className={styles['form']} onSubmit={(event) => void onSubmit(event)} noValidate>
-        <Select
-          label={t('invitations.roleLabel')}
-          options={ROLE_OPTIONS.map((option) => ({
-            value: option.value,
-            label: t(option.labelKey),
-          }))}
-          {...register('intendedRole')}
-        />
+    <CommandSurface className={styles['form']} onCommit={() => void onSubmit()}>
+      <div className={styles['roles']} aria-label={t('invitations.roleLabel')}>
+        {ROLE_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={selectedRole === option.value}
+            onClick={() => setValue('intendedRole', option.value, { shouldDirty: true })}
+          >
+            {t(option.labelKey)}
+          </button>
+        ))}
+      </div>
+      <div className={styles['commandRow']}>
         <TextField
           label={t('invitations.emailLabel')}
           type="email"
@@ -120,12 +133,19 @@ export function InviteForm({ gardenId }: { readonly gardenId: string }) {
           error={formState.errors.intendedEmail === undefined ? undefined : t('auth.emailInvalid')}
           {...register('intendedEmail')}
         />
-        <p className={styles['hint']}>{t('invitations.emailHint')}</p>
-        <Button type="submit" variant="primary" busy={mutation.isPending}>
-          {t('invitations.submit')}
+        <Button
+          type="submit"
+          variant="primary"
+          busy={mutation.isPending}
+          iconOnly
+          aria-label={t('invitations.submit')}
+          title={t('invitations.submit')}
+        >
+          <PlusIcon />
         </Button>
-        {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
-      </form>
-    </Card>
+      </div>
+      <p className={styles['hint']}>{t('invitations.emailHint')}</p>
+      {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
+    </CommandSurface>
   );
 }

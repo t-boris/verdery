@@ -18,7 +18,7 @@ import {
   pendingEmailForSignIn,
 } from '@/core/auth/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Alert, Button, TextField } from '@/shared/ui/public';
+import { Alert, Button, CommandSurface, TextField } from '@/shared/ui/public';
 
 import styles from './email-link-completion.module.css';
 
@@ -102,10 +102,9 @@ export function EmailLinkCompletion() {
 
   if (state === 'needsEmail') {
     return (
-      <form
+      <CommandSurface
         className={styles['form']}
-        onSubmit={(event) => void handleSubmit((values) => complete(values.email))(event)}
-        noValidate
+        onCommit={() => void handleSubmit((values) => complete(values.email))()}
       >
         <p>{t('auth.emailLinkConfirmDescription')}</p>
         <TextField
@@ -118,7 +117,7 @@ export function EmailLinkCompletion() {
         <Button type="submit" variant="primary" busy={formState.isSubmitting}>
           {t('auth.emailSubmit')}
         </Button>
-      </form>
+      </CommandSurface>
     );
   }
 

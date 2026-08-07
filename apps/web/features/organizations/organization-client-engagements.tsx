@@ -2,7 +2,14 @@
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, Card, FailureAlert, StaleIndicator } from '@/shared/ui/public';
+import {
+  ActionDisclosure,
+  BookIcon,
+  Button,
+  Card,
+  FailureAlert,
+  StaleIndicator,
+} from '@/shared/ui/public';
 
 import { CreateClientEngagementForm } from './create-client-engagement-form';
 import styles from './organization-members.module.css';
@@ -72,7 +79,11 @@ export function OrganizationClientEngagements({
           ))}
       </Card>
 
-      {callerIsAdmin && <CreateClientEngagementForm organizationId={organizationId} />}
+      {callerIsAdmin && (
+        <ActionDisclosure title={t('engagements.createTitle')} icon={<BookIcon />}>
+          <CreateClientEngagementForm organizationId={organizationId} />
+        </ActionDisclosure>
+      )}
     </div>
   );
 }

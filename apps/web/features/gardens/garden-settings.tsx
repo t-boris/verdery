@@ -8,7 +8,7 @@ import { z } from '@/shared/validation/zod';
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, StaleIndicator, StatusPill, TextField } from '@/shared/ui/public';
+import { Button, FailureAlert, StaleIndicator, StatusPill } from '@/shared/ui/public';
 
 import { lifecycleLabel, roleLabel } from './labels';
 import styles from './garden-settings.module.css';
@@ -92,7 +92,20 @@ export function GardenSettings({ gardenId }: { readonly gardenId: string }) {
         <FailureAlert failure={query.error.failure} />
       )}
       <div className={styles['headingRow']}>
-        <h2 className={styles['name']}>{garden.name}</h2>
+        {isOwner ? (
+          <label className={styles['nameEditor']}>
+            <span className={styles['visuallyHidden']}>{t('gardens.createNameLabel')}</span>
+            <input
+              className={styles['nameInput']}
+              maxLength={120}
+              disabled={garden.lifecycleState !== 'active'}
+              {...register('name')}
+              onBlur={() => void onRename()}
+            />
+          </label>
+        ) : (
+          <h2 className={styles['name']}>{garden.name}</h2>
+        )}
         <div className={styles['metadata']}>
           <StatusPill
             tone={garden.lifecycleState === 'active' ? 'positive' : 'neutral'}
@@ -102,24 +115,10 @@ export function GardenSettings({ gardenId }: { readonly gardenId: string }) {
         </div>
       </div>
 
-      {isOwner && (
-        <form
-          className={styles['renameForm']}
-          onSubmit={(event) => void onRename(event)}
-          noValidate
-        >
-          <TextField
-            label={t('gardens.createNameLabel')}
-            maxLength={120}
-            disabled={garden.lifecycleState !== 'active'}
-            error={formState.errors.name === undefined ? undefined : t('gardens.nameRequired')}
-            {...register('name')}
-          />
-          <Button type="submit" variant="primary" busy={renameMutation.isPending}>
-            {t('gardens.rename')}
-          </Button>
-        </form>
+      {formState.errors.name !== undefined && (
+        <p className={styles['errorText']}>{t('gardens.nameRequired')}</p>
       )}
+      {renameMutation.isPending && <p role="status">{t('gardens.rename')}</p>}
       {renameMutation.isError && <FailureAlert failure={renameMutation.error.failure} />}
     </div>
   );

@@ -4,48 +4,87 @@
   gap: var(--space-4);
 }
 
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--control-min-size);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  transition: 140ms ease;
+}
+
+.search:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 var(--focus-ring-width) color-mix(in srgb, var(--color-focus) 25%, transparent);
+}
+
+.search > svg {
+  flex: none;
+  color: var(--color-accent);
+}
+
+.search input {
+  flex: 1;
+  min-inline-size: 0;
+  border: 0;
+  outline: 0;
+  color: var(--color-text);
+  background: transparent;
+  font: inherit;
+}
+
+.visuallyHidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-4);
+  gap: var(--space-2);
 }
 
 .filterGroup {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3) var(--space-4);
-  margin: 0;
-  /* A band, not a boxed fieldset — see `features/tasks/task-list.module.css`. */
-  padding: var(--space-3) var(--space-4);
-  border: 0;
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background-color: var(--color-surface-sunken);
+  gap: var(--space-1);
 }
 
-.filterGroup > legend {
-  padding: 0;
+.filterGroup > span {
+  padding-inline: var(--space-2);
   font-family: var(--font-family-mono);
   font-size: var(--label-size);
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--label-letter-spacing);
   text-transform: uppercase;
-  color: var(--color-text);
+  color: var(--color-text-muted);
 }
 
-.filterOption {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+.filterGroup button {
+  min-block-size: 2rem;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill);
   color: var(--color-text);
+  background: transparent;
   font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: 140ms ease;
 }
 
-.filterOption input {
-  accent-color: var(--color-accent);
-  inline-size: 1rem;
-  block-size: 1rem;
+.filterGroup button:hover,
+.filterGroup button[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  color: var(--color-accent-strong);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
 }
 
 .list {

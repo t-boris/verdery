@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { z } from '@/shared/validation/zod';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, TextField } from '@/shared/ui/public';
+import { Button, CommandSurface, FailureAlert, PlusIcon, TextField } from '@/shared/ui/public';
 
 import styles from './create-organization-form.module.css';
 import { useCreateOrganization } from './queries';
@@ -50,17 +50,24 @@ export function CreateOrganizationForm() {
   });
 
   return (
-    <form className={styles['form']} onSubmit={(event) => void onSubmit(event)} noValidate>
+    <CommandSurface className={styles['form']} onCommit={() => void onSubmit()}>
       <TextField
         label={t('organizations.createNameLabel')}
         maxLength={120}
         error={formState.errors.name === undefined ? undefined : t('organizations.nameRequired')}
         {...register('name')}
       />
-      <Button type="submit" variant="primary" busy={mutation.isPending}>
-        {t('organizations.createSubmit')}
+      <Button
+        type="submit"
+        variant="primary"
+        busy={mutation.isPending}
+        iconOnly
+        aria-label={t('organizations.createSubmit')}
+        title={t('organizations.createSubmit')}
+      >
+        <PlusIcon />
       </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
-    </form>
+    </CommandSurface>
   );
 }

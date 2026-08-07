@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { getRequestTranslator } from '@/shared/localization/server';
+import { BuildingIcon, RouteBody, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
 
 import {
   OrganizationClientEngagements,
@@ -32,17 +33,31 @@ export default async function OrganizationDetailPage({
   const t = await getRequestTranslator();
 
   return (
-    <div className={styles['page']}>
-      <div className={styles['header']}>
-        <Link className={styles['backLink']} href="/application/organizations">
-          {t('organizations.backToList')}
-        </Link>
-      </div>
+    <RoutePage>
+      <RouteHeader
+        title={t('organizations.detailTitle')}
+        icon={<BuildingIcon size={18} />}
+        actions={
+          <Link className={styles['backLink']} href="/application/organizations">
+            {t('organizations.backToList')}
+          </Link>
+        }
+      />
 
-      <OrganizationHeader organizationId={organizationId} />
-      <OrganizationMembers organizationId={organizationId} />
-      <OrganizationGardenAssignments organizationId={organizationId} />
-      <OrganizationClientEngagements organizationId={organizationId} />
-    </div>
+      <RouteBody>
+        <RoutePanel>
+          <OrganizationHeader organizationId={organizationId} />
+        </RoutePanel>
+        <RoutePanel>
+          <OrganizationMembers organizationId={organizationId} />
+        </RoutePanel>
+        <RoutePanel>
+          <OrganizationGardenAssignments organizationId={organizationId} />
+        </RoutePanel>
+        <RoutePanel>
+          <OrganizationClientEngagements organizationId={organizationId} />
+        </RoutePanel>
+      </RouteBody>
+    </RoutePage>
   );
 }

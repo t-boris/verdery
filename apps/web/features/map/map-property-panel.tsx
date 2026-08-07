@@ -1,10 +1,10 @@
 'use client';
 
 import type { GardenObjectDetails } from '@verdery/geometry-contracts';
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Button, TextField } from '@/shared/ui/public';
+import { Button, CommandSurface, TextField } from '@/shared/ui/public';
 
 import { CategoryDetailFields } from './category-detail-fields';
 import { useMapEditorStore } from './editor-store';
@@ -60,8 +60,7 @@ function PropertyForm({
   const [details, setDetails] = useState<GardenObjectDetails | undefined>(record.categoryDetails);
   const [saving, setSaving] = useState(false);
 
-  const onSave = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const onSave = async () => {
     setSaving(true);
     await actions.changeProperties(
       record.id,
@@ -101,7 +100,7 @@ function PropertyForm({
         actions={actions}
         record={record}
       />
-      <form className={styles['form']} onSubmit={(event) => void onSave(event)} noValidate>
+      <CommandSurface className={styles['form']} onCommit={onSave}>
         <TextField
           label={t('map.properties.label')}
           maxLength={200}
@@ -122,7 +121,7 @@ function PropertyForm({
             {t('map.properties.delete')}
           </Button>
         </div>
-      </form>
+      </CommandSurface>
       {record.category === 'plant' && <PlantAssignmentField actions={actions} record={record} />}
       <div className={styles['actions']}>
         {canEditVertices && (

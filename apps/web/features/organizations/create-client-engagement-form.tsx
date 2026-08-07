@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Button, Card, FailureAlert, TextField } from '@/shared/ui/public';
+import { Button, CommandSurface, FailureAlert, PlusIcon, TextField } from '@/shared/ui/public';
 
 import styles from './create-client-engagement-form.module.css';
 import { useCreateClientEngagement } from './queries';
@@ -38,8 +38,7 @@ export function CreateClientEngagementForm({
   const mutation = useCreateClientEngagement(organizationId);
   const [gardenId, setGardenId] = useState('');
 
-  const onSubmit = (event: FormEvent) => {
-    event.preventDefault();
+  const onSubmit = () => {
     const trimmed = gardenId.trim();
     if (trimmed === '') {
       return;
@@ -48,24 +47,27 @@ export function CreateClientEngagementForm({
   };
 
   return (
-    <Card title={t('engagements.createTitle')}>
-      <form className={styles['form']} onSubmit={onSubmit} noValidate>
+    <CommandSurface className={styles['form']} onCommit={onSubmit}>
+      <div className={styles['commandRow']}>
         <TextField
           label={t('engagements.gardenIdLabel')}
           value={gardenId}
           onChange={(event) => setGardenId(event.target.value)}
         />
-        <p className={styles['hint']}>{t('engagements.gardenIdHint')}</p>
         <Button
           type="submit"
           variant="primary"
           busy={mutation.isPending}
           disabled={gardenId.trim() === ''}
+          iconOnly
+          aria-label={t('engagements.submit')}
+          title={t('engagements.submit')}
         >
-          {t('engagements.submit')}
+          <PlusIcon />
         </Button>
-        {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
-      </form>
-    </Card>
+      </div>
+      <p className={styles['hint']}>{t('engagements.gardenIdHint')}</p>
+      {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
+    </CommandSurface>
   );
 }

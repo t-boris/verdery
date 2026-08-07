@@ -4,7 +4,7 @@ import type { ObservationPhotoPurpose, PlantJournalFrame } from '@verdery/api-co
 import { useState } from 'react';
 
 import { formatInstant, useLocalization } from '@/shared/localization/public';
-import { FailureAlert, Select, type SelectOption } from '@/shared/ui/public';
+import { Button, FailureAlert } from '@/shared/ui/public';
 
 import { useJournalFrameAccess, usePlantJournalFrames } from './journal-queries';
 import { OBSERVATION_PHOTO_PURPOSES, photoPurposeLabel } from './labels';
@@ -84,22 +84,24 @@ export function PlantJournalStrip({ gardenId, plantId }: PlantJournalStripProps)
     purpose: purpose === ALL_PURPOSES ? null : purpose,
   });
 
-  const purposeOptions: readonly SelectOption[] = [
-    { value: ALL_PURPOSES, label: t('observations.journalPurposeAll') },
-    ...OBSERVATION_PHOTO_PURPOSES.map((value) => ({
-      value,
-      label: t(photoPurposeLabel(value)),
-    })),
-  ];
+  const purposeOptions = [ALL_PURPOSES, ...OBSERVATION_PHOTO_PURPOSES] as const;
 
   return (
     <div className={styles['strip']}>
-      <Select
-        label={t('observations.journalPurposeLabel')}
-        options={purposeOptions}
-        value={purpose}
-        onChange={(event) => setPurpose(event.target.value as ObservationPhotoPurpose | '')}
-      />
+      <div className={styles['filters']} aria-label={t('observations.journalPurposeLabel')}>
+        {purposeOptions.map((value) => (
+          <Button
+            key={value || 'all'}
+            variant={value === purpose ? 'primary' : 'secondary'}
+            aria-pressed={value === purpose}
+            onClick={() => setPurpose(value)}
+          >
+            {value === ALL_PURPOSES
+              ? t('observations.journalPurposeAll')
+              : t(photoPurposeLabel(value))}
+          </Button>
+        ))}
+      </div>
 
       {query.isError && <FailureAlert failure={query.error.failure} />}
 

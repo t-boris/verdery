@@ -2,8 +2,9 @@
 
 import { useLocalization } from '@/shared/localization/public';
 
-import { Alert } from './alert';
 import { Button } from './button';
+import { RefreshIcon } from './icons';
+import styles from './recovered-draft-notice.module.css';
 
 export interface RecoveredDraftNoticeProps {
   readonly onDiscard: () => void;
@@ -23,11 +24,15 @@ export function RecoveredDraftNotice({ onDiscard }: RecoveredDraftNoticeProps) {
   const { t } = useLocalization();
 
   return (
-    <Alert tone="info" title={t('drafts.recoveredTitle')}>
-      <p>{t('drafts.recoveredDescription')}</p>
+    <div className={styles['notice']} role="status">
+      <RefreshIcon />
+      <span>
+        <strong>{t('drafts.recoveredTitle')}</strong>
+        <small>{t('drafts.recoveredDescription')}</small>
+      </span>
       <Button type="button" variant="secondary" onClick={onDiscard}>
         {t('drafts.discard')}
       </Button>
-    </Alert>
+    </div>
   );
 }

@@ -1,5 +1,14 @@
 import { AddPlantForm, OpenPlantByIdForm, PlantList } from '@/features/plants/public';
 import { getRequestTranslator } from '@/shared/localization/server';
+import {
+  ActionDisclosure,
+  ImageIcon,
+  PlusIcon,
+  RouteHeader,
+  RoutePage,
+  SearchIcon,
+  SproutIcon,
+} from '@/shared/ui/public';
 
 import { AddPlantFromPhotoPanel } from './add-plant-from-photo-panel';
 import styles from './page.module.css';
@@ -33,34 +42,39 @@ export default async function PlantsPage({
   const t = await getRequestTranslator();
 
   return (
-    <div className={styles['page']}>
-      <div className={styles['context']}>
-        <h1 className={styles['title']}>{t('plants.pageTitle')}</h1>
-        <p className={styles['description']}>{t('plants.pageDescription')}</p>
-
-        {/* Photo first: it is the primary way in — the whole point of ADR-0015
+    <RoutePage>
+      <RouteHeader
+        title={t('plants.pageTitle')}
+        description={t('plants.pageDescription')}
+        icon={<SproutIcon size={18} />}
+      />
+      <div className={styles['page']}>
+        <div className={styles['context']}>
+          {/* Photo first: it is the primary way in — the whole point of ADR-0015
             is that a photo identifies the plant for you, so the manual form is
             the fallback, not the default. */}
-        <section className={styles['panel']}>
-          <h2 className={styles['sectionTitle']}>{t('plants.addFromPhotoTitle')}</h2>
-          <AddPlantFromPhotoPanel gardenId={gardenId} />
-        </section>
+          <ActionDisclosure
+            title={t('plants.addFromPhotoTitle')}
+            description={t('plants.addFromPhotoDescription')}
+            icon={<ImageIcon />}
+          >
+            <AddPlantFromPhotoPanel gardenId={gardenId} />
+          </ActionDisclosure>
 
-        <section className={styles['panel']}>
-          <h2 className={styles['sectionTitle']}>{t('plants.addTitle')}</h2>
-          <AddPlantForm gardenId={gardenId} />
-        </section>
+          <ActionDisclosure title={t('plants.addTitle')} icon={<PlusIcon />}>
+            <AddPlantForm gardenId={gardenId} />
+          </ActionDisclosure>
 
-        <section className={styles['panel']}>
-          <h2 className={styles['sectionTitle']}>{t('plants.openByIdTitle')}</h2>
-          <OpenPlantByIdForm gardenId={gardenId} />
-        </section>
+          <ActionDisclosure title={t('plants.openByIdTitle')} icon={<SearchIcon />}>
+            <OpenPlantByIdForm gardenId={gardenId} />
+          </ActionDisclosure>
+        </div>
+
+        <div className={styles['library']}>
+          <h2 className={styles['libraryHeading']}>{t('plants.inventoryTitle')}</h2>
+          <PlantList gardenId={gardenId} />
+        </div>
       </div>
-
-      <div className={styles['library']}>
-        <h2 className={styles['libraryHeading']}>{t('plants.inventoryTitle')}</h2>
-        <PlantList gardenId={gardenId} />
-      </div>
-    </div>
+    </RoutePage>
   );
 }

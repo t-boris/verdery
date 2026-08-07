@@ -8,7 +8,7 @@ import { z } from '@/shared/validation/zod';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, Select, TextField } from '@/shared/ui/public';
+import { Button, CommandSurface, FailureAlert, Select, TextField } from '@/shared/ui/public';
 
 import { candidateAcquisitionDateTypeLabel, CANDIDATE_ACQUISITION_DATE_TYPES } from './labels';
 import styles from './candidate-convert-form.module.css';
@@ -86,7 +86,7 @@ export function CandidateConvertForm({ gardenId, candidate }: CandidateConvertFo
   });
 
   return (
-    <form className={styles['form']} onSubmit={(event) => void onSubmit(event)} noValidate>
+    <CommandSurface className={styles['form']} onCommit={() => void onSubmit()}>
       <p className={styles['description']}>{t('candidates.convertDescription')}</p>
 
       <div className={styles['row']}>
@@ -112,6 +112,6 @@ export function CandidateConvertForm({ gardenId, candidate }: CandidateConvertFo
         {t('candidates.convertSubmit')}
       </Button>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
-    </form>
+    </CommandSurface>
   );
 }

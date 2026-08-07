@@ -5,7 +5,16 @@ import {
   CreateClientUpdateForm,
   PublisherAccessPanel,
 } from '@/features/publications/public';
-import { RouteBody, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
+import {
+  ActionDisclosure,
+  BookIcon,
+  PlusIcon,
+  RouteBody,
+  RouteHeader,
+  RoutePage,
+  RoutePanel,
+  UnlockIcon,
+} from '@/shared/ui/public';
 
 /**
  * One client engagement's own client-update workspace: who may publish
@@ -29,17 +38,17 @@ export default async function EngagementUpdatesPage({
 
   return (
     <RoutePage>
-      <RouteHeader title={t('publications.pageTitle')} />
+      <RouteHeader title={t('publications.pageTitle')} icon={<BookIcon size={18} />} />
       <RouteBody>
-        <RoutePanel>
+        <ActionDisclosure title={t('publications.accessTitle')} icon={<UnlockIcon />}>
           <PublisherAccessPanel engagementId={engagementId} />
-        </RoutePanel>
+        </ActionDisclosure>
         <RoutePanel>
           <ClientUpdateList engagementId={engagementId} />
         </RoutePanel>
-        <RoutePanel>
+        <ActionDisclosure title={t('publications.createTitle')} icon={<PlusIcon />}>
           <CreateClientUpdateForm engagementId={engagementId} />
-        </RoutePanel>
+        </ActionDisclosure>
       </RouteBody>
     </RoutePage>
   );

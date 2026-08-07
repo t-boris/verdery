@@ -1,21 +1,19 @@
 .section {
   display: grid;
   gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
 }
 
-.heading {
-  display: grid;
-  gap: var(--space-1);
-}
-
-.heading h2,
-.heading p,
-.attribution {
+.title {
   margin: 0;
+  font-size: var(--font-size-lg);
 }
 
-.heading p,
-.attribution {
+.description {
+  margin: var(--space-1) 0 0;
   color: var(--color-text-muted);
 }
 
@@ -23,83 +21,24 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
   gap: var(--space-3);
-  margin: 0;
   padding: 0;
+  margin: 0;
   list-style: none;
 }
 
-.item {
+.image {
   display: grid;
   gap: var(--space-1);
-  min-width: 0;
 }
 
-.imageButton {
-  display: grid;
+.image img {
   width: 100%;
-  padding: 0;
-  aspect-ratio: 4 / 3;
-  overflow: hidden;
-  border: 0;
+  aspect-ratio: 1;
   border-radius: var(--radius-md);
+  object-fit: cover;
   background: var(--color-surface-sunken);
-  cursor: zoom-in;
 }
 
-.imageButton img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.imageButton:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 3px;
-}
-
-.attribution {
-  font-size: var(--font-size-xs);
-  overflow-wrap: anywhere;
-}
-
-.lightbox {
-  position: fixed;
-  z-index: 1000;
-  inset: 0;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  place-items: center;
-  gap: var(--space-2);
-  padding: var(--space-6);
-  overflow: hidden;
-  background: rgb(0 0 0 / 92%);
-}
-
-.fullImage {
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-  object-fit: contain;
-}
-
-.lightboxAttribution {
-  margin: 0;
-  color: white;
-}
-
-.close {
-  position: fixed;
-  z-index: 1;
-  top: var(--space-4);
-  right: var(--space-4);
-  display: grid;
-  width: 2.75rem;
-  height: 2.75rem;
-  place-items: center;
-  border: 1px solid rgb(255 255 255 / 45%);
-  border-radius: 999px;
-  color: white;
-  background: rgb(20 20 16 / 85%);
-  cursor: pointer;
+.image small {
+  color: var(--color-text-muted);
 }

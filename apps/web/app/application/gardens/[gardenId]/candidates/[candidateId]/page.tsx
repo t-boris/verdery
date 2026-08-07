@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import { CandidateDetail } from '@/features/candidates/public';
 import { getRequestTranslator } from '@/shared/localization/server';
+import { LightbulbIcon, RouteBody, RouteHeader, RoutePage } from '@/shared/ui/public';
 
 import styles from './page.module.css';
 
@@ -25,12 +26,20 @@ export default async function CandidateDetailPage({
   const t = await getRequestTranslator();
 
   return (
-    <div className={styles['page']}>
-      <Link className={styles['back']} href={`/application/gardens/${gardenId}/candidates`}>
-        {t('candidates.backToCandidates')}
-      </Link>
+    <RoutePage>
+      <RouteHeader
+        title={t('candidates.pageTitle')}
+        icon={<LightbulbIcon size={18} />}
+        actions={
+          <Link className={styles['back']} href={`/application/gardens/${gardenId}/candidates`}>
+            {t('candidates.backToCandidates')}
+          </Link>
+        }
+      />
 
-      <CandidateDetail gardenId={gardenId} candidateId={candidateId} />
-    </div>
+      <RouteBody>
+        <CandidateDetail gardenId={gardenId} candidateId={candidateId} />
+      </RouteBody>
+    </RoutePage>
   );
 }

@@ -1,20 +1,12 @@
 'use client';
 
 import type { Plant, PlantLifecycleStage, PlantStatus } from '@verdery/api-contracts';
-import { useEffect, useState } from 'react';
-import { CheckIcon } from '@/shared/ui/public';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, Select, StatusPill } from '@/shared/ui/public';
+import { Button, FailureAlert, PulseIcon, SproutIcon } from '@/shared/ui/public';
 
-import {
-  PLANT_LIFECYCLE_STAGES,
-  PLANT_STATUSES,
-  lifecycleStageLabel,
-  statusLabel,
-  statusTone,
-} from './labels';
+import { PLANT_LIFECYCLE_STAGES, PLANT_STATUSES, lifecycleStageLabel, statusLabel } from './labels';
 import styles from './plant-lifecycle-controls.module.css';
 import { useSetPlantStatus, useTransitionPlantLifecycleStage } from './queries';
 
@@ -46,75 +38,68 @@ export function PlantLifecycleControls({ gardenId, plant }: PlantLifecycleContro
   const { t } = useLocalization();
   const stageMutation = useTransitionPlantLifecycleStage(gardenId, plant.id);
   const statusMutation = useSetPlantStatus(gardenId, plant.id);
-  const [stage, setStage] = useState<PlantLifecycleStage>(plant.lifecycleStage);
-  const [status, setStatus] = useState<PlantStatus>(plant.status);
   const isOnline = useIsOnline();
 
-  useEffect(() => setStage(plant.lifecycleStage), [plant.lifecycleStage]);
-  useEffect(() => setStatus(plant.status), [plant.status]);
-
-  const onSaveStage = () => {
-    if (stage === plant.lifecycleStage) {
-      return;
-    }
+  const setStage = (stage: PlantLifecycleStage) => {
+    if (stage === plant.lifecycleStage || stageMutation.isPending) return;
     stageMutation.mutate({ stage, expectedRevision: plant.revision });
   };
 
-  const onSaveStatus = () => {
-    if (status === plant.status) {
-      return;
-    }
+  const setStatus = (status: PlantStatus) => {
+    if (status === plant.status || statusMutation.isPending) return;
     statusMutation.mutate({ status, expectedRevision: plant.revision });
   };
 
   return (
-    <div className={styles['panel']}>
-      <div className={styles['row']}>
-        <Select
-          label={t('plants.lifecycleStageLabel')}
-          value={stage}
-          onChange={(event) => setStage(event.target.value as PlantLifecycleStage)}
-          options={PLANT_LIFECYCLE_STAGES.map((value) => ({
-            value,
-            label: t(lifecycleStageLabel(value)),
-          }))}
-        />
-        <Button
-          variant="secondary"
-          busy={stageMutation.isPending}
-          disabled={!isOnline}
-          onClick={onSaveStage}
-
-          iconOnly
-          aria-label={t('plants.saveStage')}
-          title={t('plants.saveStage')}
-        >
-          <CheckIcon />
-        </Button>
-      </div>
+    <div className={styles['board']}>
+      <details className={styles['property']}>
+        <summary>
+          <span className={styles['propertyLabel']}>
+            <SproutIcon size={16} />
+            {t('plants.lifecycleStageLabel')}
+          </span>
+          <strong>{t(lifecycleStageLabel(plant.lifecycleStage))}</strong>
+        </summary>
+        <div className={styles['choices']}>
+          {PLANT_LIFECYCLE_STAGES.map((value) => (
+            <Button
+              key={value}
+              variant={value === plant.lifecycleStage ? 'primary' : 'secondary'}
+              busy={stageMutation.isPending && stageMutation.variables?.stage === value}
+              disabled={!isOnline || stageMutation.isPending}
+              aria-pressed={value === plant.lifecycleStage}
+              onClick={() => setStage(value)}
+            >
+              {t(lifecycleStageLabel(value))}
+            </Button>
+          ))}
+        </div>
+      </details>
       {stageMutation.isError && <FailureAlert failure={stageMutation.error.failure} />}
 
-      <div className={styles['row']}>
-        <Select
-          label={t('plants.statusLabel')}
-          value={status}
-          onChange={(event) => setStatus(event.target.value as PlantStatus)}
-          options={PLANT_STATUSES.map((value) => ({ value, label: t(statusLabel(value)) }))}
-        />
-        <Button
-          variant="secondary"
-          busy={statusMutation.isPending}
-          disabled={!isOnline}
-          onClick={onSaveStatus}
-
-          iconOnly
-          aria-label={t('plants.saveStatus')}
-          title={t('plants.saveStatus')}
-        >
-          <CheckIcon />
-        </Button>
-        <StatusPill tone={statusTone(plant.status)} label={t(statusLabel(plant.status))} />
-      </div>
+      <details className={styles['property']}>
+        <summary>
+          <span className={styles['propertyLabel']}>
+            <PulseIcon size={16} />
+            {t('plants.statusLabel')}
+          </span>
+          <strong>{t(statusLabel(plant.status))}</strong>
+        </summary>
+        <div className={styles['choices']}>
+          {PLANT_STATUSES.map((value) => (
+            <Button
+              key={value}
+              variant={value === plant.status ? 'primary' : 'secondary'}
+              busy={statusMutation.isPending && statusMutation.variables?.status === value}
+              disabled={!isOnline || statusMutation.isPending}
+              aria-pressed={value === plant.status}
+              onClick={() => setStatus(value)}
+            >
+              {t(statusLabel(value))}
+            </Button>
+          ))}
+        </div>
+      </details>
       {statusMutation.isError && <FailureAlert failure={statusMutation.error.failure} />}
     </div>
   );

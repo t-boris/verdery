@@ -1,7 +1,7 @@
 import { TaxonSearch } from '@/features/catalog/public';
 import { getRequestTranslator } from '@/shared/localization/server';
 
-import { RouteBody, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
+import { BookIcon, RouteBody, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
 
 /**
  * Browsing the shared plant catalog from inside a garden.
@@ -25,7 +25,11 @@ export default async function CatalogPage({
 
   return (
     <RoutePage>
-      <RouteHeader title={t('catalog.pageTitle')} description={t('catalog.pageDescription')} />
+      <RouteHeader
+        title={t('catalog.pageTitle')}
+        description={t('catalog.pageDescription')}
+        icon={<BookIcon size={18} />}
+      />
       <RouteBody>
         <RoutePanel>
           <TaxonSearch gardenId={gardenId} />

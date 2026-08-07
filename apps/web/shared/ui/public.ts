@@ -7,8 +7,10 @@
  * Source: architecture/web-application-design.md, section "20. Dependency Rules".
  */
 export { Alert, type AlertProps, type AlertTone } from './alert';
+export { ActionDisclosure, type ActionDisclosureProps } from './action-disclosure';
 export { Button, type ButtonProps, type ButtonVariant } from './button';
 export { Card, type CardProps } from './card';
+export { CommandSurface, type CommandSurfaceProps } from './command-surface';
 export { DetailRow, type DetailRowProps } from './detail-row';
 export { FailureAlert } from './failure-alert';
 export { FieldGrid, type FieldGridProps } from './field-grid';

@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { z } from '@/shared/validation/zod';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, Select } from '@/shared/ui/public';
+import { Button, CommandSurface, FailureAlert, Select } from '@/shared/ui/public';
 
 import { useAssignableMembers } from './assignable-members';
 import { assignableMemberRoleLabel } from './labels';
@@ -80,7 +80,7 @@ export function TaskAssignForm({ gardenId, task, onDone }: TaskAssignFormProps) 
   ];
 
   return (
-    <form className={styles['form']} onSubmit={(event) => void onSubmit(event)} noValidate>
+    <CommandSurface className={styles['form']} onCommit={() => void onSubmit()}>
       {membersQuery.isPending && <p role="status">{t('tasks.assign.loadingMembers')}</p>}
       {membersQuery.isError && <FailureAlert failure={membersQuery.error.failure} />}
       {membersQuery.data !== undefined && (
@@ -104,6 +104,6 @@ export function TaskAssignForm({ gardenId, task, onDone }: TaskAssignFormProps) 
         </Button>
       </div>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
-    </form>
+    </CommandSurface>
   );
 }

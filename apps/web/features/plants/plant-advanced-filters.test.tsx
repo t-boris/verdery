@@ -64,16 +64,17 @@ describe('PlantAdvancedFilters', () => {
   it('keeps the fields collapsed until asked', () => {
     renderPanel();
 
-    expect(screen.queryByLabelText('Journal')).toBeNull();
+    expect(screen.queryByText('Journal')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /More filters/ }));
-    expect(screen.getByLabelText('Journal')).toBeTruthy();
+    expect(screen.getByText('Journal')).toBeTruthy();
   });
 
   it('reports a selection back to the caller', () => {
     const onChange = renderPanel();
 
     fireEvent.click(screen.getByRole('button', { name: /More filters/ }));
-    fireEvent.change(screen.getByLabelText('Flagged concern'), { target: { value: 'pest' } });
+    fireEvent.click(screen.getByText('Flagged concern'));
+    fireEvent.click(screen.getByRole('button', { name: 'Pest' }));
 
     expect(onChange).toHaveBeenCalledWith({
       ...EMPTY_PLANT_ADVANCED_FILTERS,
@@ -83,10 +84,10 @@ describe('PlantAdvancedFilters', () => {
 
   // The month means nothing without an activity, and an enabled control that
   // does nothing is a worse answer than a disabled one.
-  it('disables the month until an activity is chosen', () => {
+  it('keeps the month out of the command bar until an activity is chosen', () => {
     renderPanel();
 
     fireEvent.click(screen.getByRole('button', { name: /More filters/ }));
-    expect(screen.getByLabelText<HTMLSelectElement>('In month').disabled).toBe(true);
+    expect(screen.queryByText('In month')).toBeNull();
   });
 });

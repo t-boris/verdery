@@ -5,6 +5,7 @@
 }
 
 .bar {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -12,9 +13,16 @@
   min-block-size: 3.5rem;
   padding: var(--space-2) var(--space-3);
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+  border-block-start-color: var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  background-image:
+    linear-gradient(90deg, var(--color-surface) 24%, transparent 78%),
+    linear-gradient(0deg, color-mix(in srgb, var(--color-surface) 70%, transparent), transparent),
+    url('/images/field-console-botanical.webp');
+  background-position: center;
+  background-size: cover;
+  box-shadow: var(--shadow-sm);
 }
 
 .primaryNav {
@@ -83,9 +91,16 @@
 .content {
   padding: var(--space-4);
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-xs);
+  border-block-start-color: var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--color-surface-raised) 68%, transparent),
+      transparent 28rem
+    ),
+    var(--color-surface);
+  box-shadow: var(--shadow-sm);
 }
 
 @media (max-width: 40rem) {

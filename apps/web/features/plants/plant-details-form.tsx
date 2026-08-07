@@ -8,16 +8,14 @@ import { z } from '@/shared/validation/zod';
 
 import { useLocalization } from '@/shared/localization/public';
 import {
-  CheckIcon,
-  Button,
   CalendarIcon,
+  Button,
   FailureAlert,
   HashIcon,
   LightbulbIcon,
   PulseIcon,
-  Select,
+  SproutIcon,
   TagIcon,
-  TextField,
   TypeIcon,
 } from '@/shared/ui/public';
 
@@ -27,6 +25,7 @@ import { useUpdatePlantDetails } from './queries';
 import { TaxonomyReferenceField } from './taxonomy-reference-field';
 
 const NONE_VALUE = '';
+const ACQUISITION_CHOICES = [NONE_VALUE, ...PLANT_ACQUISITION_DATE_TYPES] as const;
 
 const editPlantFields = z.object({
   displayName: z.string().trim().min(1).max(200),
@@ -64,7 +63,7 @@ export interface PlantDetailsFormProps {
 }
 
 /**
- * Edit form for `UpdatePlantDetailsRequest`.
+ * Inline attribute board for `UpdatePlantDetailsRequest`.
  *
  * Every property on the wire is optional: an omitted one leaves the current
  * value unchanged, while an explicit `null` clears it. This form always
@@ -88,7 +87,7 @@ export function PlantDetailsForm({ gardenId, plant }: PlantDetailsFormProps) {
     setTaxonomyReferenceId(plant.taxonomyReferenceId);
   }, [plant.taxonomyReferenceId]);
 
-  const { register, handleSubmit, formState } = useForm<EditPlantValues>({
+  const { register, handleSubmit, formState, setValue, watch } = useForm<EditPlantValues>({
     resolver: zodResolver(editPlantSchema(plant.groupingKind)),
     values: {
       displayName: plant.displayName,
@@ -101,10 +100,10 @@ export function PlantDetailsForm({ gardenId, plant }: PlantDetailsFormProps) {
     },
   });
 
-  const onSubmit = handleSubmit((values) => {
+  const saveValues = (values: EditPlantValues, nextTaxonomyReferenceId: string | null) => {
     const input: UpdatePlantDetailsRequest = {
       displayName: values.displayName,
-      taxonomyReferenceId,
+      taxonomyReferenceId: nextTaxonomyReferenceId,
       varietyLabel:
         values.varietyLabel === undefined || values.varietyLabel === ''
           ? null
@@ -140,82 +139,188 @@ export function PlantDetailsForm({ gardenId, plant }: PlantDetailsFormProps) {
       { input, expectedRevision: plant.revision },
       { onSuccess: () => setSavedAnnouncement(true) },
     );
-  });
+  };
+
+  const save = (nextTaxonomyReferenceId = taxonomyReferenceId) => {
+    if (mutation.isPending) return;
+    void handleSubmit((values) => saveValues(values, nextTaxonomyReferenceId))();
+  };
+
+  const displayNameField = register('displayName');
+  const varietyField = register('varietyLabel');
+  const acquisitionDateField = register('acquisitionDate');
+  const acquisitionType = watch('acquisitionDateType') ?? NONE_VALUE;
+  const quantityField = register('quantity');
+  const conditionField = register('conditionNote');
+  const guidanceField = register('careGuidanceNote');
 
   return (
-    <form className={styles['form']} onSubmit={(event) => void onSubmit(event)} noValidate>
-      <TextField
-        label={t('plants.displayNameLabel')}
-        icon={<TypeIcon />}
-        maxLength={200}
-        error={
-          formState.errors.displayName === undefined ? undefined : t('plants.displayNameRequired')
-        }
-        {...register('displayName')}
-      />
-      <TaxonomyReferenceField
-        gardenId={gardenId}
-        value={taxonomyReferenceId}
-        initialSelectionLabel={plant.displayName}
-        onChange={setTaxonomyReferenceId}
-      />
-      <TextField
-        label={t('plants.varietyLabelLabel')}
-        icon={<TagIcon />}
-        maxLength={200}
-        {...register('varietyLabel')}
-      />
-      <div className={styles['row']}>
-        <TextField
-          label={t('plants.acquisitionDateLabel')}
-          icon={<CalendarIcon />}
+    <div className={styles['board']}>
+      <label className={`${styles['property']} ${styles['propertyName']}`}>
+        <span className={styles['propertyLabel']}>
+          <TypeIcon />
+          {t('plants.displayNameLabel')}
+        </span>
+        <input
+          className={styles['propertyValue']}
+          maxLength={200}
+          {...displayNameField}
+          onBlur={(event) => {
+            void displayNameField.onBlur(event);
+            save();
+          }}
+        />
+        {formState.errors.displayName !== undefined && (
+          <span className={styles['propertyError']}>{t('plants.displayNameRequired')}</span>
+        )}
+      </label>
+
+      <details className={`${styles['property']} ${styles['propertyTaxonomy']}`}>
+        <summary>
+          <span className={styles['propertyLabel']}>
+            <SproutIcon />
+            {t('plants.taxonomySelectLabel')}
+          </span>
+          <strong className={styles['summaryValue']}>
+            {taxonomyReferenceId === null ? t('plants.taxonomyNone') : plant.displayName}
+          </strong>
+        </summary>
+        <div className={styles['picker']}>
+          <TaxonomyReferenceField
+            gardenId={gardenId}
+            value={taxonomyReferenceId}
+            initialSelectionLabel={plant.displayName}
+            onChange={(nextValue) => {
+              setTaxonomyReferenceId(nextValue);
+              save(nextValue);
+            }}
+          />
+        </div>
+      </details>
+
+      <label className={styles['property']}>
+        <span className={styles['propertyLabel']}>
+          <TagIcon />
+          {t('plants.varietyLabelLabel')}
+        </span>
+        <input
+          className={styles['propertyValue']}
+          placeholder="—"
+          maxLength={200}
+          {...varietyField}
+          onBlur={(event) => {
+            void varietyField.onBlur(event);
+            save();
+          }}
+        />
+      </label>
+
+      <label className={styles['property']}>
+        <span className={styles['propertyLabel']}>
+          <CalendarIcon />
+          {t('plants.acquisitionDateLabel')}
+        </span>
+        <input
+          className={styles['propertyValue']}
           type="date"
-          {...register('acquisitionDate')}
+          {...acquisitionDateField}
+          onBlur={(event) => {
+            void acquisitionDateField.onBlur(event);
+            save();
+          }}
         />
-        <Select
-          label={t('plants.acquisitionDateTypeLabel')}
-          icon={<CalendarIcon />}
-          options={[
-            { value: NONE_VALUE, label: t('plants.acquisitionDateTypeNone') },
-            ...PLANT_ACQUISITION_DATE_TYPES.map((type) => ({
-              value: type,
-              label: t(acquisitionDateTypeLabel(type)),
-            })),
-          ]}
-          {...register('acquisitionDateType')}
-        />
-      </div>
+      </label>
+
+      <details className={styles['property']}>
+        <summary>
+          <span className={styles['propertyLabel']}>
+            <CalendarIcon />
+            {t('plants.acquisitionDateTypeLabel')}
+          </span>
+          <strong className={styles['summaryValue']}>
+            {acquisitionType === NONE_VALUE
+              ? t('plants.acquisitionDateTypeNone')
+              : t(acquisitionDateTypeLabel(acquisitionType))}
+          </strong>
+        </summary>
+        <div className={styles['choices']}>
+          {ACQUISITION_CHOICES.map((type) => (
+            <Button
+              key={type || 'none'}
+              variant={type === acquisitionType ? 'primary' : 'secondary'}
+              aria-pressed={type === acquisitionType}
+              onClick={() => {
+                setValue('acquisitionDateType', type, { shouldDirty: true });
+                queueMicrotask(() => save());
+              }}
+            >
+              {type === NONE_VALUE
+                ? t('plants.acquisitionDateTypeNone')
+                : t(acquisitionDateTypeLabel(type))}
+            </Button>
+          ))}
+        </div>
+      </details>
+
       {plant.groupingKind !== 'individual' && (
-        <TextField
-          label={t('plants.quantityLabel')}
-          icon={<HashIcon />}
-          type="number"
-          min={1}
-          {...register('quantity')}
-        />
+        <label className={styles['property']}>
+          <span className={styles['propertyLabel']}>
+            <HashIcon />
+            {t('plants.quantityLabel')}
+          </span>
+          <input
+            className={styles['propertyValue']}
+            type="number"
+            min={1}
+            {...quantityField}
+            onBlur={(event) => {
+              void quantityField.onBlur(event);
+              save();
+            }}
+          />
+        </label>
       )}
-      <TextField
-        label={t('plants.conditionNoteLabel')}
-        icon={<PulseIcon />}
-        {...register('conditionNote')}
-      />
-      <TextField
-        label={t('plants.careGuidanceNoteLabel')}
-        icon={<LightbulbIcon />}
-        {...register('careGuidanceNote')}
-      />
-      <Button
-        type="submit"
-        variant="primary"
-        busy={mutation.isPending}
-        iconOnly
-        aria-label={t('plants.saveDetails')}
-        title={t('plants.saveDetails')}
-      >
-        <CheckIcon />
-      </Button>
+
+      <label className={`${styles['property']} ${styles['propertyNote']}`}>
+        <span className={styles['propertyLabel']}>
+          <PulseIcon />
+          {t('plants.conditionNoteLabel')}
+        </span>
+        <input
+          className={styles['propertyValue']}
+          placeholder="—"
+          {...conditionField}
+          onBlur={(event) => {
+            void conditionField.onBlur(event);
+            save();
+          }}
+        />
+      </label>
+
+      <label className={`${styles['property']} ${styles['propertyNote']}`}>
+        <span className={styles['propertyLabel']}>
+          <LightbulbIcon />
+          {t('plants.careGuidanceNoteLabel')}
+        </span>
+        <input
+          className={styles['propertyValue']}
+          placeholder="—"
+          {...guidanceField}
+          onBlur={(event) => {
+            void guidanceField.onBlur(event);
+            save();
+          }}
+        />
+      </label>
+
+      <p className={styles['saveState']} role="status">
+        {mutation.isPending
+          ? t('plants.detailsSaving')
+          : savedAnnouncement
+            ? t('plants.detailsSaved')
+            : t('plants.detailsAutoSave')}
+      </p>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
-      {savedAnnouncement && !mutation.isError && <p role="status">{t('plants.detailsSaved')}</p>}
-    </form>
+    </div>
   );
 }

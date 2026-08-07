@@ -1,7 +1,7 @@
 import { getRequestTranslator } from '@/shared/localization/server';
+import { PulseIcon, RouteBody, RouteHeader, RoutePage, RoutePanel } from '@/shared/ui/public';
 
 import { HealthPanel } from './health-panel';
-import styles from '../page.module.css';
 
 /**
  * Service status route.
@@ -16,10 +16,17 @@ export default async function StatusPage() {
   const t = await getRequestTranslator();
 
   return (
-    <div className={styles['page']}>
-      <h1 className={styles['title']}>{t('status.title')}</h1>
-      <p className={styles['description']}>{t('status.description')}</p>
-      <HealthPanel />
-    </div>
+    <RoutePage>
+      <RouteHeader
+        title={t('status.title')}
+        description={t('status.description')}
+        icon={<PulseIcon size={18} />}
+      />
+      <RouteBody>
+        <RoutePanel>
+          <HealthPanel />
+        </RoutePanel>
+      </RouteBody>
+    </RoutePage>
   );
 }

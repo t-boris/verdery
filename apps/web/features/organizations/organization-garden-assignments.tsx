@@ -2,7 +2,14 @@
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, Card, FailureAlert, StaleIndicator } from '@/shared/ui/public';
+import {
+  ActionDisclosure,
+  Button,
+  Card,
+  FailureAlert,
+  MapIcon,
+  StaleIndicator,
+} from '@/shared/ui/public';
 
 import { CreateGardenAssignmentForm } from './create-garden-assignment-form';
 import styles from './organization-members.module.css';
@@ -75,7 +82,11 @@ export function OrganizationGardenAssignments({
           ))}
       </Card>
 
-      {callerIsAdmin && <CreateGardenAssignmentForm organizationId={organizationId} />}
+      {callerIsAdmin && (
+        <ActionDisclosure title={t('assignments.createTitle')} icon={<MapIcon />}>
+          <CreateGardenAssignmentForm organizationId={organizationId} />
+        </ActionDisclosure>
+      )}
     </div>
   );
 }

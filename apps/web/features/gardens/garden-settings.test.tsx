@@ -83,7 +83,7 @@ describe('GardenSettings — data stays visible when connectivity is lost (P5-WE
 
     renderSettings();
 
-    expect(screen.getByText('Backyard')).toBeTruthy();
+    expect(screen.getByDisplayValue('Backyard')).toBeTruthy();
     expect(screen.getByText('You are offline')).toBeTruthy();
     // The full-page failure state (with its own "Try again" retry button) is
     // reserved for a failed *first* load — it must not also appear here.
@@ -102,7 +102,7 @@ describe('GardenSettings — data stays visible when connectivity is lost (P5-WE
 
     renderSettings();
 
-    expect(screen.queryByText('Backyard')).toBeNull();
+    expect(screen.queryByDisplayValue('Backyard')).toBeNull();
     expect(screen.getByRole('alert')).toBeTruthy();
   });
 
@@ -118,7 +118,7 @@ describe('GardenSettings — data stays visible when connectivity is lost (P5-WE
 
     renderSettings();
 
-    expect(screen.getByText('Backyard')).toBeTruthy();
+    expect(screen.getByDisplayValue('Backyard')).toBeTruthy();
     expect(screen.queryByText('You are offline')).toBeNull();
   });
 });

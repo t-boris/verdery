@@ -2,6 +2,7 @@
 
 import { useId, useState, type ChangeEvent } from 'react';
 
+import { ImageIcon, PlusIcon } from './icons';
 import styles from './file-picker.module.css';
 
 export interface FilePickerProps {
@@ -49,14 +50,13 @@ export function FilePicker({
 
   return (
     <div className={styles['picker']}>
-      <label className={styles['label']} htmlFor={inputId}>
-        {label}
-      </label>
-      <div className={styles['control']}>
+      <label className={styles['control']} htmlFor={inputId}>
         <input
           id={inputId}
           className={styles['input']}
           type="file"
+          aria-label={label}
+          aria-description={chosenName ?? emptyText}
           {...(accept === undefined ? {} : { accept })}
           disabled={disabled}
           aria-invalid={error === undefined ? undefined : true}
@@ -66,11 +66,17 @@ export function FilePicker({
             onChange(event);
           }}
         />
-        <label className={styles['button']} htmlFor={inputId} aria-hidden="true">
-          {action}
-        </label>
-        <span className={styles['fileName']}>{chosenName ?? emptyText}</span>
-      </div>
+        <span className={styles['mediaIcon']} aria-hidden="true">
+          <ImageIcon size={22} />
+        </span>
+        <span className={styles['copy']}>
+          <strong>{chosenName ?? label}</strong>
+          <span>{action}</span>
+        </span>
+        <span className={styles['actionIcon']} aria-hidden="true">
+          <PlusIcon />
+        </span>
+      </label>
       {error !== undefined && (
         <p id={errorId} className={styles['error']} role="alert">
           {error}

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Button, Card, FailureAlert, TextField } from '@/shared/ui/public';
+import { Button, Card, CommandSurface, FailureAlert, TextField } from '@/shared/ui/public';
 
 import styles from './create-client-update-form.module.css';
 import { useCreateClientUpdate } from './queries';
@@ -22,8 +22,7 @@ export function CreateClientUpdateForm({ engagementId }: { readonly engagementId
   const mutation = useCreateClientUpdate(engagementId);
   const [title, setTitle] = useState('');
 
-  const onSubmit = (event: FormEvent) => {
-    event.preventDefault();
+  const onSubmit = () => {
     const trimmed = title.trim();
     if (trimmed === '') {
       return;
@@ -33,7 +32,7 @@ export function CreateClientUpdateForm({ engagementId }: { readonly engagementId
 
   return (
     <Card title={t('publications.createTitle')}>
-      <form className={styles['form']} onSubmit={onSubmit} noValidate>
+      <CommandSurface className={styles['form']} onCommit={onSubmit}>
         <TextField
           label={t('publications.createTitleLabel')}
           value={title}
@@ -48,7 +47,7 @@ export function CreateClientUpdateForm({ engagementId }: { readonly engagementId
           {t('publications.createSubmit')}
         </Button>
         {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
-      </form>
+      </CommandSurface>
     </Card>
   );
 }

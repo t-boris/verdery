@@ -4,7 +4,18 @@ import Link from 'next/link';
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Alert, Card, FailureAlert, StaleIndicator, StatusPill } from '@/shared/ui/public';
+import {
+  ActionDisclosure,
+  Alert,
+  Card,
+  FailureAlert,
+  PulseIcon,
+  SparklesIcon,
+  StaleIndicator,
+  StatusPill,
+  TrashIcon,
+  TypeIcon,
+} from '@/shared/ui/public';
 
 import { CandidateConvertForm } from './candidate-convert-form';
 import { CandidateDeleteControl } from './candidate-delete-control';
@@ -106,7 +117,7 @@ export function CandidateDetail({ gardenId, candidateId }: CandidateDetailProps)
         {/* The candidate's own name is this page's `<h1>` — mirrors
             `plant-detail.tsx`'s identical reasoning: the route renders no
             other top-level heading. */}
-        <h1 className={styles['name']}>{candidate.displayName}</h1>
+        <h2 className={styles['name']}>{candidate.displayName}</h2>
         <StatusPill
           tone={candidateStatusTone(candidate.status)}
           label={t(candidateStatusLabel(candidate.status))}
@@ -160,23 +171,23 @@ export function CandidateDetail({ gardenId, candidateId }: CandidateDetailProps)
       </Card>
 
       {!isConverted && (
-        <>
-          <Card title={t('candidates.editTitle')}>
+        <div className={styles['actionsGrid']}>
+          <ActionDisclosure title={t('candidates.editTitle')} icon={<TypeIcon />}>
             <CandidateDetailsForm gardenId={gardenId} candidate={candidate} />
-          </Card>
+          </ActionDisclosure>
 
-          <Card title={t('candidates.statusTitle')}>
+          <ActionDisclosure title={t('candidates.statusTitle')} icon={<PulseIcon />}>
             <CandidateStatusControls gardenId={gardenId} candidate={candidate} />
-          </Card>
+          </ActionDisclosure>
 
-          <Card title={t('candidates.convertTitle')}>
+          <ActionDisclosure title={t('candidates.convertTitle')} icon={<SparklesIcon />}>
             <CandidateConvertForm gardenId={gardenId} candidate={candidate} />
-          </Card>
+          </ActionDisclosure>
 
-          <Card title={t('candidates.deleteTitle')}>
+          <ActionDisclosure title={t('candidates.deleteTitle')} icon={<TrashIcon />}>
             <CandidateDeleteControl gardenId={gardenId} candidate={candidate} />
-          </Card>
-        </>
+          </ActionDisclosure>
+        </div>
       )}
     </div>
   );

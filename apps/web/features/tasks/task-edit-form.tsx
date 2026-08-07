@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form';
 import { z } from '@/shared/validation/zod';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, Select, TextField } from '@/shared/ui/public';
+import { Button, CommandSurface, FailureAlert, Select, TextField } from '@/shared/ui/public';
 
 import { TASK_URGENCIES, urgencyLabel } from './labels';
 import styles from './task-edit-form.module.css';
@@ -91,7 +91,7 @@ export function TaskEditForm({ gardenId, task, onDone }: TaskEditFormProps) {
   });
 
   return (
-    <form className={styles['form']} onSubmit={(event) => void onSubmit(event)} noValidate>
+    <CommandSurface className={styles['form']} onCommit={() => void onSubmit()}>
       <TextField
         label={t('tasks.titleLabel')}
         maxLength={200}
@@ -132,6 +132,6 @@ export function TaskEditForm({ gardenId, task, onDone }: TaskEditFormProps) {
         </Button>
       </div>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
-    </form>
+    </CommandSurface>
   );
 }

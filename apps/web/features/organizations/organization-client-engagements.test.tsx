@@ -105,7 +105,7 @@ describe('OrganizationClientEngagements — admin-only lifecycle, everyone reads
     expect(screen.getByRole('button', { name: 'Activate' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Revoke' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'End' })).toBeNull();
-    expect(screen.getByText('Create a client engagement')).toBeTruthy();
+    expect(screen.getAllByText('Create a client engagement').length).toBeGreaterThan(0);
   });
 
   it('offers end and revoke, not activate, for an active engagement', () => {

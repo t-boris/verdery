@@ -1,7 +1,7 @@
 'use client';
 
 import type { PublisherGrant } from '@verdery/api-contracts';
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useIsOnline } from '@/core/connectivity/public';
@@ -9,6 +9,7 @@ import { useLocalization } from '@/shared/localization/public';
 import {
   Button,
   Card,
+  CommandSurface,
   FailureAlert,
   StaleIndicator,
   StatusPill,
@@ -43,8 +44,7 @@ export function PublisherAccessPanel({ engagementId }: { readonly engagementId: 
   const grantMutation = useGrantPublisherAccess(engagementId);
   const [profileId, setProfileId] = useState('');
 
-  const onGrant = (event: FormEvent) => {
-    event.preventDefault();
+  const onGrant = () => {
     const trimmed = profileId.trim();
     if (trimmed === '') {
       return;
@@ -86,7 +86,7 @@ export function PublisherAccessPanel({ engagementId }: { readonly engagementId: 
           </ul>
         ))}
 
-      <form className={styles['form']} onSubmit={onGrant} noValidate>
+      <CommandSurface className={styles['form']} onCommit={onGrant}>
         <h3 className={styles['formTitle']}>{t('publications.accessGrantTitle')}</h3>
         <TextField
           label={t('publications.accessGrantProfileIdLabel')}
@@ -103,7 +103,7 @@ export function PublisherAccessPanel({ engagementId }: { readonly engagementId: 
           {t('publications.accessGrantSubmit')}
         </Button>
         {grantMutation.isError && <FailureAlert failure={grantMutation.error.failure} />}
-      </form>
+      </CommandSurface>
     </Card>
   );
 }

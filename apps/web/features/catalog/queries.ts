@@ -57,10 +57,8 @@ export function useTaxonSearch(gardenId: string, query: string) {
 }
 
 /**
- * A taxon's reviewed facts and licensed reference imagery. The server may
- * enrich an empty image cache on demand; `profile` itself stays nullable
- * because imagery must not disappear merely because no fact projection has
- * been assembled yet.
+ * A taxon's profile and licensed reference imagery. The fact projection may
+ * be null while imagery is already available from on-demand enrichment.
  */
 export function useTaxonProfile(taxonomyReferenceId: string) {
   const gateway = useMemo(() => createPlantCatalogGateway(createBrowserApiClient()), []);
@@ -69,8 +67,6 @@ export function useTaxonProfile(taxonomyReferenceId: string) {
     queryKey: ['plant-catalog', 'profile', taxonomyReferenceId] as const,
     queryFn: async ({ signal }) =>
       unwrap(await gateway.getTaxonProfile(taxonomyReferenceId, signal)),
-    // Provider calls are bounded server-side. Browser retries would only
-    // duplicate that external work after a real failure.
     retry: false,
   });
 }

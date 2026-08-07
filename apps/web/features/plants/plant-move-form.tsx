@@ -1,12 +1,11 @@
 'use client';
 
 import type { MovePlantRequest, Plant } from '@verdery/api-contracts';
-import { useEffect, useState, type FormEvent } from 'react';
-import { CheckIcon } from '@/shared/ui/public';
+import { useEffect, useState } from 'react';
 
 import { useIsOnline } from '@/core/connectivity/public';
 import { useLocalization } from '@/shared/localization/public';
-import { Button, FailureAlert, Select } from '@/shared/ui/public';
+import { FailureAlert, MapIcon } from '@/shared/ui/public';
 
 import { useGardenMapObjects } from './map-object-queries';
 import styles from './plant-move-form.module.css';
@@ -65,47 +64,77 @@ export function PlantMoveForm({ gardenId, plant }: PlantMoveFormProps) {
     [plant.placementMapObjectId],
   );
 
-  const onSubmit = (event: FormEvent) => {
-    event.preventDefault();
+  const applyMove = (nextAreaId: string, nextPlacementId: string) => {
+    if (!isOnline || mutation.isPending) return;
     const input: MovePlantRequest = {
-      ...(gardenAreaMapObjectId.trim() === ''
-        ? {}
-        : { gardenAreaMapObjectId: gardenAreaMapObjectId.trim() }),
-      ...(placementMapObjectId.trim() === ''
-        ? {}
-        : { placementMapObjectId: placementMapObjectId.trim() }),
+      ...(nextAreaId.trim() === '' ? {} : { gardenAreaMapObjectId: nextAreaId.trim() }),
+      ...(nextPlacementId.trim() === '' ? {} : { placementMapObjectId: nextPlacementId.trim() }),
     };
     mutation.mutate({ input, expectedRevision: plant.revision });
   };
 
+  const optionLabel = (value: string) =>
+    mapObjectOptions.find((option) => option.value === value)?.label ?? t('plants.mapObjectNone');
+
   return (
-    <form className={styles['form']} onSubmit={onSubmit} noValidate>
-      <Select
-        label={t('plants.gardenAreaMapObjectIdLabel')}
-        options={mapObjectOptions}
-        value={gardenAreaMapObjectId}
-        onChange={(event) => setGardenAreaMapObjectId(event.target.value)}
-      />
-      <Select
-        label={t('plants.placementMapObjectIdLabel')}
-        options={mapObjectOptions}
-        value={placementMapObjectId}
-        onChange={(event) => setPlacementMapObjectId(event.target.value)}
-      />
-      <p className={styles['hint']}>{t('plants.mapObjectIdHint')}</p>
-      <Button
-        type="submit"
-        variant="secondary"
-        busy={mutation.isPending}
-        disabled={!isOnline}
-        iconOnly
-        aria-label={t('plants.move')}
-        title={t('plants.move')}
-      >
-        <CheckIcon />
-      </Button>
+    <div className={styles['board']}>
+      <details className={styles['property']}>
+        <summary>
+          <span className={styles['propertyLabel']}>
+            <MapIcon />
+            {t('plants.gardenAreaMapObjectIdLabel')}
+          </span>
+          <strong>{optionLabel(gardenAreaMapObjectId)}</strong>
+        </summary>
+        <div className={styles['choices']}>
+          {mapObjectOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={styles['choice']}
+              aria-pressed={option.value === gardenAreaMapObjectId}
+              disabled={!isOnline || mutation.isPending}
+              onClick={() => {
+                setGardenAreaMapObjectId(option.value);
+                applyMove(option.value, placementMapObjectId);
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </details>
+      <details className={styles['property']}>
+        <summary>
+          <span className={styles['propertyLabel']}>
+            <MapIcon />
+            {t('plants.placementMapObjectIdLabel')}
+          </span>
+          <strong>{optionLabel(placementMapObjectId)}</strong>
+        </summary>
+        <div className={styles['choices']}>
+          {mapObjectOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={styles['choice']}
+              aria-pressed={option.value === placementMapObjectId}
+              disabled={!isOnline || mutation.isPending}
+              onClick={() => {
+                setPlacementMapObjectId(option.value);
+                applyMove(gardenAreaMapObjectId, option.value);
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </details>
+      <p className={styles['hint']}>
+        {mutation.isPending ? t('plants.placementSaving') : t('plants.mapObjectIdHint')}
+      </p>
       {mutation.isError && <FailureAlert failure={mutation.error.failure} />}
       {mutation.isSuccess && <p role="status">{t('plants.moved')}</p>}
-    </form>
+    </div>
   );
 }
