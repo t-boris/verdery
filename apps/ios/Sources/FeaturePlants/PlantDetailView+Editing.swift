@@ -14,83 +14,101 @@ extension PlantDetailView {
         VStack(alignment: .leading, spacing: Metrics.space2) {
             SectionEyebrow(symbol: "pencil", title: model.editSectionTitle)
 
-            SurfaceCard {
-                VStack(alignment: .leading, spacing: Metrics.space3) {
-                    iconField(PlantSymbols.displayName, model.displayNameLabel) {
-                        TextField(model.displayNameLabel, text: $model.editedDisplayName)
-                            .textFieldStyle(.roundedBorder)
-                            .accessibilityIdentifier("plants.detail.displayNameField")
-                    }
+            VStack(alignment: .leading, spacing: Metrics.space3) {
+                    ComposerField(
+                        symbol: PlantSymbols.displayName,
+                        accessibilityName: model.displayNameLabel,
+                        placeholder: model.displayNameLabel,
+                        commitLabel: model.saveTitle,
+                        text: $model.editedDisplayName,
+                        commit: saveDetails
+                    )
+                    .accessibilityIdentifier("plants.detail.displayNameField")
 
-                    taxonomyRow
+                    SurfaceCard { taxonomyRow }
 
-                    iconField(PlantSymbols.variety, model.varietyLabelLabel) {
-                        TextField(model.varietyLabelLabel, text: $model.editedVarietyLabel)
-                            .textFieldStyle(.roundedBorder)
-                            .accessibilityIdentifier("plants.detail.varietyLabelField")
-                    }
+                    ComposerField(
+                        symbol: PlantSymbols.variety,
+                        accessibilityName: model.varietyLabelLabel,
+                        placeholder: model.varietyLabelLabel,
+                        commitLabel: model.saveTitle,
+                        text: $model.editedVarietyLabel,
+                        commit: saveDetails
+                    )
+                    .accessibilityIdentifier("plants.detail.varietyLabelField")
 
                     // Only a row or a group tracks a quantity — an
                     // `.individual` plant's server-side domain model rejects
                     // one outright (`quantity.not_allowed`), the same gate the
                     // add form already applies on creation.
                     if summary.groupingKind != .individual {
-                        iconField(PlantSymbols.quantity, model.quantityLabel) {
-                            TextField(model.quantityLabel, text: $model.editedQuantityText)
-                                .textFieldStyle(.roundedBorder)
-                                #if os(iOS)
-                                    .keyboardType(.numberPad)
-                                #endif
-                                .accessibilityIdentifier("plants.detail.quantityField")
+                        MeasureField(
+                            fieldName: model.quantityLabel,
+                            unitLabel: model.quantityUnitLabel,
+                            decreaseLabel: model.quantityDecreaseLabel,
+                            increaseLabel: model.quantityIncreaseLabel,
+                            value: quantityBinding,
+                            step: 1,
+                            range: 1...9_999,
+                            fractionDigits: 0,
+                            locale: .autoupdatingCurrent
+                        )
+                        .accessibilityIdentifier("plants.detail.quantityField")
+                    }
+
+                    OptionalValueCard(
+                        fieldName: model.acquisitionDateLabel,
+                        addPrompt: model.acquisitionDateToggleLabel,
+                        clearLabel: model.closeTitle,
+                        symbol: PlantSymbols.acquisitionDateGuess,
+                        displayValue: model.editedHasAcquisitionDate
+                            ? CalendarText.day(model.editedAcquisitionDate) : nil,
+                        clear: { model.editedHasAcquisitionDate = false }
+                    ) {
+                        VStack(alignment: .leading, spacing: Metrics.space3) {
+                            DateDial(
+                                fieldName: model.acquisitionDateLabel,
+                                selection: $model.editedAcquisitionDate,
+                                now: .now,
+                                calendar: .current,
+                                chipTitle: model.relativeDayTitle,
+                                dayNumber: CalendarText.dayNumber,
+                                weekdayName: CalendarText.weekday,
+                                longDate: CalendarText.day
+                            )
+                            .onAppear { model.editedHasAcquisitionDate = true }
+
+                            ChoiceChipGrid(
+                                fieldName: model.acquisitionDateLabel,
+                                options: PlantAcquisitionDateType.allCases.map {
+                                    ChoiceChipGrid.Option(
+                                        value: $0,
+                                        label: model.acquisitionDateTypeName($0),
+                                        symbol: PlantSymbols.acquisitionDateType($0)
+                                    )
+                                },
+                                selection: $model.editedAcquisitionDateType
+                            )
+                            .accessibilityIdentifier("plants.detail.acquisitionDateType")
                         }
                     }
+                    .accessibilityIdentifier("plants.detail.acquisitionDate")
 
-                    Toggle(isOn: $model.editedHasAcquisitionDate) {
-                        Label(model.acquisitionDateToggleLabel, systemImage: PlantSymbols.acquisitionDateGuess)
-                    }
-                    .accessibilityIdentifier("plants.detail.acquisitionDateToggle")
-                    if model.editedHasAcquisitionDate {
-                        DatePicker(
-                            model.acquisitionDateLabel,
-                            selection: $model.editedAcquisitionDate,
-                            displayedComponents: .date
-                        )
-                        .accessibilityIdentifier("plants.detail.acquisitionDatePicker")
+                    // Two notes, and notes are content rather than controls:
+                    // borderless paper, no box drawn around prose.
+                    NoteCanvas(
+                        accessibilityName: model.conditionNoteLabel,
+                        placeholder: model.conditionNoteLabel,
+                        text: $model.editedConditionNote
+                    )
+                    .accessibilityIdentifier("plants.detail.conditionNoteField")
 
-                        HStack(spacing: Metrics.space2) {
-                            ForEach(PlantAcquisitionDateType.allCases, id: \.self) { type in
-                                PlantChoiceChip(
-                                    symbol: PlantSymbols.acquisitionDateType(type),
-                                    label: model.acquisitionDateTypeName(type),
-                                    isSelected: model.editedAcquisitionDateType == type
-                                ) {
-                                    model.editedAcquisitionDateType = type
-                                }
-                            }
-                            Spacer(minLength: 0)
-                        }
-                        .accessibilityIdentifier("plants.detail.acquisitionDateTypePicker")
-                    }
-
-                    iconField(PlantSymbols.condition, model.conditionNoteLabel) {
-                        TextField(
-                            model.conditionNoteLabel, text: $model.editedConditionNote, axis: .vertical
-                        )
-                        .textFieldStyle(.roundedBorder)
-                        .lineLimit(2...4)
-                        .accessibilityIdentifier("plants.detail.conditionNoteField")
-                    }
-
-                    iconField(PlantSymbols.careGuidance, model.careGuidanceNoteLabel) {
-                        TextField(
-                            model.careGuidanceNoteLabel,
-                            text: $model.editedCareGuidanceNote,
-                            axis: .vertical
-                        )
-                        .textFieldStyle(.roundedBorder)
-                        .lineLimit(2...4)
-                        .accessibilityIdentifier("plants.detail.careGuidanceNoteField")
-                    }
+                    NoteCanvas(
+                        accessibilityName: model.careGuidanceNoteLabel,
+                        placeholder: model.careGuidanceNoteLabel,
+                        text: $model.editedCareGuidanceNote
+                    )
+                    .accessibilityIdentifier("plants.detail.careGuidanceNoteField")
 
                     Button {
                         Task {
@@ -103,10 +121,27 @@ extension PlantDetailView {
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(model.isSubmitting)
                     .accessibilityIdentifier("plants.detail.save")
-                }
             }
-            .tint(Palette.interaction)
         }
+    }
+
+    /// The composer fields commit to the same place the Save button does, so
+    /// pressing Return finishes the edit rather than doing nothing.
+    private func saveDetails() {
+        Task {
+            await model.saveDetails()
+            Haptics.play(model.actionErrorMessage == nil ? .success : .failure)
+        }
+    }
+
+    /// The model holds the count as text, because that is what the command
+    /// payload carries. The nudgeable numeral works in numbers, so the two meet
+    /// here — an unparsable or absent value reads as one.
+    private var quantityBinding: Binding<Double> {
+        Binding(
+            get: { Double(model.editedQuantityText) ?? 1 },
+            set: { model.editedQuantityText = String(Int($0.rounded())) }
+        )
     }
 
     /// The detail screen's read-and-change affordance for an existing plant's

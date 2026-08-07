@@ -1,3 +1,4 @@
+import CoreDesignSystem
 import CoreDomain
 import CoreLocalization
 import CoreMediaTransfer
@@ -284,6 +285,7 @@ public final class PlantDetailViewModel {
     public var taxonomyPickerSearchLabel: String { strings(.plantsTaxonomyPickerSearchLabel) }
     public var taxonomyPickerEmptyMessage: String { strings(.plantsTaxonomyPickerEmpty) }
     public var closeTitle: String { strings(.plantsClose) }
+
 
     public func lifecycleStageName(_ stage: PlantLifecycleStage) -> String {
         PlantsLocalization.lifecycleStageName(stage, strings: strings)
