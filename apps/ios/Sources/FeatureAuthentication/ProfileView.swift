@@ -17,9 +17,18 @@ import SwiftUI
 public struct ProfileView: View {
     @State private var model: ProfileViewModel
     @State private var isSignOutConfirmationPresented = false
+    @State private var isDeletePresented = false
+    /// Injected rather than built here: the deletion model needs a teardown
+    /// closure only the composition root can write, and this feature must not
+    /// learn about databases or media files.
+    private let makeDeleteModel: (() -> DeleteAccountViewModel)?
 
-    public init(model: ProfileViewModel) {
+    public init(
+        model: ProfileViewModel,
+        makeDeleteModel: (() -> DeleteAccountViewModel)? = nil
+    ) {
         _model = State(wrappedValue: model)
+        self.makeDeleteModel = makeDeleteModel
     }
 
     public var body: some View {
@@ -28,6 +37,7 @@ public struct ProfileView: View {
                 identityCard
                 aboutSection
                 signOutSection
+                deleteAccountSection
             }
             .padding(Metrics.space4)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -99,6 +109,25 @@ public struct ProfileView: View {
                         )
                     }
                 }
+            }
+        }
+    }
+
+    /// Apple checks that account deletion is reachable in a small number of
+    /// taps. Account is one tap from the console strip on every screen; this
+    /// is the second.
+    @ViewBuilder
+    private var deleteAccountSection: some View {
+        if let makeDeleteModel {
+            Button {
+                isDeletePresented = true
+            } label: {
+                Label(model.deleteAccountTitle, systemImage: "trash")
+            }
+            .buttonStyle(SecondaryButtonStyle(tone: .negative))
+            .accessibilityIdentifier("profile.deleteAccount")
+            .sheet(isPresented: $isDeletePresented) {
+                DeleteAccountView(model: makeDeleteModel()) { isDeletePresented = false }
             }
         }
     }

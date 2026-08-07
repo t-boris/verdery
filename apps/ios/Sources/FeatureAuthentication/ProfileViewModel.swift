@@ -126,6 +126,7 @@ public final class ProfileViewModel {
         return facts
     }
 
+    public var deleteAccountTitle: String { strings(.deleteAccountOpen) }
     public var signOutTitle: String { strings(.shellSignOut) }
     public var signOutConfirmTitle: String { strings(.profileSignOutConfirmTitle) }
     public var signOutConfirmMessage: String { strings(.profileSignOutConfirmMessage) }

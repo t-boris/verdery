@@ -1013,3 +1013,22 @@
 "plantLabel.share" = "Share label";
 "plantLabel.unavailable" = "This label could not be drawn. The link is above and still works.";
 "plantLabel.codeAlt" = "A square code that opens this plant";
+
+/* In-app account deletion (App Store Guideline 5.1.1(v)). The explanation
+   names what is destroyed rather than saying "your account", because an
+   account here means every garden, plant, observation and photograph. */
+"deleteAccount.title" = "Delete account";
+"deleteAccount.open" = "Delete account";
+"deleteAccount.explanation" = "This removes your account and everything in it: every garden you own alone, its map, its plants, its observations, its tasks and its photographs. Gardens with another owner stay with them.";
+"deleteAccount.confirmPrompt" = "Type DELETE to confirm";
+"deleteAccount.confirmWord" = "DELETE";
+"deleteAccount.submit" = "Delete my account";
+"deleteAccount.restore" = "Keep my account";
+"deleteAccount.pendingTitle" = "Deletion requested";
+"deleteAccount.deadline" = "You can still change your mind until %@.";
+"deleteAccount.gardenDeleted" = "Will be deleted with your account";
+"deleteAccount.gardenKeptByCoOwner" = "Stays with its other owner";
+"deleteAccount.gardenMembershipEnded" = "Your access ends; the garden stays";
+"deleteAccount.reauthenticate" = "For your safety this needs a recent sign-in. Sign out, sign in again, and come back.";
+"deleteAccount.failed" = "The request could not be sent. Nothing has been deleted.";
+"deleteAccount.done" = "Your account is scheduled for deletion and this device has been cleared.";

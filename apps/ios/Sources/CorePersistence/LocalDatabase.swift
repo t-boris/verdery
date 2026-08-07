@@ -56,6 +56,34 @@ public enum LocalDatabase {
         return dbQueue
     }
 
+    /// Erases one profile's entire local footprint: the database, its
+    /// journal files, and the media directory beside it.
+    ///
+    /// Account deletion needs this and it is not optional.
+    /// `ios-distribution.md` section 10.3 says why plainly: leaving the
+    /// database behind "would repopulate the UI from cache and look like it
+    /// failed" — somebody who just deleted their account would watch their
+    /// gardens come back.
+    ///
+    /// Removes the directory rather than the file, because SQLite's `-wal` and
+    /// `-shm` companions hold recent writes and deleting only `gardens.sqlite`
+    /// leaves them.
+    ///
+    /// Silent on failure by design: this runs after the server has already
+    /// accepted the deletion, and refusing to finish would strand somebody
+    /// signed into an account that no longer exists.
+    public static func deleteProfileStore(profileIdentifier: String) {
+        guard
+            let directory = try? applicationSupportDirectory().appendingPathComponent(
+                "profiles/\(profileIdentifier)",
+                isDirectory: true
+            )
+        else {
+            return
+        }
+        try? FileManager.default.removeItem(at: directory)
+    }
+
     /// `public`, not just `internal`, as of P6-IOS-01: `CoreMediaTransfer
     /// .FileManagerLocalMediaFileStore` needs the same application-support
     /// root to place durable media files at `profiles/<profileId>/media/`, a

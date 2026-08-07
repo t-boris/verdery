@@ -24,6 +24,16 @@ public protocol AuthenticationGateway: Sendable {
 
     func signOut() throws
 
+    /// Revokes this app's Apple token, then signs out.
+    ///
+    /// Apple requires an app offering Sign in with Apple to revoke on account
+    /// deletion rather than merely sign out, and checks for it at review. A
+    /// revocation that fails is logged and swallowed: the account deletion it
+    /// accompanies has already been accepted server-side, and refusing to
+    /// finish the local teardown would leave somebody signed into an account
+    /// that no longer exists.
+    func revokeAppleTokenAndSignOut() async
+
     /// Hands a URL the operating system delivered to the app back to the
     /// authentication SDKs, returning whether one of them claimed it.
     ///

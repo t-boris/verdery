@@ -19,6 +19,13 @@ struct AppleIdentityAssertion: Sendable {
     /// Apple never sends it again, which is why Firebase asks for it here
     /// rather than reading it from a later token.
     let fullName: PersonNameComponents?
+    /// Apple's one-time authorization code.
+    ///
+    /// Kept because deleting an account has to REVOKE the Apple token, not
+    /// merely sign out, and `revokeToken(withAuthorizationCode:)` needs this.
+    /// It was previously read and discarded — see
+    /// ``AppleAuthorizationCodeStore``.
+    let authorizationCode: String?
 }
 
 /// Failures this presenter raises itself, as distinct from the ones
@@ -144,7 +151,10 @@ extension AppleSignInPresenter: ASAuthorizationControllerDelegate {
             with: .success(
                 AppleIdentityAssertion(
                     identityToken: identityToken,
-                    fullName: credential.fullName
+                    fullName: credential.fullName,
+                    authorizationCode: credential.authorizationCode.flatMap {
+                        String(data: $0, encoding: .utf8)
+                    }
                 )
             )
         )

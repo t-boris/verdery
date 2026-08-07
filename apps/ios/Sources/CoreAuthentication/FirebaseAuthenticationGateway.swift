@@ -119,6 +119,13 @@ public final class FirebaseAuthenticationGateway: AuthenticationGateway, Sendabl
             hashedNonce: AppleSignInPresenter.hashed(nonce: rawNonce)
         )
 
+        // Before the exchange, not after: a failed exchange still consumed
+        // the one authorization code Apple will ever issue for this attempt,
+        // and a retry produces a new one that replaces it.
+        if let code = assertion.authorizationCode {
+            AppleAuthorizationCodeStore().save(code)
+        }
+
         return try await exchangeAppleAssertion(
             identityToken: assertion.identityToken,
             rawNonce: rawNonce,
@@ -193,7 +200,17 @@ public final class FirebaseAuthenticationGateway: AuthenticationGateway, Sendabl
     }
 
     public func signOut() throws {
+        AppleAuthorizationCodeStore().remove()
         try Auth.auth().signOut()
+    }
+
+    public func revokeAppleTokenAndSignOut() async {
+        let store = AppleAuthorizationCodeStore()
+        if let code = store.load() {
+            try? await Auth.auth().revokeToken(withAuthorizationCode: code)
+        }
+        store.remove()
+        try? Auth.auth().signOut()
     }
 
     /// Forwards an incoming URL to each SDK that might be waiting for it.

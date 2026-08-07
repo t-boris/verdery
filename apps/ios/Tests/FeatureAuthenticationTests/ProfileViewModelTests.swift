@@ -41,6 +41,10 @@ private struct StubAuthenticationGateway: AuthenticationGateway {
 
     func completeEmailSignIn(email: String, link: String) async throws -> String { "token" }
 
+    func revokeAppleTokenAndSignOut() async {
+        try? signOut()
+    }
+
     func signOut() throws {
         calls.recordSignOut()
         if let signOutError {

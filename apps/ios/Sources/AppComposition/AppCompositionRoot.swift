@@ -72,6 +72,9 @@ public final class AppCompositionRoot {
     // which `private` (a file scope, not a type scope) would exclude — the
     // same reason `mapGateway`/`plantGateway` above already are `let`.
     let syncGateway: any SyncGateway
+    /// The caller's own account — deletion, and withdrawing a deletion.
+    /// `let`, not `private let`: read by `AccountEntryPoint.swift`'s factory.
+    let accountGateway: any AccountGateway
     // `let`, not `private let`: read by `AppCompositionRoot+Plants.swift`'s
     // `makePlantDetailViewModel`, the same reason `mapGateway` above is `let`.
     let mediaGateway: any MediaGateway
@@ -185,7 +188,13 @@ public final class AppCompositionRoot {
     /// restores a persisted Firebase session synchronously at construction
     /// when one exists (see that type's own doc comment) — see this stage's
     /// own report for the account-switch edge case this leaves open.
-    private let mediaUploadCoordinator: MediaUploadCoordinator
+    // `let`, not `private let`: the account-deletion teardown in
+    // `AccountEntryPoint.swift` has to reach it, and that is a same-type
+    // extension in another file.
+    let mediaUploadCoordinator: MediaUploadCoordinator
+    /// Downloaded media, keyed by media id. App-lifetime because its whole
+    /// purpose is surviving a signed URL's expiry — see ``MediaImageCache``.
+    public let mediaImageCache = MediaImageCache()
 
     /// Fixed, stable identifier for the one background upload session this
     /// process ever creates — must never change between app versions (the
@@ -303,6 +312,13 @@ public final class AppCompositionRoot {
         )
         // Same scope as every Phase 4/5 gateway above.
         self.syncGateway = URLSessionSyncGateway(
+            configuration: configuration,
+            session: session,
+            authTokenProvider: tokenProvider,
+            appCheckTokenProvider: appCheckTokenProvider,
+            log: log
+        )
+        self.accountGateway = URLSessionAccountGateway(
             configuration: configuration,
             session: session,
             authTokenProvider: tokenProvider,

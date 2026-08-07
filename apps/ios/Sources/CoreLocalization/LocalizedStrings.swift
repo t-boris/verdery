@@ -149,6 +149,13 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue)
     }
 
+    /// The same resolution for the account-deletion screen's own key set. See
+    /// ``DeleteAccountLocalizationKey`` for why this is yet another key set
+    /// rather than more cases somewhere existing.
+    public func callAsFunction(_ key: DeleteAccountLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
     /// Every key any of the application's key sets declares.
     ///
     /// Exposed so catalogue completeness stays one check over one list rather
@@ -172,6 +179,7 @@ public struct LocalizedStrings: Sendable {
         + TaxonProfileLocalizationKey.allCases.map(\.rawValue)
         + SyncStatusLocalizationKey.allCases.map(\.rawValue)
         + PlantLabelLocalizationKey.allCases.map(\.rawValue)
+        + DeleteAccountLocalizationKey.allCases.map(\.rawValue)
 
     /// Resolves an arbitrary key, used for codes that originate in Core.
     ///

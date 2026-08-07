@@ -1,5 +1,7 @@
 import CoreDesignSystem
 import CoreLocalization
+import CoreMediaTransfer
+import CorePersistence
 import FeatureAuthentication
 import Foundation
 import SwiftUI
@@ -11,6 +13,39 @@ import SwiftUI
 /// 600-line ceiling, and a same-type extension is how this module already
 /// splits (see `AppCompositionRoot+LocalStores.swift`).
 extension AppCompositionRoot {
+    /// The account-deletion screen (App Store Guideline 5.1.1(v)).
+    ///
+    /// The teardown closure is the reason this factory lives here rather than
+    /// in the feature: only the composition root knows everything this device
+    /// holds for a profile, and every part of it has to go.
+    /// `ios-distribution.md` section 10.3 is blunt about why — a database left
+    /// behind "would repopulate the UI from cache and look like it failed",
+    /// so somebody who just deleted their account would watch their gardens
+    /// come back.
+    public func makeDeleteAccountViewModel() -> DeleteAccountViewModel {
+        DeleteAccountViewModel(
+            gateway: accountGateway,
+            strings: localizedStrings
+        ) { [unowned self] in
+            let profileIdentifier = self.currentProfileIdentifier()
+
+            // The cache first, so nothing can render a photograph out of it
+            // after the record it belonged to is gone.
+            await self.mediaImageCache.removeAll()
+
+            // Then the whole profile directory: the database, its `-wal` and
+            // `-shm` companions, and the media files beside them. Deleting the
+            // directory rather than the database file is deliberate — the
+            // journal companions hold recent writes.
+            LocalDatabase.deleteProfileStore(profileIdentifier: profileIdentifier)
+
+            // Apple requires revocation on deletion, not merely a sign-out,
+            // and checks for it at review — see `AppleAuthorizationCodeStore`
+            // for the code this needs and where it comes from.
+            await self.authenticationGateway.revokeAppleTokenAndSignOut()
+        }
+    }
+
     /// The account screen (see `FeatureAuthentication.ProfileView`).
     ///
     /// The identity is read from `sessionObserver` at the moment the sheet is
@@ -66,7 +101,10 @@ struct AccountToolbarModifier: ViewModifier {
             }
             .sheet(isPresented: $isPresented) {
                 NavigationStack {
-                    ProfileView(model: composition.makeProfileViewModel())
+                    ProfileView(
+                        model: composition.makeProfileViewModel(),
+                        makeDeleteModel: composition.makeDeleteAccountViewModel
+                    )
                         .toolbar {
                             ToolbarItem(placement: .confirmationAction) {
                                 Button(composition.localizedStrings(.plantsClose)) {
@@ -97,7 +135,10 @@ extension View {
     ) -> some View {
         sheet(isPresented: isPresented) {
             NavigationStack {
-                ProfileView(model: composition.makeProfileViewModel())
+                ProfileView(
+                        model: composition.makeProfileViewModel(),
+                        makeDeleteModel: composition.makeDeleteAccountViewModel
+                    )
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
                             Button(composition.localizedStrings(.plantsClose)) {

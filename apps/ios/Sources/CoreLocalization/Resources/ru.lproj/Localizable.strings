@@ -1012,3 +1012,22 @@
 "plantLabel.share" = "Поделиться меткой";
 "plantLabel.unavailable" = "Метку не удалось нарисовать. Ссылка выше по-прежнему работает.";
 "plantLabel.codeAlt" = "Квадратный код, открывающий это растение";
+
+/* In-app account deletion (App Store Guideline 5.1.1(v)). The explanation
+   names what is destroyed rather than saying "your account", because an
+   account here means every garden, plant, observation and photograph. */
+"deleteAccount.title" = "Удаление аккаунта";
+"deleteAccount.open" = "Удалить аккаунт";
+"deleteAccount.explanation" = "Будет удалён аккаунт и всё, что в нём: каждый сад, где вы единственный владелец, его карта, растения, наблюдения, задачи и фотографии. Сады со вторым владельцем останутся у него.";
+"deleteAccount.confirmPrompt" = "Введите УДАЛИТЬ для подтверждения";
+"deleteAccount.confirmWord" = "УДАЛИТЬ";
+"deleteAccount.submit" = "Удалить мой аккаунт";
+"deleteAccount.restore" = "Оставить аккаунт";
+"deleteAccount.pendingTitle" = "Удаление запрошено";
+"deleteAccount.deadline" = "Передумать можно до %@.";
+"deleteAccount.gardenDeleted" = "Будет удалён вместе с аккаунтом";
+"deleteAccount.gardenKeptByCoOwner" = "Останется у второго владельца";
+"deleteAccount.gardenMembershipEnded" = "Ваш доступ прекратится, сад останется";
+"deleteAccount.reauthenticate" = "Для безопасности нужен свежий вход. Выйдите, войдите снова и вернитесь сюда.";
+"deleteAccount.failed" = "Запрос не удалось отправить. Ничего не удалено.";
+"deleteAccount.done" = "Аккаунт поставлен на удаление, данные на этом устройстве стёрты.";

@@ -457,8 +457,22 @@ this work package.
 
 Ordered by how much they matter.
 
-1. **No in-app account deletion.** Fails App Store review outright. See
-   [10](#10-account-deletion-a-hard-blocker). Does not block TestFlight.
+1. ~~**No in-app account deletion.**~~ Built. `FeatureAuthentication.DeleteAccountView`, reachable
+   in two taps — the console strip's avatar, then one button on the account screen. It names what is
+   destroyed rather than saying "your account", states each garden's resolution before the deadline
+   rather than after it, discloses the recovery deadline (Apple accepts a disclosed grace period and
+   rejects an undisclosed one), and requires a typed confirmation.
+
+   Two parts of it were prerequisites rather than screen work. The Apple authorization code is now
+   retained in the Keychain at sign-in (`CoreAuthentication.AppleAuthorizationCodeStore`) because
+   `revokeToken(withAuthorizationCode:)` needs it and the sign-in flow used to discard it — without
+   that, revocation is impossible and Apple checks for revocation specifically. And the local
+   teardown erases the whole profile directory, not the database file: section 10.3's warning that a
+   surviving cache "would repopulate the UI from cache and look like it failed" applies equally to
+   SQLite's `-wal` and `-shm` companions and to the media files beside them.
+
+   Still unverifiable here: the revocation call itself has never run on a device. See section 13.
+
 2. **No screenshots.** Blocks submission; needs a seeded demo account. See
    [11](#11-screenshots).
 3. **No privacy policy URL.** Blocks submission and TestFlight _external_ testing. Blocked on
