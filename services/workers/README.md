@@ -225,13 +225,22 @@ as it was. This process contributes only its interval loops and its already-veri
 | `WEATHER_REFRESH_SWEEP_URL`                      | yes      | —                   | The API's internal weather-refresh sweep endpoint (P7-ASYNC-01)       |
 | `WEATHER_REFRESH_SWEEP_INTERVAL_MS`              | no       | `3600000`           | How often the weather-refresh sweep is triggered                      |
 | `RECOMMENDATION_EVALUATION_SWEEP_URL`            | yes      | —                   | The API's internal recommendation-evaluation sweep endpoint           |
-| `RECOMMENDATION_EVALUATION_SWEEP_INTERVAL_MS`    | no       | `21600000`          | How often the recommendation-evaluation sweep is triggered            |
+| `RECOMMENDATION_EVALUATION_SWEEP_INTERVAL_MS`    | no       | `300000`            | How often the recommendation-evaluation sweep is triggered            |
 | `NOTIFICATION_EVENTS_URL`                        | yes      | —                   | The API's internal notification-policy endpoint (P7-NOTIF-01)         |
 | `NOTIFICATION_DELIVERY_SWEEP_URL`                | yes      | —                   | The API's internal notification-delivery sweep endpoint (P7-NOTIF-02) |
 | `NOTIFICATION_DELIVERY_SWEEP_INTERVAL_MS`        | no       | `60000`             | How often the notification-delivery sweep is triggered                |
 | `EXPORT_PROCESSING_API_URL`                      | yes      | —                   | The API's internal export endpoints' base URL (P8-EXPORT-01)          |
 | `DELETION_SWEEP_URL`                             | yes      | —                   | The API's internal deletion-sweep endpoint (P8-DELETE-01)             |
 | `DELETION_SWEEP_INTERVAL_MS`                     | no       | `3600000`           | How often the deletion sweep is triggered                             |
+
+The recommendation-evaluation sweep ticks far more often than the hourly sweeps around it, and
+that is deliberate rather than an oversight: it is the only sweep whose latency a gardener feels —
+between adding a plant and seeing its first task. It is affordable at this cadence because the
+sweep no longer drains every garden. `garden_evaluation_state` records when each garden was last
+evaluated, and `listGardenIdsDueForEvaluation` returns only those with new facts to read or a
+watermark older than the staleness floor, so a quiet five minutes costs one indexed query and
+evaluates nothing. Raising the interval slows first-task latency; it does not reduce steady-state
+load, because the load already scales with change rather than with clock ticks.
 
 `DATABASE_URL` only — no Cloud SQL IAM connection mode yet, unlike the API. Real Cloud SQL IAM
 wiring for this package's own database connection is a documented follow-up; see
