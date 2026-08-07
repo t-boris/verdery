@@ -110,7 +110,7 @@ public struct GardenSettingsView: View {
                         isLarge: true
                     )
                     Text(summary.name)
-                        .font(Typography.title)
+                        .font(FieldConsoleType.title.font)
                         .foregroundStyle(Palette.text)
                 }
 
@@ -207,12 +207,12 @@ public struct GardenSettingsView: View {
                 HStack(spacing: Metrics.space3) {
                     IconMedallion(symbol: symbol, label: title)
                     Text(title)
-                        .font(Typography.body)
+                        .font(FieldConsoleType.body.font)
                         .foregroundStyle(Palette.text)
                         .multilineTextAlignment(.leading)
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right")
-                        .font(Typography.detail)
+                        .font(FieldConsoleType.detail.font)
                         .foregroundStyle(Palette.textMuted)
                         .accessibilityHidden(true)
                 }

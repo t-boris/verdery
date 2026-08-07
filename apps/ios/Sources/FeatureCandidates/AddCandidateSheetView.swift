@@ -100,15 +100,15 @@ struct AddCandidateSheetView: View {
             } label: {
                 HStack(spacing: Metrics.space2) {
                     Text(model.taxonomyLabel)
-                        .font(Typography.body)
+                        .font(FieldConsoleType.body.font)
                         .foregroundStyle(Palette.text)
                     Spacer(minLength: 0)
                     Text(model.selectedTaxonomySummary)
-                        .font(Typography.detail)
+                        .font(FieldConsoleType.detail.font)
                         .foregroundStyle(Palette.textMuted)
                         .lineLimit(1)
                     Image(systemName: CandidateSymbols.chevron)
-                        .font(Typography.detail)
+                        .font(FieldConsoleType.detail.font)
                         .foregroundStyle(Palette.textMuted)
                         .accessibilityHidden(true)
                 }
@@ -118,7 +118,7 @@ struct AddCandidateSheetView: View {
 
             if model.selectedTaxonomyReference != nil {
                 Button(model.taxonomyClearLabel) { model.clearTaxonomy() }
-                    .font(Typography.detail)
+                    .font(FieldConsoleType.detail.font)
                     .tint(Palette.negative)
                     .accessibilityIdentifier("candidates.add.taxonomyClear")
             }
@@ -281,7 +281,7 @@ struct CandidateChoiceChip: View {
             Haptics.play(.selection)
         } label: {
             Text(label)
-                .font(Typography.detail)
+                .font(FieldConsoleType.detail.font)
                 .padding(.horizontal, Metrics.space3)
                 .padding(.vertical, Metrics.space2)
                 .background(

@@ -57,7 +57,7 @@ public struct ContextQualityView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Metrics.space4) {
                     Text(model.descriptionText)
-                        .font(Typography.detail)
+                        .font(FieldConsoleType.detail.font)
                         .foregroundStyle(Palette.textMuted)
 
                     VStack(spacing: Metrics.space3) {

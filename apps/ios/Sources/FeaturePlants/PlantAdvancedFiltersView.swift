@@ -135,7 +135,7 @@ ChoiceChipGrid(
                 Text(model.moreFiltersTitle)
                 if model.activeFilterCount > 0 {
                     Text(String(model.activeFilterCount))
-                        .font(Typography.detail)
+                        .font(FieldConsoleType.detail.font)
                         .padding(.horizontal, Metrics.space2)
                         .background(Capsule().fill(.tint.opacity(0.15)))
                         .accessibilityLabel(model.activeFilterCountLabel)

@@ -177,10 +177,10 @@ public struct PlantDetailView: View {
                     )
                     VStack(alignment: .leading, spacing: Metrics.space1) {
                         Text(summary.displayName)
-                            .font(Typography.title)
+                            .font(FieldConsoleType.title.font)
                             .foregroundStyle(Palette.text)
                         Text(summary.groupingKindLabel)
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                     }
                 }
@@ -314,7 +314,7 @@ public struct PlantDetailView: View {
                         if CameraCapture.isAvailable {
                             Button(action: takePhoto) {
                                 Label(model.takePhotoButtonTitle, systemImage: "camera.viewfinder")
-                                    .font(Typography.body.weight(.medium))
+                                    .font(FieldConsoleType.body.font.weight(.medium))
                                     .foregroundStyle(Palette.interaction)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, Metrics.space3)
@@ -336,7 +336,7 @@ public struct PlantDetailView: View {
 
                         PhotosPicker(selection: $pickedPhotoItem, matching: .images) {
                             Label(pickTitle, systemImage: "photo.on.rectangle")
-                                .font(Typography.body.weight(.medium))
+                                .font(FieldConsoleType.body.font.weight(.medium))
                                 .foregroundStyle(Palette.text)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, Metrics.space3)
@@ -418,7 +418,7 @@ public struct PlantDetailView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: Metrics.space1) {
             Label(label, systemImage: symbol)
-                .font(Typography.detail)
+                .font(FieldConsoleType.detail.font)
                 .foregroundStyle(Palette.textMuted)
                 .accessibilityHidden(true)
             content()

@@ -10,7 +10,7 @@ public struct PrimaryButtonStyle: ButtonStyle {
 
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(Typography.body.weight(.semibold))
+            .font(FieldConsoleType.body.font.weight(.semibold))
             .foregroundStyle(Palette.interactionText)
             .padding(.horizontal, Metrics.space4)
             .frame(minHeight: minimumHeight)
@@ -45,7 +45,7 @@ public struct SecondaryButtonStyle: ButtonStyle {
 
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(Typography.body.weight(.medium))
+            .font(FieldConsoleType.body.font.weight(.medium))
             // A neutral button's label is ink, not muted ink: `Tone.neutral`'s
             // foreground is right for a chip's caption and too quiet to read
             // as the words of a control.
@@ -92,11 +92,11 @@ public struct CompactActionButton: View {
         Button(action: action) {
             VStack(spacing: Metrics.space1) {
                 Image(systemName: symbol)
-                    .font(Typography.detail)
+                    .font(FieldConsoleType.detail.font)
                     .imageScale(.medium)
                     .symbolRenderingMode(.hierarchical)
                 Text(title)
-                    .font(Typography.micro)
+                    .font(FieldConsoleType.detail.font)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }

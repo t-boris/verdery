@@ -157,7 +157,7 @@ public struct PlantsHomeView: View {
             } label: {
                 HStack {
                     Text(model.openSectionTitle)
-                        .font(Typography.detail.weight(.medium))
+                        .font(FieldConsoleType.detail.font.weight(.medium))
                         .foregroundStyle(Palette.textMuted)
                     Spacer(minLength: 0)
                     Image(systemName: isOpenByIdExpanded ? "chevron.up" : "chevron.down")

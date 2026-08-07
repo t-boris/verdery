@@ -32,7 +32,7 @@ public struct CandidatesScreenView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.space5) {
                 Text(model.description)
-                    .font(Typography.detail)
+                    .font(FieldConsoleType.detail.font)
                     .foregroundStyle(Palette.textMuted)
 
                 CandidatesListView(model: model) { candidate in

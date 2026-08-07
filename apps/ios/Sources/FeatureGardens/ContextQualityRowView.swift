@@ -27,7 +27,7 @@ struct ContextQualityRowView: View {
             VStack(alignment: .leading, spacing: Metrics.space2) {
                 HStack(alignment: .top, spacing: Metrics.space3) {
                     Text(row.kindLabel)
-                        .font(Typography.heading)
+                        .font(FieldConsoleType.heading.font)
                         .foregroundStyle(Palette.text)
                     Spacer(minLength: 0)
                     if model.canEdit {
@@ -44,26 +44,26 @@ struct ContextQualityRowView: View {
 
                 if let fact = row.fact {
                     Text(row.valueDisplayText ?? fact.value)
-                        .font(Typography.body)
+                        .font(FieldConsoleType.body.font)
                         .foregroundStyle(Palette.text)
                     if let sourceLabel = row.sourceLabel {
                         Text(sourceLabel)
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                     }
                     if let reviewedDisplayText = row.reviewedDisplayText {
                         Text(reviewedDisplayText)
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                     }
                     if let recordedByDisplayText = row.recordedByDisplayText {
                         Text(recordedByDisplayText)
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                     }
                 } else {
                     Text(model.notDeclaredMessage)
-                        .font(Typography.detail)
+                        .font(FieldConsoleType.detail.font)
                         .foregroundStyle(Palette.textMuted)
                 }
 

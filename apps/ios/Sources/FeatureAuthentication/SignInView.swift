@@ -48,7 +48,7 @@ public struct SignInView: View {
     private var wordmark: some View {
         VStack(alignment: .leading, spacing: Metrics.space3) {
             Image(systemName: "tree.fill")
-                .font(Typography.display)
+                .font(FieldConsoleType.display.font)
                 .imageScale(.large)
                 .symbolRenderingMode(.hierarchical)
                 // The brand mark is ink, not the interaction signal. Under
@@ -59,12 +59,12 @@ public struct SignInView: View {
                 .accessibilityHidden(true)
 
             Text(model.title)
-                .font(Typography.display)
+                .font(FieldConsoleType.display.font)
                 .foregroundStyle(Palette.text)
                 .accessibilityAddTraits(.isHeader)
 
             Text(model.description)
-                .font(Typography.secondary)
+                .font(FieldConsoleType.secondary.font)
                 .foregroundStyle(Palette.textMuted)
         }
         .padding(.top, Metrics.space6)
@@ -116,10 +116,10 @@ public struct SignInView: View {
                     )
                     VStack(alignment: .leading, spacing: Metrics.space1) {
                         Text(model.emailSentTitle)
-                            .font(Typography.heading)
+                            .font(FieldConsoleType.heading.font)
                             .foregroundStyle(Palette.text)
                         Text(model.emailSentDescription)
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                     }
                 }

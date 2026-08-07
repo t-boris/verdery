@@ -68,17 +68,17 @@ struct TaskActivityView: View {
 
                 VStack(alignment: .leading, spacing: Metrics.space1) {
                     Text(row.text)
-                        .font(Typography.body)
+                        .font(FieldConsoleType.body.font)
                         .foregroundStyle(Palette.text)
 
                     if let dueDateCaption = row.dueDateCaption {
                         Text(dueDateCaption)
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                     }
 
                     Text(row.recordedAtText)
-                        .font(Typography.micro)
+                        .font(FieldConsoleType.detail.font)
                         .foregroundStyle(Palette.textMuted)
                 }
             }

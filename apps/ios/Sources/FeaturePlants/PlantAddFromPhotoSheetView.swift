@@ -97,7 +97,7 @@ public struct PlantAddFromPhotoSheetView: View {
 
         return VStack(alignment: .leading, spacing: Metrics.space3) {
             Text(model.hint)
-                .font(Typography.body)
+                .font(FieldConsoleType.body.font)
                 .foregroundStyle(Palette.textMuted)
 
             SurfaceCard {
@@ -105,7 +105,7 @@ public struct PlantAddFromPhotoSheetView: View {
                     if CameraCapture.isAvailable {
                         Button(action: takePhoto) {
                             Label(model.takePhotoButtonTitle, systemImage: "camera.viewfinder")
-                                .font(Typography.body.weight(.medium))
+                                .font(FieldConsoleType.body.font.weight(.medium))
                                 // Genuine interaction, and the one this sheet
                                 // exists for: photographing the plant is the
                                 // action, choosing a file is the fallback.
@@ -128,7 +128,7 @@ public struct PlantAddFromPhotoSheetView: View {
 
                     PhotosPicker(selection: $pickedPhotoItem, matching: .images) {
                         Label(pickTitle, systemImage: "photo.on.rectangle")
-                            .font(Typography.body.weight(.medium))
+                            .font(FieldConsoleType.body.font.weight(.medium))
                             .foregroundStyle(Palette.text)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, Metrics.space3)
@@ -169,28 +169,28 @@ public struct PlantAddFromPhotoSheetView: View {
                 VStack(alignment: .leading, spacing: Metrics.space2) {
                     if let suggestion = identification?.suggestedTaxonomy, let identification {
                         Text(model.suggestionDisplayName(suggestion))
-                            .font(Typography.body.weight(.semibold))
+                            .font(FieldConsoleType.body.font.weight(.semibold))
                             .accessibilityIdentifier("plants.addFromPhoto.suggestion")
                         Text("\(model.confidenceLabel): \(model.confidenceText(identification.confidenceScore))")
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                     } else if let identification, let commonName = identification.suggestedCommonName {
                         Text(model.rawSuggestionDisplayName(
                             commonName: commonName,
                             scientificName: identification.suggestedScientificName
                         ))
-                            .font(Typography.body.weight(.semibold))
+                            .font(FieldConsoleType.body.font.weight(.semibold))
                             .accessibilityIdentifier("plants.addFromPhoto.suggestion")
                         Text("\(model.confidenceLabel): \(model.confidenceText(identification.confidenceScore))")
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                         Text(model.unlistedSuggestionNote)
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                             .accessibilityIdentifier("plants.addFromPhoto.unlistedNote")
                     } else {
                         Text(model.noConfidentMatchMessage)
-                            .font(Typography.body)
+                            .font(FieldConsoleType.body.font)
                             .foregroundStyle(Palette.textMuted)
                             .accessibilityIdentifier("plants.addFromPhoto.noMatch")
                     }
@@ -291,16 +291,16 @@ public struct PlantAddFromPhotoSheetView: View {
     private func detailRow(_ symbol: String, _ label: String, _ value: String, identifier: String) -> some View {
         HStack(alignment: .top, spacing: Metrics.space2) {
             Image(systemName: symbol)
-                .font(Typography.body)
+                .font(FieldConsoleType.body.font)
                 .foregroundStyle(Palette.textMuted)
                 .frame(width: Metrics.space5)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Metrics.space1) {
                 Text(label)
-                    .font(Typography.detail)
+                    .font(FieldConsoleType.detail.font)
                     .foregroundStyle(Palette.textMuted)
                 Text(value)
-                    .font(Typography.body)
+                    .font(FieldConsoleType.body.font)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

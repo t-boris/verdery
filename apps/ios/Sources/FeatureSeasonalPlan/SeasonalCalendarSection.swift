@@ -26,7 +26,7 @@ struct SeasonalCalendarSection: View {
             } else if presentation.calendarRows.isEmpty {
                 SurfaceCard {
                     Text(model.calendarEmptyMessage)
-                        .font(Typography.detail)
+                        .font(FieldConsoleType.detail.font)
                         .foregroundStyle(Palette.textMuted)
                 }
                 .accessibilityIdentifier("seasonalPlan.calendar.empty")
@@ -53,10 +53,10 @@ struct SeasonalCalendarSection: View {
         SurfaceCard {
             VStack(alignment: .leading, spacing: Metrics.space2) {
                 Text(model.hemisphereUnknownTitle)
-                    .font(Typography.heading)
+                    .font(FieldConsoleType.heading.font)
                     .foregroundStyle(Palette.text)
                 Text(model.hemisphereUnknownDescription)
-                    .font(Typography.detail)
+                    .font(FieldConsoleType.detail.font)
                     .foregroundStyle(Palette.textMuted)
                 NavigationLink(value: SeasonalPlanCalibrationRoute(gardenId: model.gardenId)) {
                     Label(model.hemisphereUnknownLinkTitle, systemImage: "map")
@@ -73,22 +73,22 @@ struct SeasonalCalendarSection: View {
             // De-emphasized, never hidden: a `noSeasonalData` plant still
             // renders, only in the muted foreground.
             Text(row.plantLabel)
-                .font(Typography.body)
+                .font(FieldConsoleType.body.font)
                 .foregroundStyle(row.isDeemphasized ? Palette.textMuted : Palette.text)
 
             if let note = row.noteText {
                 Text(note)
-                    .font(Typography.detail)
+                    .font(FieldConsoleType.detail.font)
                     .foregroundStyle(Palette.textMuted)
             } else {
                 ForEach(row.windowLines) { line in
                     HStack(spacing: Metrics.space2) {
                         Text(line.label)
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                         Spacer(minLength: 0)
                         Text(line.rangeText)
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.text)
                     }
                 }

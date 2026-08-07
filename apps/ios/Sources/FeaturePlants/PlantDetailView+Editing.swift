@@ -156,15 +156,15 @@ extension PlantDetailView {
                         .foregroundStyle(Palette.textMuted)
                         .accessibilityHidden(true)
                     Text(model.taxonomyLabel)
-                        .font(Typography.body)
+                        .font(FieldConsoleType.body.font)
                         .foregroundStyle(Palette.text)
                     Spacer(minLength: 0)
                     Text(model.selectedTaxonomySummary)
-                        .font(Typography.detail)
+                        .font(FieldConsoleType.detail.font)
                         .foregroundStyle(Palette.textMuted)
                         .lineLimit(1)
                     Image(systemName: "chevron.right")
-                        .font(Typography.detail)
+                        .font(FieldConsoleType.detail.font)
                         .foregroundStyle(Palette.textMuted)
                         .accessibilityHidden(true)
                 }
@@ -174,7 +174,7 @@ extension PlantDetailView {
 
             if model.editedTaxonomyReferenceId != nil {
                 Button(model.taxonomyClearLabel) { model.clearTaxonomy() }
-                    .font(Typography.detail)
+                    .font(FieldConsoleType.detail.font)
                     .tint(Palette.negative)
                     .accessibilityIdentifier("plants.detail.taxonomyClear")
             }

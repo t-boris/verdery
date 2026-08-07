@@ -209,13 +209,13 @@ public struct TasksListView: View {
 
                 VStack(alignment: .leading, spacing: Metrics.space2) {
                     Text(row.title)
-                        .font(Typography.heading)
+                        .font(FieldConsoleType.heading.font)
                         .foregroundStyle(Palette.text)
                         .strikethrough(row.status == .completed)
 
                     if let notes = row.notes, !notes.isEmpty {
                         Text(notes)
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                             .lineLimit(2)
                     }

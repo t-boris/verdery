@@ -132,7 +132,7 @@ public struct CandidateDetailView: View {
         SurfaceCard {
             VStack(alignment: .leading, spacing: Metrics.space2) {
                 Text(candidate.displayName)
-                    .font(Typography.title)
+                    .font(FieldConsoleType.title.font)
                     .foregroundStyle(Palette.text)
                 HStack(spacing: Metrics.space2) {
                     Chip(
@@ -142,12 +142,12 @@ public struct CandidateDetailView: View {
                     )
                     if let priority = candidate.priority {
                         Text(model.priorityName(priority))
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                     }
                     if let quantity = candidate.quantity {
                         Text("\(quantity)")
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                     }
                 }
@@ -163,7 +163,7 @@ public struct CandidateDetailView: View {
             SurfaceCard {
                 VStack(alignment: .leading, spacing: Metrics.space3) {
                     Text(model.suitabilityDescription)
-                        .font(Typography.detail)
+                        .font(FieldConsoleType.detail.font)
                         .foregroundStyle(Palette.textMuted)
 
                     if model.isLoadingSuitability {
@@ -174,7 +174,7 @@ public struct CandidateDetailView: View {
                         }
                     } else {
                         Text(model.suitabilityNoneMessage)
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                     }
 
@@ -199,32 +199,32 @@ public struct CandidateDetailView: View {
         VStack(alignment: .leading, spacing: Metrics.space1) {
             HStack(spacing: Metrics.space2) {
                 Text(model.axisName(finding.axis))
-                    .font(Typography.detail.weight(.medium))
+                    .font(FieldConsoleType.detail.font.weight(.medium))
                     .foregroundStyle(Palette.text)
                 Chip(symbol: CandidateSymbols.suitability, label: model.categoryName(finding.category), tone: model.categoryTone(finding.category))
             }
 
             if finding.category == .unknown, let reason = finding.reason {
                 Text(model.unknownReasonName(reason))
-                    .font(Typography.micro)
+                    .font(FieldConsoleType.detail.font)
                     .foregroundStyle(Palette.textMuted)
             }
 
             if finding.category != .unknown, let explanation = finding.explanation {
                 Text(explanation)
-                    .font(Typography.detail)
+                    .font(FieldConsoleType.detail.font)
                     .foregroundStyle(Palette.text)
             }
 
             if finding.category == .assumption, let assumedValue = finding.assumedValue {
                 Text(model.assumedValueText(assumedValue))
-                    .font(Typography.micro)
+                    .font(FieldConsoleType.detail.font)
                     .foregroundStyle(Palette.textMuted)
             }
 
             ForEach(Array(finding.evidence.enumerated()), id: \.offset) { _, evidence in
                 Text("\(model.suitabilityEvidenceLabel): \(evidence.factKey) — \(model.evidenceValueText(evidence.value))")
-                    .font(Typography.micro)
+                    .font(FieldConsoleType.detail.font)
                     .foregroundStyle(Palette.textMuted)
             }
         }
@@ -413,7 +413,7 @@ public struct CandidateDetailView: View {
             SurfaceCard {
                 VStack(alignment: .leading, spacing: Metrics.space3) {
                     Text(model.convertDescription)
-                        .font(Typography.detail)
+                        .font(FieldConsoleType.detail.font)
                         .foregroundStyle(Palette.textMuted)
 
                     OptionalValueCard(
@@ -483,7 +483,7 @@ public struct CandidateDetailView: View {
             SurfaceCard {
                 VStack(alignment: .leading, spacing: Metrics.space3) {
                     Text(model.deleteDescription)
-                        .font(Typography.detail)
+                        .font(FieldConsoleType.detail.font)
                         .foregroundStyle(.secondary)
 
                     Button(role: .destructive) {

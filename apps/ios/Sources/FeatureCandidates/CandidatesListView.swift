@@ -30,7 +30,7 @@ struct CandidatesListView: View {
             case let .loaded(items, nextCursor):
                 if items.isEmpty {
                     Text(model.emptyMessage)
-                        .font(Typography.body)
+                        .font(FieldConsoleType.body.font)
                         .foregroundStyle(Palette.textMuted)
                         .accessibilityIdentifier("candidates.list.empty")
                 } else {
@@ -126,16 +126,16 @@ struct CandidatesListView: View {
                 IconMedallion(symbol: CandidateSymbols.candidate, label: candidate.displayName, tone: .neutral)
                 VStack(alignment: .leading, spacing: Metrics.space1) {
                     Text(candidate.displayName)
-                        .font(Typography.body.weight(.medium))
+                        .font(FieldConsoleType.body.font.weight(.medium))
                         .foregroundStyle(Palette.text)
                     HStack(spacing: Metrics.space2) {
                         Chip(symbol: CandidateSymbols.status, label: model.statusName(candidate.status), tone: model.statusTone(candidate.status))
                         Text(model.groupingKindName(candidate.groupingKind))
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                         if let priority = candidate.priority {
                             Text(model.priorityName(priority))
-                                .font(Typography.detail)
+                                .font(FieldConsoleType.detail.font)
                                 .foregroundStyle(Palette.textMuted)
                         }
                     }

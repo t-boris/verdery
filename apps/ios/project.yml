@@ -196,6 +196,19 @@ targets:
       properties:
         com.apple.developer.applesignin:
           - Default
+        # Firebase Auth stores the signed-in user in the keychain, and in the
+        # SIMULATOR that fails with `-34018 errSecMissingEntitlement` unless an
+        # access group is declared: a simulator build carries no
+        # `application-identifier` (Xcode strips profile-backed entitlements
+        # for it), so `SecItemCopyMatching` has no group to look in. The symptom
+        # is sign-in appearing to succeed and the app never becoming signed in
+        # — with the real cause logged once, at launch, in Firebase's own
+        # wording rather than this application's.
+        #
+        # On a device this is a no-op: the group named here is the default one
+        # the `application-identifier` entitlement already grants.
+        keychain-access-groups:
+          - $(AppIdentifierPrefix)com.verdery.app
         # Push. `development` is the local-build default; scripts/
         # archive-and-upload.sh rewrites this one key to `production` in the
         # generated entitlements before it archives, because this is a plist

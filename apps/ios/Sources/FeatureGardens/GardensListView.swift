@@ -103,7 +103,7 @@ public struct GardensListView: View {
 
                 VStack(alignment: .leading, spacing: Metrics.space2) {
                     Text(item.name)
-                        .font(Typography.heading)
+                        .font(FieldConsoleType.heading.font)
                         .foregroundStyle(Palette.text)
                         .lineLimit(2)
 
@@ -132,7 +132,7 @@ public struct GardensListView: View {
                 Spacer(minLength: 0)
 
                 Image(systemName: "chevron.right")
-                    .font(Typography.detail)
+                    .font(FieldConsoleType.detail.font)
                     .foregroundStyle(Palette.textMuted)
                     .accessibilityHidden(true)
             }

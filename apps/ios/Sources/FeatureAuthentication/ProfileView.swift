@@ -75,13 +75,13 @@ public struct ProfileView: View {
 
                     VStack(alignment: .leading, spacing: Metrics.space1) {
                         Text(model.headline)
-                            .font(Typography.heading)
+                            .font(FieldConsoleType.heading.font)
                             .foregroundStyle(Palette.text)
                             .accessibilityIdentifier("profile.headline")
 
                         if let emailAddress = model.emailAddress {
                             Text(emailAddress)
-                                .font(Typography.detail)
+                                .font(FieldConsoleType.detail.font)
                                 .foregroundStyle(Palette.textMuted)
                                 .accessibilityIdentifier("profile.email")
                         }

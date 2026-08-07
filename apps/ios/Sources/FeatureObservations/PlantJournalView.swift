@@ -91,7 +91,7 @@ public struct PlantJournalView: View {
             .clipShape(RoundedRectangle(cornerRadius: Metrics.radiusCard, style: .continuous))
 
             Text(ObservationsLocalization.formattedObservedAt(frame.frame.observedAt))
-                .font(Typography.detail)
+                .font(FieldConsoleType.detail.font)
                 .foregroundStyle(Palette.textMuted)
         }
     }

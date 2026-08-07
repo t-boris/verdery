@@ -105,7 +105,7 @@ struct ObservationRecordSheetView: View {
                         if CameraCapture.isAvailable {
                             Button(action: takePhoto) {
                                 Label(model.takePhotoButtonTitle, systemImage: "camera.viewfinder")
-                                    .font(Typography.body.weight(.medium))
+                                    .font(FieldConsoleType.body.font.weight(.medium))
                                     .foregroundStyle(Palette.interaction)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, Metrics.space3)
@@ -127,7 +127,7 @@ struct ObservationRecordSheetView: View {
 
                         PhotosPicker(selection: $pickedPhotoItem, matching: .images) {
                             Label(pickTitle, systemImage: "photo.on.rectangle")
-                                .font(Typography.body.weight(.medium))
+                                .font(FieldConsoleType.body.font.weight(.medium))
                                 .foregroundStyle(Palette.text)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, Metrics.space3)

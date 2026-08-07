@@ -45,13 +45,13 @@ public struct EmptyStateView: View {
                 .accessibilityHidden(true)
 
             Text(title)
-                .font(Typography.title)
+                .font(FieldConsoleType.title.font)
                 .foregroundStyle(Palette.text)
                 .multilineTextAlignment(.center)
 
             if let message {
                 Text(message)
-                    .font(Typography.secondary)
+                    .font(FieldConsoleType.secondary.font)
                     .foregroundStyle(Palette.textMuted)
                     .multilineTextAlignment(.center)
             }
@@ -90,7 +90,7 @@ public struct FailureStateView: View {
                 .accessibilityHidden(true)
 
             Text(message)
-                .font(Typography.body)
+                .font(FieldConsoleType.body.font)
                 .foregroundStyle(Palette.text)
                 .multilineTextAlignment(.center)
 
@@ -131,11 +131,11 @@ public struct InlineMessage: View {
     public var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.space2) {
             Image(systemName: symbol)
-                .font(Typography.detail)
+                .font(FieldConsoleType.detail.font)
                 .imageScale(.medium)
                 .accessibilityHidden(true)
             Text(message)
-                .font(Typography.detail)
+                .font(FieldConsoleType.detail.font)
         }
         .foregroundStyle(tone.foreground)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -159,7 +159,7 @@ public struct LoadingStateView: View {
                 // so it cannot accumulate into a screen full of orange.
                 .tint(Palette.interaction)
             Text(message)
-                .font(Typography.detail)
+                .font(FieldConsoleType.detail.font)
                 .foregroundStyle(Palette.textMuted)
         }
         .frame(maxWidth: .infinity)

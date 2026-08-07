@@ -74,7 +74,7 @@ public struct CollaboratorsView: View {
                     } label: {
                         Label(model.inviteButtonTitle, systemImage: CollaborationSymbols.invite)
                     }
-                    .font(Typography.detail)
+                    .font(FieldConsoleType.detail.font)
                     .accessibilityIdentifier("collaborators.invite.open")
                 }
             }
@@ -91,7 +91,7 @@ public struct CollaboratorsView: View {
                 IconMedallion(symbol: GardenSymbols.role(member.role), label: member.roleLabel)
                 VStack(alignment: .leading, spacing: Metrics.space1) {
                     Text(member.nameLabel)
-                        .font(Typography.body)
+                        .font(FieldConsoleType.body.font)
                         .foregroundStyle(Palette.text)
                     Chip(symbol: GardenSymbols.role(member.role), label: member.roleLabel, tone: .neutral)
                 }
@@ -102,7 +102,7 @@ public struct CollaboratorsView: View {
                         memberActions(member)
                     } label: {
                         Image(systemName: "ellipsis.circle")
-                            .font(Typography.body)
+                            .font(FieldConsoleType.body.font)
                             .foregroundStyle(Palette.textMuted)
                     }
                     .accessibilityIdentifier("collaborators.member.\(member.id).actions")
@@ -176,7 +176,7 @@ public struct CollaboratorsView: View {
             if summary.invitations.isEmpty {
                 SurfaceCard {
                     Text(model.pendingInvitationsEmptyMessage)
-                        .font(Typography.secondary)
+                        .font(FieldConsoleType.secondary.font)
                         .foregroundStyle(Palette.textMuted)
                 }
             } else {
@@ -197,7 +197,7 @@ public struct CollaboratorsView: View {
                 )
                 VStack(alignment: .leading, spacing: Metrics.space1) {
                     Text(invitation.emailLabel)
-                        .font(Typography.body)
+                        .font(FieldConsoleType.body.font)
                         .foregroundStyle(Palette.text)
                     HStack(spacing: Metrics.space2) {
                         Chip(symbol: GardenSymbols.role(invitation.role.gardenRole), label: invitation.roleLabel, tone: .neutral)
@@ -214,7 +214,7 @@ public struct CollaboratorsView: View {
                     Button(model.revokeInvitationTitle) {
                         model.requestConfirmation(.revokeInvitation(invitationId: invitation.id))
                     }
-                    .font(Typography.detail)
+                    .font(FieldConsoleType.detail.font)
                     .foregroundStyle(Palette.negative)
                     .accessibilityIdentifier("collaborators.invitation.\(invitation.id).revoke")
                 }

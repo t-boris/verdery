@@ -158,15 +158,15 @@ public struct TodayView: View {
                     IconMedallion(symbol: "leaf.fill", label: model.seasonalPlanCardTitle)
                     VStack(alignment: .leading, spacing: Metrics.space1) {
                         Text(model.seasonalPlanCardTitle)
-                            .font(Typography.body)
+                            .font(FieldConsoleType.body.font)
                             .foregroundStyle(Palette.text)
                         Text(model.seasonalPlanCardSubtitle)
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                     }
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right")
-                        .font(Typography.detail)
+                        .font(FieldConsoleType.detail.font)
                         .foregroundStyle(Palette.textMuted)
                         .accessibilityHidden(true)
                 }
@@ -188,10 +188,10 @@ public struct TodayView: View {
 
                     VStack(alignment: .leading, spacing: Metrics.space1) {
                         Text(item.actionTitle)
-                            .font(Typography.heading)
+                            .font(FieldConsoleType.heading.font)
                             .foregroundStyle(Palette.text)
                         Label(item.targetLabel, systemImage: TodaySymbols.target)
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                             .lineLimit(1)
                     }
@@ -199,12 +199,12 @@ public struct TodayView: View {
                     Spacer(minLength: 0)
 
                     Text(item.priorityScoreText)
-                        .font(Typography.metric)
+                        .font(FieldConsoleType.metric.font)
                         .foregroundStyle(TodaySymbols.urgencyTone(item.urgency).foreground)
                 }
 
                 Text(item.explanation)
-                    .font(Typography.detail)
+                    .font(FieldConsoleType.detail.font)
                     .foregroundStyle(Palette.textMuted)
                     .lineLimit(3)
 

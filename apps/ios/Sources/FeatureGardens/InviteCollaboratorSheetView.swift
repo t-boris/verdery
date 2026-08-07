@@ -115,7 +115,7 @@ struct InviteCollaboratorSheetView: View {
                 SurfaceCard(tone: .warning) {
                     VStack(alignment: .leading, spacing: Metrics.space3) {
                         Text(model.inviteTokenTitle)
-                            .font(Typography.heading)
+                            .font(FieldConsoleType.heading.font)
                             .foregroundStyle(Palette.text)
                         InlineMessage(model.inviteTokenWarning, tone: .warning)
 

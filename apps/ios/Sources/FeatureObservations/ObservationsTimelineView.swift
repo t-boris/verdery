@@ -232,20 +232,20 @@ public struct ObservationsTimelineView: View {
 
                     if let correctionOfText = model.correctionOfText(for: row) {
                         Text(correctionOfText)
-                            .font(Typography.micro)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                             .accessibilityIdentifier("observations.row.\(row.id).correctionOf")
                     }
 
                     if let noteText = row.noteText, !noteText.isEmpty {
                         Text(noteText)
-                            .font(Typography.body)
+                            .font(FieldConsoleType.body.font)
                             .foregroundStyle(Palette.text)
                     }
 
                     if let conditionSummary = row.conditionSummary, !conditionSummary.isEmpty {
                         Text(conditionSummary)
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                     }
 
@@ -255,11 +255,11 @@ public struct ObservationsTimelineView: View {
                         // must not read as one list.
                         VStack(alignment: .leading, spacing: Metrics.space1) {
                             Text(model.symptomsReportedLabel)
-                                .font(Typography.micro)
+                                .font(FieldConsoleType.detail.font)
                                 .foregroundStyle(Palette.textMuted)
                             ForEach(row.symptomLabels, id: \.self) { label in
                                 Text(label)
-                                    .font(Typography.detail)
+                                    .font(FieldConsoleType.detail.font)
                                     .foregroundStyle(Palette.text)
                             }
                         }
@@ -304,10 +304,10 @@ public struct ObservationsTimelineView: View {
             } else {
                 HStack(spacing: Metrics.space2) {
                     Text(summary.suggestedLabel)
-                        .font(Typography.detail)
+                        .font(FieldConsoleType.detail.font)
                         .foregroundStyle(Palette.text)
                     Text(summary.confidenceText)
-                        .font(Typography.micro)
+                        .font(FieldConsoleType.detail.font)
                         .foregroundStyle(Palette.textMuted)
                 }
 
@@ -319,17 +319,17 @@ public struct ObservationsTimelineView: View {
                 }
                 if !summary.evidenceSummary.isEmpty {
                     Text(model.analysisEvidenceSummaryText(summary.evidenceSummary))
-                        .font(Typography.detail)
+                        .font(FieldConsoleType.detail.font)
                         .foregroundStyle(Palette.textMuted)
                 }
                 if !summary.alternativeExplanations.isEmpty {
                     VStack(alignment: .leading, spacing: Metrics.space1) {
                         Text(model.analysisAlternativeExplanationsLabel)
-                            .font(Typography.micro)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                         ForEach(summary.alternativeExplanations, id: \.self) { explanation in
                             Text("• \(explanation)")
-                                .font(Typography.detail)
+                                .font(FieldConsoleType.detail.font)
                                 .foregroundStyle(Palette.textMuted)
                         }
                     }
@@ -384,7 +384,7 @@ public struct ObservationsTimelineView: View {
 
             if let dispositionSetAtText = summary.dispositionSetAtText {
                 Text(dispositionSetAtText)
-                    .font(Typography.micro)
+                    .font(FieldConsoleType.detail.font)
                     .foregroundStyle(Palette.textMuted)
             }
             if model.dispositionSavedIds.contains(summary.id) {

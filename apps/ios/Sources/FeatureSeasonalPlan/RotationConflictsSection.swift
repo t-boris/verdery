@@ -25,7 +25,7 @@ struct RotationConflictsSection: View {
             if presentation.rotationConflicts.isEmpty {
                 SurfaceCard {
                     Text(model.rotationConflictsEmptyMessage)
-                        .font(Typography.detail)
+                        .font(FieldConsoleType.detail.font)
                         .foregroundStyle(Palette.textMuted)
                 }
                 .accessibilityIdentifier("seasonalPlan.rotation.conflictsEmpty")
@@ -59,13 +59,13 @@ struct RotationConflictsSection: View {
             VStack(alignment: .leading, spacing: Metrics.space2) {
                 HStack(spacing: Metrics.space2) {
                     Text(row.plantLabel)
-                        .font(Typography.body)
+                        .font(FieldConsoleType.body.font)
                         .foregroundStyle(Palette.text)
                     Spacer(minLength: 0)
                     Chip(symbol: "exclamationmark.triangle.fill", label: model.rotationConflictBadgeLabel, tone: .warning)
                 }
                 Text(row.descriptionText)
-                    .font(Typography.detail)
+                    .font(FieldConsoleType.detail.font)
                     .foregroundStyle(Palette.textMuted)
             }
         }
@@ -75,10 +75,10 @@ struct RotationConflictsSection: View {
     private func otherRow(_ row: RotationStatusRow) -> some View {
         VStack(alignment: .leading, spacing: Metrics.space1) {
             Text(row.plantLabel)
-                .font(Typography.body)
+                .font(FieldConsoleType.body.font)
                 .foregroundStyle(Palette.text)
             Text(row.descriptionText)
-                .font(Typography.detail)
+                .font(FieldConsoleType.detail.font)
                 .foregroundStyle(Palette.textMuted)
         }
         .accessibilityElement(children: .combine)

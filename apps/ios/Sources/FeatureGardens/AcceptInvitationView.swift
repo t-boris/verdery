@@ -45,7 +45,7 @@ public struct AcceptInvitationView: View {
             VStack(spacing: Metrics.space5) {
                 IconMedallion(symbol: "checkmark.seal.fill", label: model.title, tone: .positive, isLarge: true)
                 Text(model.successMessage(gardenName: gardenName))
-                    .font(Typography.title)
+                    .font(FieldConsoleType.title.font)
                     .foregroundStyle(Palette.text)
                     .multilineTextAlignment(.center)
 

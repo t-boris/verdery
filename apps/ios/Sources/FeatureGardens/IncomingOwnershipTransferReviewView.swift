@@ -21,11 +21,11 @@ public struct IncomingOwnershipTransferReviewView: View {
                             HStack(spacing: Metrics.space3) {
                                 IconMedallion(symbol: CollaborationSymbols.ownershipTransfer, label: model.title, tone: .neutral, isLarge: true)
                                 Text(model.title)
-                                    .font(Typography.title)
+                                    .font(FieldConsoleType.title.font)
                                     .foregroundStyle(Palette.text)
                             }
                             Text(model.message)
-                                .font(Typography.body)
+                                .font(FieldConsoleType.body.font)
                                 .foregroundStyle(Palette.text)
                         }
                     }

@@ -58,7 +58,7 @@ struct PlantCoverThumbnailView: View {
             .fill(PlantSymbols.lifecycleTone(lifecycleStage).quietFill)
             .overlay(
                 Image(systemName: PlantSymbols.lifecycleStage(lifecycleStage))
-                    .font(Typography.title)
+                    .font(FieldConsoleType.title.font)
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(PlantSymbols.lifecycleTone(lifecycleStage).foreground)
             )

@@ -40,7 +40,7 @@ public struct PlantIdentificationBannerView: View {
                 SurfaceCard(tone: .neutral) {
                     VStack(alignment: .leading, spacing: Metrics.space2) {
                         Text(model.identificationPendingBanner)
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
 
                         if identification.hasConfirmableSuggestion {
@@ -79,17 +79,17 @@ public struct PlantIdentificationBannerView: View {
     private func speciesSuggestion(_ identification: PlantIdentification) -> some View {
         if let suggestion = identification.suggestedTaxonomy {
             Text(model.identificationSuggestionDisplayName(suggestion))
-                .font(Typography.body.weight(.semibold))
+                .font(FieldConsoleType.body.font.weight(.semibold))
                 .accessibilityIdentifier("plants.detail.identification.suggestion")
         } else if let commonName = identification.suggestedCommonName {
             Text(model.rawIdentificationSuggestionDisplayName(
                 commonName: commonName,
                 scientificName: identification.suggestedScientificName
             ))
-                .font(Typography.body.weight(.semibold))
+                .font(FieldConsoleType.body.font.weight(.semibold))
                 .accessibilityIdentifier("plants.detail.identification.suggestion")
             Text(model.identificationUnlistedNote)
-                .font(Typography.detail)
+                .font(FieldConsoleType.detail.font)
                 .foregroundStyle(Palette.textMuted)
                 .accessibilityIdentifier("plants.detail.identification.unlistedNote")
         }
@@ -97,7 +97,7 @@ public struct PlantIdentificationBannerView: View {
             "\(model.identificationConfidenceLabel): "
                 + model.identificationConfidenceText(identification.confidenceScore)
         )
-        .font(Typography.detail)
+        .font(FieldConsoleType.detail.font)
         .foregroundStyle(Palette.textMuted)
     }
 
@@ -167,16 +167,16 @@ public struct PlantIdentificationBannerView: View {
     private func detailRow(_ symbol: String, _ label: String, _ value: String, identifier: String) -> some View {
         HStack(alignment: .top, spacing: Metrics.space2) {
             Image(systemName: symbol)
-                .font(Typography.body)
+                .font(FieldConsoleType.body.font)
                 .foregroundStyle(Palette.textMuted)
                 .frame(width: Metrics.space5)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Metrics.space1) {
                 Text(label)
-                    .font(Typography.detail)
+                    .font(FieldConsoleType.detail.font)
                     .foregroundStyle(Palette.textMuted)
                 Text(value)
-                    .font(Typography.body)
+                    .font(FieldConsoleType.body.font)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

@@ -33,7 +33,7 @@ struct PlantsListView: View {
             case let .loaded(items, nextCursor):
                 if items.isEmpty {
                     Text(model.emptyMessage)
-                        .font(Typography.body)
+                        .font(FieldConsoleType.body.font)
                         .foregroundStyle(Palette.textMuted)
                         .accessibilityIdentifier("plants.list.empty")
                 } else {
@@ -119,11 +119,11 @@ struct PlantsListView: View {
                 )
                 VStack(alignment: .leading, spacing: Metrics.space1) {
                     Text(plant.displayName)
-                        .font(Typography.body.weight(.medium))
+                        .font(FieldConsoleType.body.font.weight(.medium))
                         .foregroundStyle(Palette.text)
                     if let varietyLabel = plant.varietyLabel {
                         Text(varietyLabel)
-                            .font(Typography.detail)
+                            .font(FieldConsoleType.detail.font)
                             .foregroundStyle(Palette.textMuted)
                     }
                 }

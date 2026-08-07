@@ -32,13 +32,13 @@ public struct Chip: View {
             // Symbol sized this way tracks the reader's text size and stays on
             // the label's baseline, which a fixed size does neither of.
             Image(systemName: symbol)
-                .font(Typography.micro)
+                .font(FieldConsoleType.detail.font)
                 .imageScale(.medium)
                 .symbolRenderingMode(.hierarchical)
 
             if showsLabel {
                 Text(label)
-                    .font(Typography.micro)
+                    .font(FieldConsoleType.detail.font)
                     .lineLimit(1)
             }
         }
@@ -71,7 +71,7 @@ public struct StatusGlyph: View {
 
     public var body: some View {
         Image(systemName: symbol)
-            .font(Typography.detail)
+            .font(FieldConsoleType.detail.font)
             .imageScale(.medium)
             .symbolRenderingMode(.hierarchical)
             .foregroundStyle(tone.foreground)
@@ -104,7 +104,7 @@ public struct IconMedallion: View {
 
     public var body: some View {
         Image(systemName: symbol)
-            .font(isLarge ? Typography.title : Typography.body)
+            .font(isLarge ? FieldConsoleType.title.font : FieldConsoleType.body.font)
             .imageScale(.large)
             .symbolRenderingMode(.hierarchical)
             .foregroundStyle(tone.foreground)

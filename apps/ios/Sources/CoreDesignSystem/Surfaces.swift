@@ -99,10 +99,10 @@ public struct SectionEyebrow: View {
     public var body: some View {
         HStack(spacing: Metrics.space2) {
             Image(systemName: symbol)
-                .font(Typography.eyebrow)
+                .font(FieldConsoleType.label.font)
                 .imageScale(.small)
             Text(title.uppercased())
-                .font(Typography.eyebrow)
+                .font(FieldConsoleType.label.font)
                 .kerning(1.2)
             Rectangle()
                 .fill(Palette.border)
@@ -135,15 +135,15 @@ public struct MetricTile: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: Metrics.space1) {
             Image(systemName: symbol)
-                .font(Typography.detail)
+                .font(FieldConsoleType.detail.font)
                 .imageScale(.medium)
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(tone.foreground)
             Text(value)
-                .font(Typography.metric)
+                .font(FieldConsoleType.metric.font)
                 .foregroundStyle(Palette.text)
             Text(caption)
-                .font(Typography.micro)
+                .font(FieldConsoleType.detail.font)
                 .foregroundStyle(Palette.textMuted)
                 .lineLimit(2)
         }
