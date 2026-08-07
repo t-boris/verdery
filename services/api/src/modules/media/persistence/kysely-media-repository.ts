@@ -258,6 +258,7 @@ export class KyselyMediaRepository implements MediaRepository {
       .selectAll()
       .where('garden_id', '=', input.gardenId)
       .where('derived_from_media_id', 'is', null)
+      .where('upload_state', 'not in', ['deletion_scheduled', 'deleted'])
       .orderBy('created_at', 'desc')
       .orderBy('id', 'desc')
       .limit(input.limit + 1);

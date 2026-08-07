@@ -15,7 +15,7 @@ export interface FindDerivativeInput {
   readonly tile: TileCoordinates | null;
 }
 
-/** `ListGardenMedia`'s repository input — originals only, optionally one class, cursor-paged (P6-PLAN-01). */
+/** `ListGardenMedia`'s repository input — active originals only, optionally one class, cursor-paged (P6-PLAN-01). */
 /** The reference image a similarity search compares against. */
 export interface SimilarMediaFilter {
   readonly perceptualHash: string;

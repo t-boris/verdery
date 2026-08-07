@@ -340,10 +340,12 @@ Client access is different from viewer access. A client may download only a safe
 
 Two client-blocking read gaps are now closed:
 
-- **`ListGardenMedia`** (`GET /gardens/{gardenId}/media`): a garden's ORIGINAL media records, most
-  recently created first, optionally filtered to one media class, under the API's ordinary
-  cursor/limit pagination. Derivative rows are excluded by construction, never reachable through a
-  `derived_preview` filter — a raster plan's tile pyramid alone can run to thousands of rows.
+- **`ListGardenMedia`** (`GET /gardens/{gardenId}/media`): a garden's active ORIGINAL media records,
+  most recently created first, optionally filtered to one media class, under the API's ordinary
+  cursor/limit pagination. Rows in `deletion_scheduled` or `deleted` are excluded from this
+  user-visible listing even though their metadata remains for audit. Derivative rows are excluded by
+  construction, never reachable through a `derived_preview` filter — a raster plan's tile pyramid
+  alone can run to thousands of rows.
 - **Derivative resolution**: the read operations a client displays media through (`GetMediaStatus`,
   `ListGardenMedia`) embed each record's available display derivatives — kind plus the derivative's
   OWN media id — as `Media.derivatives`. Only the non-tile kinds (thumbnail, screen preview,
@@ -471,12 +473,15 @@ User-visible deletion remains pending until required objects are confirmed delet
 same outbox/Cloud Tasks/callback machinery every processing job already rides. Step by step:
 
 1-2. **Revoke access + mark scheduled** are ONE act: every read path already gates on `available`
-(`GetMediaAccess`, derivative listing), so the revision-guarded `available → deletion_scheduled`
-transition IS the revocation. Initiators: `DeleteGardenMedia`
+(`GetMediaAccess`, derivative listing), so the revision-guarded transition to
+`deletion_scheduled` IS the revocation. Initiators: `DeleteGardenMedia`
 (`POST /gardens/{gardenId}/media/{mediaId}/delete` — `editGardenContent`, If-Match-guarded,
-replay-idempotent, originals only) and the retention sweep (15.1). Every derivative row is
-bulk-transitioned with its source in the same transaction — a tile pyramid's thousands of rows make
-this deliberately set-based, with the state gate in the statement's own `WHERE`.
+replay-idempotent, originals only) and the retention sweep (15.1). Explicit user deletion accepts
+both `available` media and active incomplete uploads, allowing an interrupted property-plan upload
+to be discarded immediately; partial bytes and active jobs follow the same governed cleanup path.
+Every derivative row is bulk-transitioned with its source in the same transaction — a tile pyramid's
+thousands of rows make this deliberately set-based, with the state gate in the statement's own
+`WHERE`.
 
 3. **Cancel eligible pending processing**: every `requested`/`queued` job for the media is marked
    `cancelled` in the scheduling transaction. A Cloud Tasks dispatch already in flight cannot be

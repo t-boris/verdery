@@ -93,7 +93,15 @@ export function useDeleteGardenPlan(gardenId: string) {
   >({
     mutationFn: async ({ mediaId, revision }) =>
       unwrap(await gateway.delete(gardenId, mediaId, revision, generateIdempotencyKey())),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['media', gardenId] }),
+    onSuccess: (_deleted, { mediaId }) => {
+      const planListKey = ['media', gardenId, 'list', 'imported_plan'] as const;
+      queryClient.setQueryData<MediaListResult>(planListKey, (current) =>
+        current === undefined
+          ? undefined
+          : { ...current, items: current.items.filter((media) => media.id !== mediaId) },
+      );
+      return queryClient.invalidateQueries({ queryKey: ['media', gardenId] });
+    },
   });
 }
 

@@ -1,7 +1,9 @@
 /**
- * `ListGardenMedia` (P6-PLAN-01): a garden's ORIGINAL media records, most
- * recently created first, optionally filtered to one class — the read the
- * plan-import flow picks an `imported_plan` document through.
+ * `ListGardenMedia` (P6-PLAN-01): a garden's active ORIGINAL media records,
+ * most recently created first, optionally filtered to one class — the read
+ * the plan-import flow picks an `imported_plan` document through. Records in
+ * the deletion pipeline are excluded: their metadata survives for audit, but
+ * they are no longer user-visible media.
  *
  * Derivative rows are excluded by the repository query itself
  * (`derived_from_media_id IS NULL`), never reachable through a

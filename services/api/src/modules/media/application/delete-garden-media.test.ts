@@ -1,11 +1,7 @@
 import { MEDIA_DELETION_REQUESTED_EVENT_TYPE } from '@verdery/api-contracts';
 import type { MediaDeletionRequestedEventPayload } from '@verdery/api-contracts';
 import { describe, expect, it } from 'vitest';
-import {
-  ConflictError,
-  NotFoundError,
-  StaleRevisionError,
-} from '../../../platform/errors/application-error.js';
+import { NotFoundError, StaleRevisionError } from '../../../platform/errors/application-error.js';
 import {
   authorizeMediaUpload,
   beginMediaUpload,
@@ -230,7 +226,7 @@ describe('DeleteGardenMedia', () => {
     ).rejects.toMatchObject({ code: 'media.derivative_not_deletable' });
   });
 
-  it('rejects a record in a pre-available state (the sweep owns orphans) and a stale revision', async () => {
+  it('deletes a user-discarded pre-available upload and still rejects a stale revision', async () => {
     const { command, fakes } = buildCommand();
     const registered = registerMediaRecord(
       MEDIA_ID,
@@ -248,15 +244,17 @@ describe('DeleteGardenMedia', () => {
     );
     fakes.media.records.set(MEDIA_ID, registered);
 
-    await expect(
-      command.execute(
-        GARDEN_ID,
-        MEDIA_ID,
-        PROFILE_ID,
-        registered.revision,
-        '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9e14',
-      ),
-    ).rejects.toBeInstanceOf(ConflictError);
+    const deleted = await command.execute(
+      GARDEN_ID,
+      MEDIA_ID,
+      PROFILE_ID,
+      registered.revision,
+      '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9e14',
+    );
+
+    expect(deleted.uploadState).toBe('deleted');
+    expect(fakes.media.records.get(MEDIA_ID)?.uploadState).toBe('deleted');
+    expect(fakes.outbox.events).toHaveLength(0);
 
     fakes.media.records.set(MEDIA_ID, availableMedia());
     await expect(

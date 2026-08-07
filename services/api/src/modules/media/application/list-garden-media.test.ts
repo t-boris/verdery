@@ -89,6 +89,33 @@ describe('ListGardenMedia', () => {
     expect(result.nextCursor).toBeUndefined();
   });
 
+  it('excludes records once deletion has been scheduled or completed', async () => {
+    const repository = seededRepository();
+    const scheduledId = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a03';
+    const deletedId = '019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a02';
+    const scheduled = repository.records.get(scheduledId);
+    const deleted = repository.records.get(deletedId);
+    if (scheduled === undefined || deleted === undefined) {
+      throw new Error('seed records missing');
+    }
+    repository.records.set(scheduledId, { ...scheduled, uploadState: 'deletion_scheduled' });
+    repository.records.set(deletedId, { ...deleted, uploadState: 'deleted' });
+    const useCase = new ListGardenMedia(
+      repository,
+      authorizationGranting(buildMembership({ gardenId: GARDEN_ID, role: 'viewer' })),
+    );
+
+    const result = await useCase.execute(GARDEN_ID, PROFILE_ID, {
+      mediaClass: null,
+      checksumSha256: null,
+      similarToMediaId: null,
+      cursor: null,
+      limit: 50,
+    });
+
+    expect(result.items.map((item) => item.id)).toEqual(['019827ab-4c1d-7e3f-9a2b-5c6d7e8f9a01']);
+  });
+
   it('filters to one media class and pages with a continuation cursor', async () => {
     const useCase = new ListGardenMedia(
       seededRepository(),

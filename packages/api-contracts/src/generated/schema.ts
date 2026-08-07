@@ -2528,9 +2528,11 @@ export interface paths {
         };
         /**
          * List a garden's media records
-         * @description Lists the garden's ORIGINAL media records — rows a derivative was
+         * @description Lists the garden's active ORIGINAL media records — rows a derivative was
          *     produced FROM, never the derivative rows themselves — most recently
-         *     created first, optionally filtered to one media class. P6-PLAN-01
+         *     created first, optionally filtered to one media class. Records whose
+         *     deletion is scheduled or complete are excluded: their metadata survives
+         *     for audit, but they are no longer user-visible media. P6-PLAN-01
          *     added this: the plan-import flow needs to pick from a garden's
          *     available `imported_plan` documents, and no endpoint could list
          *     media by garden at all before (`GetMediaStatus` requires already
@@ -2762,6 +2764,12 @@ export interface paths {
          *     record out from under a background must fail loudly") already
          *     encode, surfaced as a clean contract error instead of a constraint
          *     violation.
+         *
+         *     Active uploads (`registered`, `authorized`, `uploading`, or `verifying`)
+         *     may also be deleted explicitly by the user. The same workflow cancels
+         *     processing and removes any partial stored bytes, so an interrupted
+         *     property-plan upload can be discarded without waiting for retention
+         *     reconciliation. Rejected records retain their existing evidence policy.
          *
          *     Idempotent under replay: a record already `deletion_scheduled` or
          *     `deleted` returns its current state unchanged, never a second

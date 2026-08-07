@@ -13,11 +13,11 @@
  *   the uploader (the same posture every other content command — task
  *   delete, map object delete — already takes), and the audit event
  *   records who acted.
- * - **Only from `available`** — the one state section 6's diagram draws
- *   the `deletion_scheduled` edge from. A pre-`available` record is the
- *   retention sweep's orphan-reconciliation concern, not a user command's;
- *   a `rejected` record's evidence retention is deliberately deferred
- *   (see `docs/development/deferred-capabilities.md`).
+ * - **From active upload states or `available`** — a user may discard an
+ *   incomplete upload as well as a processed file. The shared workflow uses
+ *   the stale-upload transition for pre-`available` rows, cancels processing,
+ *   and removes any partial bytes. A `rejected` record remains retained as
+ *   evidence under the existing policy.
  * - **Replay-idempotent like `CompleteMediaUpload`**: an already
  *   `deletion_scheduled`/`deleted` record returns its current state
  *   without a second workflow, never an error — deletion is asynchronous,
@@ -96,7 +96,11 @@ export class DeleteGardenMedia {
           return toMediaResource(record);
         }
 
-        if (record.uploadState !== 'available') {
+        if (
+          !['registered', 'authorized', 'uploading', 'verifying', 'available'].includes(
+            record.uploadState,
+          )
+        ) {
           throw mediaUploadStateConflictError(record.uploadState);
         }
         if (record.revision !== expectedRevision) {

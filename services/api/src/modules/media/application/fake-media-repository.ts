@@ -147,6 +147,8 @@ export class FakeMediaRepository implements MediaRepository {
         (record) =>
           record.gardenId === input.gardenId &&
           record.derivedFromMediaId === null &&
+          record.uploadState !== 'deletion_scheduled' &&
+          record.uploadState !== 'deleted' &&
           (input.mediaClass === null || record.mediaClass === input.mediaClass) &&
           (input.checksumSha256 === null || record.checksumSha256 === input.checksumSha256) &&
           (input.similarTo === null ||

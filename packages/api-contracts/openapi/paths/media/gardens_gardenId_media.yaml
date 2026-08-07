@@ -10,9 +10,11 @@ get:
   tags: [Media]
   summary: List a garden's media records
   description: |
-    Lists the garden's ORIGINAL media records — rows a derivative was
+    Lists the garden's active ORIGINAL media records — rows a derivative was
     produced FROM, never the derivative rows themselves — most recently
-    created first, optionally filtered to one media class. P6-PLAN-01
+    created first, optionally filtered to one media class. Records whose
+    deletion is scheduled or complete are excluded: their metadata survives
+    for audit, but they are no longer user-visible media. P6-PLAN-01
     added this: the plan-import flow needs to pick from a garden's
     available `imported_plan` documents, and no endpoint could list
     media by garden at all before (`GetMediaStatus` requires already
