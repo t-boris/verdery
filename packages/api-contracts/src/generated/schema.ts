@@ -5691,6 +5691,10 @@ export interface components {
             geometryEnvelope: components["schemas"]["GeometryEnvelope"];
             label?: string;
             details?: components["schemas"]["GardenObjectDetails"];
+            /** @description Whether this individual object is hidden from the map canvas. */
+            isHidden: boolean;
+            /** @description Whether this individual object is protected from editing. */
+            isLocked: boolean;
             lifecycleState: components["schemas"]["GardenObjectLifecycleState"];
             revision: components["schemas"]["Revision"];
             createdAt: components["schemas"]["Timestamp"];
@@ -5831,6 +5835,10 @@ export interface components {
             geometry: components["schemas"]["Geometry"];
             label?: string;
             categoryDetails?: components["schemas"]["GardenObjectDetails"];
+            /** @description Persisted per-object canvas visibility. Hidden objects remain in the object index. */
+            isHidden?: boolean;
+            /** @description Persisted per-object edit lock. The object may still be unlocked or hidden. */
+            isLocked?: boolean;
             /**
              * @description Where the object came from, when it did not come from someone's
              *     finger on the canvas — a plat reading accepted in review

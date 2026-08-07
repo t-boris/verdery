@@ -89,6 +89,8 @@ const BACKGROUND: MapObjectRecord = {
     },
   },
   lifecycleState: 'active',
+  isHidden: false,
+  isLocked: false,
   revision: 1,
   createdAt: '2026-07-21T09:00:00Z',
   updatedAt: '2026-07-21T09:00:00Z',

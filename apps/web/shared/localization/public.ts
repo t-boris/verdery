@@ -16,6 +16,7 @@ export {
 } from './formatting';
 export {
   DEFAULT_LOCALE,
+  LOCALE_COOKIE_NAME,
   SUPPORTED_LOCALES,
   isSupportedLocale,
   negotiateLocale,
@@ -29,3 +30,4 @@ export {
   type Translate,
 } from './translator';
 export { LocalizationProvider, useLocalization, type Localization } from './localization-provider';
+export { LanguageSwitcher } from './language-switcher';

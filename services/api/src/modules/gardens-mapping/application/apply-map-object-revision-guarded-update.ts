@@ -14,7 +14,11 @@
 
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { MapObject } from '../domain/map-object.js';
-import { mapObjectNotFoundError, mapObjectStaleRevisionError } from './map-object-errors.js';
+import {
+  mapObjectNotFoundError,
+  mapObjectStaleRevisionError,
+  requireMapObjectEditable,
+} from './map-object-errors.js';
 import type { MapObjectRepository } from './map-object-repository.js';
 
 export async function applyMapObjectRevisionGuardedUpdate(
@@ -23,6 +27,7 @@ export async function applyMapObjectRevisionGuardedUpdate(
   objectId: Uuid,
   expectedRevision: number,
   transform: (object: MapObject) => MapObject,
+  options: { readonly allowLocked?: boolean } = {},
 ): Promise<MapObject> {
   const object = await mapObjects.findByIdWithDetails(gardenId, objectId);
   if (object === null) {
@@ -30,6 +35,9 @@ export async function applyMapObjectRevisionGuardedUpdate(
   }
   if (object.currentRevision !== expectedRevision) {
     throw mapObjectStaleRevisionError(object.currentRevision);
+  }
+  if (options.allowLocked !== true) {
+    requireMapObjectEditable(object);
   }
 
   const updated = transform(object);

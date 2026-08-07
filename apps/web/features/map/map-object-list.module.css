@@ -93,6 +93,10 @@
   background-color: var(--color-surface-sunken);
 }
 
+.itemButtonHidden {
+  opacity: 0.55;
+}
+
 /* The ordinal: the same number the canvas chip prints for this object. */
 .ordinal {
   font-family: var(--font-family-mono);
@@ -122,7 +126,8 @@
   white-space: nowrap;
 }
 
-.deleteButton {
+.deleteButton,
+.stateButton {
   flex: none;
   inline-size: var(--control-min-size);
   border: 0;
@@ -136,12 +141,27 @@
     color var(--duration-fast) var(--ease-out);
 }
 
+.stateButton[aria-pressed='true'] {
+  color: var(--color-accent);
+  background-color: var(--color-accent-quiet);
+}
+
 .deleteButton:hover:not(:disabled) {
   background-color: var(--color-negative-quiet);
   color: var(--color-negative);
 }
 
 .deleteButton:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: -2px;
+}
+
+.stateButton:hover:not(:disabled) {
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text);
+}
+
+.stateButton:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: -2px;
 }

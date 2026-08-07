@@ -17,6 +17,8 @@ export function toMapObjectRecord(wire: WireGardenObject): MapObjectRecord {
     category: wire.category,
     geometry: wire.geometryEnvelope.geometry,
     ...(wire.label === undefined ? {} : { label: wire.label }),
+    isHidden: wire.isHidden,
+    isLocked: wire.isLocked,
     ...(wire.details === undefined
       ? {}
       : { categoryDetails: fromWireCategoryDetails(wire.details) }),
@@ -35,6 +37,8 @@ export function toObjectSnapshot(record: MapObjectRecord): ObjectSnapshot {
     geometry: record.geometry,
     ...(record.label === undefined ? {} : { label: record.label }),
     ...(record.categoryDetails === undefined ? {} : { categoryDetails: record.categoryDetails }),
+    isHidden: record.isHidden,
+    isLocked: record.isLocked,
     lifecycleState: record.lifecycleState,
   };
 }

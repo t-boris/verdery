@@ -127,6 +127,10 @@ export interface ChangePropertiesPayload {
   readonly expectedRevision: number;
   readonly label?: string;
   readonly categoryDetails?: GardenObjectDetails;
+  /** Persisted per-object canvas visibility. Hidden objects remain discoverable in the object index. */
+  readonly isHidden?: boolean;
+  /** Persisted per-object edit lock. Presentation-state changes remain allowed so the object can be unlocked. */
+  readonly isLocked?: boolean;
 }
 
 export interface AssignPlantPayload {

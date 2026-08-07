@@ -9,7 +9,11 @@ import type { MapObject } from '../domain/map-object.js';
 import { transitionMapObjectLifecycle } from '../domain/map-object-lifecycle.js';
 import type { GardenAuthorization } from './garden-authorization.js';
 import type { GardensMappingUnitOfWork } from './gardens-mapping-unit-of-work.js';
-import { mapObjectNotFoundError, mapObjectStaleRevisionError } from './map-object-errors.js';
+import {
+  mapObjectNotFoundError,
+  mapObjectStaleRevisionError,
+  requireMapObjectEditable,
+} from './map-object-errors.js';
 import { toGardenObjectResource, type MapCommandResultResource } from './map-object-view.js';
 import { requireValidGeometryForCategory } from './validate-map-geometry.js';
 import { runIdempotentCommand } from './run-idempotent-command.js';
@@ -50,6 +54,7 @@ export class JoinMapObjectLinework {
       if (first.currentRevision !== payload.firstExpectedRevision) {
         throw mapObjectStaleRevisionError(first.currentRevision);
       }
+      requireMapObjectEditable(first);
 
       const second = await context.mapObjects.findByIdWithDetails(gardenId, payload.secondObjectId);
       if (second === null) {
@@ -58,6 +63,7 @@ export class JoinMapObjectLinework {
       if (second.currentRevision !== payload.secondExpectedRevision) {
         throw mapObjectStaleRevisionError(second.currentRevision);
       }
+      requireMapObjectEditable(second);
 
       if (first.category !== second.category) {
         throw new ValidationError(

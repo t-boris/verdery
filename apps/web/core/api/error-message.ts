@@ -46,6 +46,7 @@ const MESSAGE_KEYS: Readonly<Record<string, MessageKey>> = {
   [MapErrorCode.NotFound]: 'error.mapObjectNotFound',
   [MapErrorCode.StaleRevision]: 'error.mapObjectStaleRevision',
   [MapErrorCode.LifecycleConflict]: 'error.mapObjectLifecycleConflict',
+  [MapErrorCode.Locked]: 'error.mapObjectLocked',
   'map.plan_page_not_ready': 'error.planPageNotReady',
   'map.plat_reading_unavailable': 'error.platReadingUnavailable',
   'map.plat_reading_failed': 'error.platReadingFailed',

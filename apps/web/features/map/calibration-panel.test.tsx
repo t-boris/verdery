@@ -56,6 +56,8 @@ function backgroundRecord(
       },
     },
     lifecycleState: 'active',
+    isHidden: false,
+    isLocked: false,
     revision: 1,
     createdAt: '2026-07-24T09:00:00Z',
     updatedAt: '2026-07-24T09:00:00Z',

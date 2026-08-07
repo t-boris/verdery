@@ -110,6 +110,7 @@ export type BackdropKind = 'imagery' | 'streets' | 'none';
 type Action =
   | { readonly type: 'select'; readonly objectId: string | null }
   | { readonly type: 'toggleMultiSelect'; readonly objectId: string }
+  | { readonly type: 'removeFromMultiSelect'; readonly objectId: string }
   | { readonly type: 'clearMultiSelect' }
   | { readonly type: 'setInteractionMode'; readonly mode: InteractionMode }
   | { readonly type: 'setTool'; readonly tool: ToolMode }
@@ -170,6 +171,11 @@ export function editorReducer(state: EditorState, action: Action): EditorState {
         multiSelectedObjectIds: state.multiSelectedObjectIds.includes(action.objectId)
           ? state.multiSelectedObjectIds.filter((id) => id !== action.objectId)
           : [...state.multiSelectedObjectIds, action.objectId],
+      };
+    case 'removeFromMultiSelect':
+      return {
+        ...state,
+        multiSelectedObjectIds: state.multiSelectedObjectIds.filter((id) => id !== action.objectId),
       };
     case 'clearMultiSelect':
       return { ...state, multiSelectedObjectIds: [] };
@@ -271,6 +277,7 @@ export interface MapEditorStore {
   readonly state: EditorState;
   readonly select: (objectId: string | null) => void;
   readonly toggleMultiSelect: (objectId: string) => void;
+  readonly removeFromMultiSelect: (objectId: string) => void;
   readonly clearMultiSelect: () => void;
   readonly setInteractionMode: (mode: InteractionMode) => void;
   readonly setTool: (tool: ToolMode) => void;
@@ -303,6 +310,7 @@ export function MapEditorStoreProvider({ children }: { readonly children: ReactN
       state,
       select: (objectId) => dispatch({ type: 'select', objectId }),
       toggleMultiSelect: (objectId) => dispatch({ type: 'toggleMultiSelect', objectId }),
+      removeFromMultiSelect: (objectId) => dispatch({ type: 'removeFromMultiSelect', objectId }),
       clearMultiSelect: () => dispatch({ type: 'clearMultiSelect' }),
       setInteractionMode: (mode) => dispatch({ type: 'setInteractionMode', mode }),
       setTool: (tool) => dispatch({ type: 'setTool', tool }),

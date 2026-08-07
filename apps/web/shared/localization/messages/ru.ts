@@ -83,6 +83,7 @@ export const russianMessages: MessageCatalogue = {
   'error.mapObjectStaleRevision':
     'Объект изменился до того, как ваша правка была сохранена. Обновите страницу и попробуйте снова.',
   'error.mapObjectLifecycleConflict': 'Это действие неприменимо к текущему состоянию объекта.',
+  'error.mapObjectLocked': 'Разблокируйте этот объект перед изменением.',
   'error.deletionRecentAuthenticationRequired':
     'Для удаления сада нужен недавний вход. Выйдите, войдите снова и повторите.',
   'error.deletionNotFound': 'Нет удаления, которое можно было бы отменить.',
@@ -138,6 +139,9 @@ export const russianMessages: MessageCatalogue = {
   'drafts.discard': 'Удалить восстановленный черновик',
 
   'shell.signOut': 'Выйти',
+  'shell.languageLabel': 'Язык интерфейса',
+  'shell.languageEnglish': 'Использовать английский',
+  'shell.languageRussian': 'Использовать русский',
   'shell.primaryNavLabel': 'Приложение',
   'shell.gardenNavLabel': 'Разделы сада',
   'shell.overviewTab': 'Обзор',

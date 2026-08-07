@@ -307,10 +307,19 @@ Logical layers are ordered independently from rendering implementation:
 
 Layer visibility, locking, and opacity are per-garden user preferences. Domain objects do not store
 arbitrary visual stacking that would invalidate semantic ordering. Every content layer starts
-unlocked; locking is always an explicit user choice. A lock blocks creation, selection, dragging,
-geometry/property edits, duplication, joining, and deletion until explicitly unlocked. The
-version-2 preference migration preserves camera, rotation, visibility, opacity, and backdrop while
-clearing the version-1 automatic lot/layout locks once.
+unlocked; locking is always an explicit user choice. A layer lock blocks creation, selection,
+dragging, geometry/property edits, duplication, joining, and deletion until explicitly unlocked.
+The version-2 preference migration preserves camera, rotation, visibility, opacity, and backdrop
+while clearing the version-1 automatic lot/layout locks once.
+
+Each `garden_object` also stores two revisioned, collaborator-visible presentation controls:
+`is_hidden` and `is_locked`. They are independent of the layer preferences. A hidden object is
+removed from the canvas and its labels but remains in the Objects index, where it can always be
+shown again. An individually locked object stays visible and listed but cannot be selected,
+dragged, reshaped, renamed, assigned, duplicated, joined, or deleted; its visibility may still be
+changed and its lock may always be removed. Both controls use the ordinary revision-guarded
+`changeProperties` command, so they survive reloads and synchronize across clients without a
+parallel map-state API.
 
 The camera, geographic backdrop, and garden geometry share one local-metre-to-screen transform.
 Panning, zooming, or rotating the view therefore keeps every traced object attached to the same

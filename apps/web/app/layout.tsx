@@ -2,7 +2,11 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { LocalizationProvider, createTranslator } from '@/shared/localization/public';
+import {
+  LanguageSwitcher,
+  LocalizationProvider,
+  createTranslator,
+} from '@/shared/localization/public';
 import { getRequestLocale } from '@/shared/localization/server';
 import { LeafIcon } from '@/shared/ui/public';
 import '@/shared/ui/fonts.css';
@@ -20,8 +24,8 @@ export const metadata: Metadata = {
  * Root layout.
  *
  * The locale is negotiated on the server so the first response is already in
- * the user's language and `<html lang>` is correct for assistive technology. A
- * stored per-account preference overrides this once accounts exist.
+ * the user's language and `<html lang>` is correct for assistive technology.
+ * The explicit first-party locale cookie overrides browser negotiation.
  *
  * Source: architecture/web-application-design.md, sections "4. Rendering Model"
  * and "15. Localization".
@@ -47,6 +51,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   <span className={styles['productName']}>{t('app.name')}</span>
                 </Link>
                 <span className={styles['tagline']}>{t('app.tagline')}</span>
+                <div className={styles['language']}>
+                  <LanguageSwitcher />
+                </div>
               </div>
             </header>
             <main id="main" className={styles['main']}>

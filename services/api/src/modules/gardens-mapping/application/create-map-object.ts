@@ -84,6 +84,8 @@ export class CreateMapObject {
           payload.source?.provenance ??
           (payload.category === 'importedBackground' ? 'importedPlan' : 'manualDrawing'),
         confidence: payload.source?.confidence ?? null,
+        isHidden: false,
+        isLocked: false,
         lifecycleState: 'active',
         currentRevision: 1,
         details: payload.categoryDetails,

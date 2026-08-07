@@ -9576,6 +9576,8 @@ components:
         - gardenId
         - category
         - geometryEnvelope
+        - isHidden
+        - isLocked
         - lifecycleState
         - revision
         - createdAt
@@ -9594,6 +9596,12 @@ components:
           maxLength: 200
         details:
           $ref: '#/components/schemas/GardenObjectDetails'
+        isHidden:
+          type: boolean
+          description: Whether this individual object is hidden from the map canvas.
+        isLocked:
+          type: boolean
+          description: Whether this individual object is protected from editing.
         lifecycleState:
           $ref: '#/components/schemas/GardenObjectLifecycleState'
         revision:
@@ -9849,6 +9857,12 @@ components:
           maxLength: 200
         categoryDetails:
           $ref: '#/components/schemas/GardenObjectDetails'
+        isHidden:
+          type: boolean
+          description: Persisted per-object canvas visibility. Hidden objects remain in the object index.
+        isLocked:
+          type: boolean
+          description: Persisted per-object edit lock. The object may still be unlocked or hidden.
         source:
           type: object
           additionalProperties: false

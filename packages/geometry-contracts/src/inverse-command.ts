@@ -35,6 +35,8 @@ export interface ObjectSnapshot {
   readonly geometry: Geometry;
   readonly label?: string;
   readonly categoryDetails?: GardenObjectDetails;
+  readonly isHidden?: boolean;
+  readonly isLocked?: boolean;
   readonly lifecycleState: ObjectLifecycleState;
 }
 
@@ -169,6 +171,8 @@ export function deriveInverseCommand(
         ...(priorSnapshot.categoryDetails === undefined
           ? {}
           : { categoryDetails: priorSnapshot.categoryDetails }),
+        ...(priorSnapshot.isHidden === undefined ? {} : { isHidden: priorSnapshot.isHidden }),
+        ...(priorSnapshot.isLocked === undefined ? {} : { isLocked: priorSnapshot.isLocked }),
       };
 
     case 'assignPlant': {

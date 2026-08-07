@@ -77,6 +77,10 @@ export function requireBoolean(value: unknown, pointer: string): boolean {
   return value;
 }
 
+export function requireOptionalBoolean(value: unknown, pointer: string): boolean | undefined {
+  return value === undefined ? undefined : requireBoolean(value, pointer);
+}
+
 export function requireDateTime(value: unknown, pointer: string): string {
   const candidate = requireString(value, pointer);
   if (Number.isNaN(Date.parse(candidate))) {

@@ -15,6 +15,8 @@ function activeObject(): MapObject {
     label: null,
     provenance: 'manualDrawing',
     confidence: null,
+    isHidden: false,
+    isLocked: false,
     lifecycleState: 'active',
     currentRevision: 3,
     details: undefined,

@@ -7,7 +7,15 @@ import {
 } from 'react';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Button, TrashIcon, classNames } from '@/shared/ui/public';
+import {
+  Button,
+  EyeIcon,
+  EyeOffIcon,
+  LockIcon,
+  TrashIcon,
+  UnlockIcon,
+  classNames,
+} from '@/shared/ui/public';
 
 import { useMapEditorStore } from './editor-store';
 import { categoryLabelKey } from './labels';
@@ -30,12 +38,9 @@ function isJoinable(category: MapObjectRecord['category']): boolean {
 
 /**
  * A structured HTML list of every object — the accessible alternative to
- * clicking a shape on the canvas, not a decorative sidebar. Every *visible*
- * object is listed regardless of category, matching the canvas's own "every
- * category renders" scope — a hidden layer (`map-layers.ts`,
- * `map-layer-panel.tsx`) is filtered out of both this list and the canvas
- * identically, so a screen-reader user and a sighted user always see the
- * same set of objects.
+ * clicking a shape on the canvas, not a decorative sidebar. Hidden layers
+ * are filtered out, but an individually hidden object deliberately remains
+ * here so the user always has a route to show it again.
  *
  * Keyboard: Tab reaches the list; ArrowUp/ArrowDown move focus *and*
  * selection together (a roving-focus listbox-like pattern, not plain tab
@@ -80,10 +85,14 @@ export function MapObjectList({ actions, selectedObjectId, onSelect }: MapObject
     );
   }
 
-  /** The one place a row is ever selected from — gates a locked layer before delegating to `onSelect`. */
+  /** The keyboard-selection path gates both layer and individual locks. */
   const selectRow = (record: MapObjectRecord) => {
-    if (isCategoryLocked(record.category, store.state.lockedLayers)) {
-      store.setStatus({ key: 'map.status.layerLocked', tone: 'alert' });
+    const layerLocked = isCategoryLocked(record.category, store.state.lockedLayers);
+    if (layerLocked || record.isLocked) {
+      store.setStatus({
+        key: record.isLocked ? 'map.status.objectLocked' : 'map.status.layerLocked',
+        tone: 'alert',
+      });
       return;
     }
     onSelect(record.id);
@@ -134,7 +143,8 @@ export function MapObjectList({ actions, selectedObjectId, onSelect }: MapObject
       <h2 className={styles['title']}>{t('map.objectList.title')}</h2>
       <ul className={styles['list']}>
         {visibleRecords.map((record, index) => {
-          const locked = isCategoryLocked(record.category, store.state.lockedLayers);
+          const layerLocked = isCategoryLocked(record.category, store.state.lockedLayers);
+          const locked = layerLocked || record.isLocked;
           return (
             <ObjectListRow
               key={record.id}
@@ -146,9 +156,13 @@ export function MapObjectList({ actions, selectedObjectId, onSelect }: MapObject
               selected={record.id === selectedObjectId}
               multiSelected={multiSelected.includes(record.id)}
               locked={locked}
+              layerLocked={layerLocked}
               onSelect={(event) => {
                 if (locked) {
-                  store.setStatus({ key: 'map.status.layerLocked', tone: 'alert' });
+                  store.setStatus({
+                    key: record.isLocked ? 'map.status.objectLocked' : 'map.status.layerLocked',
+                    tone: 'alert',
+                  });
                   return;
                 }
                 if (event.shiftKey) {
@@ -159,6 +173,8 @@ export function MapObjectList({ actions, selectedObjectId, onSelect }: MapObject
                 onSelect(record.id);
               }}
               onDelete={() => void actions.deleteObject(record.id)}
+              onToggleHidden={() => void actions.setObjectHidden(record.id, !record.isHidden)}
+              onToggleLocked={() => void actions.setObjectLocked(record.id, !record.isLocked)}
               onKeyDown={(event) => handleKeyDown(event, index)}
             />
           );
@@ -199,8 +215,11 @@ interface ObjectListRowProps {
   readonly multiSelected: boolean;
   /** True when this object's layer is locked — see `map-layers.ts`. Disables delete and marks the row's accessible name. */
   readonly locked: boolean;
+  readonly layerLocked: boolean;
   readonly onSelect: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   readonly onDelete: () => void;
+  readonly onToggleHidden: () => void;
+  readonly onToggleLocked: () => void;
   readonly onKeyDown: (event: ReactKeyboardEvent<HTMLButtonElement>) => void;
   readonly ref: (node: HTMLButtonElement | null) => void;
 }
@@ -211,15 +230,24 @@ function ObjectListRow({
   selected,
   multiSelected,
   locked,
+  layerLocked,
   onSelect,
   onDelete,
+  onToggleHidden,
+  onToggleLocked,
   onKeyDown,
   ref,
 }: ObjectListRowProps) {
   const { t } = useLocalization();
   const categoryLabel = t(categoryLabelKey(record.category));
   const label = record.label ?? t('map.objectList.untitled', { category: categoryLabel });
-  const lockedTitleProp = locked ? { title: t('map.objectList.lockedTooltip') } : {};
+  const lockedTitleProp = locked
+    ? {
+        title: t(
+          layerLocked ? 'map.objectList.layerLockedTooltip' : 'map.objectList.objectLockedTooltip',
+        ),
+      }
+    : {};
 
   return (
     <li className={styles['item']}>
@@ -230,6 +258,7 @@ function ObjectListRow({
           styles['itemButton'],
           selected && styles['itemButtonSelected'],
           multiSelected && styles['itemButtonMultiSelected'],
+          record.isHidden && styles['itemButtonHidden'],
         )}
         aria-current={selected || undefined}
         aria-pressed={multiSelected}
@@ -247,6 +276,32 @@ function ObjectListRow({
         </span>
         <span className={styles['label']}>{label}</span>
         <span className={styles['category']}>{categoryLabel}</span>
+      </button>
+      <button
+        type="button"
+        className={styles['stateButton']}
+        aria-label={t(
+          record.isHidden ? 'map.objectList.showAriaLabel' : 'map.objectList.hideAriaLabel',
+          { label },
+        )}
+        aria-pressed={record.isHidden}
+        onClick={onToggleHidden}
+      >
+        {record.isHidden ? <EyeOffIcon /> : <EyeIcon />}
+      </button>
+      <button
+        type="button"
+        className={styles['stateButton']}
+        aria-label={t(
+          record.isLocked ? 'map.objectList.unlockAriaLabel' : 'map.objectList.lockAriaLabel',
+          { label },
+        )}
+        aria-pressed={record.isLocked}
+        disabled={layerLocked}
+        onClick={onToggleLocked}
+        {...(layerLocked ? { title: t('map.objectList.layerLockedTooltip') } : {})}
+      >
+        {record.isLocked ? <LockIcon /> : <UnlockIcon />}
       </button>
       <button
         type="button"

@@ -159,9 +159,6 @@ export function MapCanvas({
     }
   }, [backdrop.maxCameraScale, camera, store]);
 
-  // A hidden layer's objects are excluded here the same way `map-object-list.tsx`
-  // excludes them from the accessible list — the canvas and the list must
-  // always agree on what is currently visible.
   const palette = useCanvasPalette();
   // Numbered from the FULL record set so the chip matches the object index's
   // row even when the viewport or a hidden layer excludes its neighbours.
@@ -169,7 +166,8 @@ export function MapCanvas({
   const visibleRecords = actions.records.filter(
     (record) =>
       isRecordInViewport(record, camera, size) &&
-      !isCategoryHidden(record.category, store.state.hiddenLayers),
+      !isCategoryHidden(record.category, store.state.hiddenLayers) &&
+      !record.isHidden,
   );
 
   // The in-progress calibration session (P6-PLAN-02), if any: its record
@@ -448,10 +446,8 @@ export function MapCanvas({
                 />
               ))}
               {visibleRecords.map((record) => {
-                // A locked layer's objects can be neither selected nor
-                // dragged — see `map-layers.ts` and `map-layer-panel.tsx`'s
-                // doc comment for the full set of interactions a lock blocks.
-                const isLocked = isCategoryLocked(record.category, store.state.lockedLayers);
+                const isLocked =
+                  record.isLocked || isCategoryLocked(record.category, store.state.lockedLayers);
                 return (
                   <ObjectShape
                     key={record.id}
@@ -472,7 +468,12 @@ export function MapCanvas({
                     }
                     onSelect={(objectId) => {
                       if (isLocked) {
-                        store.setStatus({ key: 'map.status.layerLocked', tone: 'alert' });
+                        store.setStatus({
+                          key: record.isLocked
+                            ? 'map.status.objectLocked'
+                            : 'map.status.layerLocked',
+                          tone: 'alert',
+                        });
                         return;
                       }
                       store.select(objectId);
@@ -508,54 +509,57 @@ export function MapCanvas({
                   snap={draftSnap}
                 />
               )}
-              {interactionMode === 'vertexEdit' && selectedRecord !== null && (
-                <VertexHandles
-                  record={selectedRecord}
-                  records={actions.records}
-                  camera={camera}
-                  size={size}
-                  onMoveVertex={(ringIndex, vertexIndex, position) => {
-                    // The closure vertex of a closed ring is stored twice
-                    // (first and last position); `editVertex` touches only
-                    // one stored slot, so moving this one vertex commits a
-                    // full `replaceGeometry` instead, with both copies
-                    // updated — see `isRingClosureVertex` in `vertex-ring.ts`.
-                    const ring = editableRingOf(selectedRecord.geometry);
-                    if (ring !== null && isRingClosureVertex(ring, vertexIndex)) {
-                      void actions.replaceGeometry(
-                        selectedRecord.id,
-                        movedRingClosureGeometry(selectedRecord.geometry, position),
-                      );
-                      return;
-                    }
-                    void actions.editVertex(
-                      selectedRecord.id,
-                      'move',
-                      ringIndex,
-                      vertexIndex,
-                      position,
-                    );
-                  }}
-                  onInsertVertex={(ringIndex, vertexIndex, position) =>
-                    void actions.editVertex(
-                      selectedRecord.id,
-                      'insert',
-                      ringIndex,
-                      vertexIndex,
-                      position,
-                    )
-                  }
-                  onRemoveVertex={(ringIndex, vertexIndex) =>
-                    void actions.editVertex(selectedRecord.id, 'remove', ringIndex, vertexIndex)
-                  }
-                  {...(selectedRecord.category === 'fence' || selectedRecord.category === 'path'
-                    ? {
-                        onSplitAtVertex: (vertexIndex: number) =>
-                          void actions.splitLinework(selectedRecord.id, vertexIndex),
+              {interactionMode === 'vertexEdit' &&
+                selectedRecord !== null &&
+                !selectedRecord.isLocked &&
+                !isCategoryLocked(selectedRecord.category, store.state.lockedLayers) && (
+                  <VertexHandles
+                    record={selectedRecord}
+                    records={actions.records}
+                    camera={camera}
+                    size={size}
+                    onMoveVertex={(ringIndex, vertexIndex, position) => {
+                      // The closure vertex of a closed ring is stored twice
+                      // (first and last position); `editVertex` touches only
+                      // one stored slot, so moving this one vertex commits a
+                      // full `replaceGeometry` instead, with both copies
+                      // updated — see `isRingClosureVertex` in `vertex-ring.ts`.
+                      const ring = editableRingOf(selectedRecord.geometry);
+                      if (ring !== null && isRingClosureVertex(ring, vertexIndex)) {
+                        void actions.replaceGeometry(
+                          selectedRecord.id,
+                          movedRingClosureGeometry(selectedRecord.geometry, position),
+                        );
+                        return;
                       }
-                    : {})}
-                />
-              )}
+                      void actions.editVertex(
+                        selectedRecord.id,
+                        'move',
+                        ringIndex,
+                        vertexIndex,
+                        position,
+                      );
+                    }}
+                    onInsertVertex={(ringIndex, vertexIndex, position) =>
+                      void actions.editVertex(
+                        selectedRecord.id,
+                        'insert',
+                        ringIndex,
+                        vertexIndex,
+                        position,
+                      )
+                    }
+                    onRemoveVertex={(ringIndex, vertexIndex) =>
+                      void actions.editVertex(selectedRecord.id, 'remove', ringIndex, vertexIndex)
+                    }
+                    {...(selectedRecord.category === 'fence' || selectedRecord.category === 'path'
+                      ? {
+                          onSplitAtVertex: (vertexIndex: number) =>
+                            void actions.splitLinework(selectedRecord.id, vertexIndex),
+                        }
+                      : {})}
+                  />
+                )}
               {interactionMode === 'transform' && selectedRecord !== null && (
                 <TransformHandles
                   record={selectedRecord}

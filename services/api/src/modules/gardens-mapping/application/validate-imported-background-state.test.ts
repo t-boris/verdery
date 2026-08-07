@@ -63,6 +63,8 @@ function backgroundObject(details: GardenObjectDetails | undefined): MapObject {
     label: null,
     provenance: 'importedPlan',
     confidence: null,
+    isHidden: false,
+    isLocked: false,
     lifecycleState: 'active',
     currentRevision: 1,
     details,

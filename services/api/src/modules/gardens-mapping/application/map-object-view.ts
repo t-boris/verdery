@@ -59,6 +59,8 @@ export interface GardenObjectResource {
     readonly confidence?: number;
   };
   readonly label?: string;
+  readonly isHidden: boolean;
+  readonly isLocked: boolean;
   /** Flat wire shape — see `toWireGardenObjectDetails`'s doc comment. */
   readonly details?: Record<string, unknown>;
   readonly lifecycleState: 'active' | 'deleted';
@@ -88,6 +90,8 @@ export function toGardenObjectResource(object: MapObject): GardenObjectResource 
       ...(object.confidence === null ? {} : { confidence: object.confidence }),
     },
     ...(object.label === null ? {} : { label: object.label }),
+    isHidden: object.isHidden,
+    isLocked: object.isLocked,
     ...(object.details === undefined ? {} : { details: toWireGardenObjectDetails(object.details) }),
     lifecycleState: object.lifecycleState,
     revision: object.currentRevision,

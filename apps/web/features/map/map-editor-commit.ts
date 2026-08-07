@@ -138,24 +138,33 @@ export function useCommandCommit(
 
       const targets =
         command.type === 'createObject'
-          ? [command.category]
+          ? [{ category: command.category, isLocked: false }]
           : command.type === 'duplicateObject'
-            ? [findRecord(command.sourceObjectId)?.category]
+            ? [findRecord(command.sourceObjectId)]
             : command.type === 'joinLinework'
-              ? [
-                  findRecord(command.firstObjectId)?.category,
-                  findRecord(command.secondObjectId)?.category,
-                ]
+              ? [findRecord(command.firstObjectId), findRecord(command.secondObjectId)]
               : command.type === 'moveObjects'
-                ? command.targets.map((target) => findRecord(target.objectId)?.category)
-                : [findRecord(objectIdOf(command))?.category];
+                ? command.targets.map((target) => findRecord(target.objectId))
+                : [findRecord(objectIdOf(command))];
       if (
         targets.some(
-          (category) =>
-            category !== undefined && isCategoryLocked(category, store.state.lockedLayers),
+          (target) =>
+            target !== undefined &&
+            target !== null &&
+            isCategoryLocked(target.category, store.state.lockedLayers),
         )
       ) {
         store.setStatus({ key: 'map.status.layerLocked', tone: 'alert' });
+        return null;
+      }
+
+      const presentationOnly =
+        command.type === 'changeProperties' &&
+        command.label === undefined &&
+        command.categoryDetails === undefined &&
+        (command.isHidden !== undefined || command.isLocked !== undefined);
+      if (!presentationOnly && targets.some((target) => target?.isLocked === true)) {
+        store.setStatus({ key: 'map.status.objectLocked', tone: 'alert' });
         return null;
       }
 

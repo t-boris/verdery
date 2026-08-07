@@ -8,7 +8,11 @@ import { translateGeometry } from '../domain/geometry-edit.js';
 import type { MapObject } from '../domain/map-object.js';
 import type { GardenAuthorization } from './garden-authorization.js';
 import type { GardensMappingUnitOfWork } from './gardens-mapping-unit-of-work.js';
-import { mapObjectNotFoundError, mapObjectStaleRevisionError } from './map-object-errors.js';
+import {
+  mapObjectNotFoundError,
+  mapObjectStaleRevisionError,
+  requireMapObjectEditable,
+} from './map-object-errors.js';
 import { toGardenObjectResource, type MapCommandResultResource } from './map-object-view.js';
 import { requireBackgroundGeometryEditable } from './validate-imported-background-state.js';
 import { requireValidGeometryForCategory } from './validate-map-geometry.js';
@@ -66,6 +70,7 @@ export class MoveMapObjects {
         if (object.currentRevision !== target.expectedRevision) {
           throw mapObjectStaleRevisionError(object.currentRevision);
         }
+        requireMapObjectEditable(object);
         requireBackgroundGeometryEditable(object);
         const geometry = translateGeometry(
           object.geometry,

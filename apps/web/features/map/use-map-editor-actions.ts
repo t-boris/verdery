@@ -8,6 +8,7 @@ import { useIsOnline } from '@/core/connectivity/public';
 
 import {
   buildChangePropertiesCommand,
+  buildChangeObjectDisplayCommand,
   buildCreateGateObjectCommand,
   buildCreateObjectCommand,
   buildDeleteObjectCommand,
@@ -218,6 +219,33 @@ export function useMapEditorActions(gardenId: string) {
     [commit, findRecord, store],
   );
 
+  const changeObjectDisplay = useCallback(
+    async (
+      objectId: string,
+      display: { readonly isHidden?: boolean; readonly isLocked?: boolean },
+    ) => {
+      const record = findRecord(objectId);
+      if (record === null) {
+        return null;
+      }
+      const affected = await commit(
+        buildChangeObjectDisplayCommand(objectId, record.revision, display),
+        toObjectSnapshot(record),
+      );
+      if (affected !== null) {
+        if (display.isHidden === true || display.isLocked === true) {
+          if (store.state.selectedObjectId === objectId) {
+            store.select(null);
+          }
+          store.removeFromMultiSelect(objectId);
+        }
+        store.setStatus({ key: 'map.objectList.displayStateSaved', tone: 'status' });
+      }
+      return affected;
+    },
+    [commit, findRecord, store],
+  );
+
   const deleteObject = useCallback(
     async (objectId: string) => {
       const record = findRecord(objectId);
@@ -409,6 +437,10 @@ export function useMapEditorActions(gardenId: string) {
     moveObject,
     moveObjects,
     changeProperties,
+    setObjectHidden: (objectId: string, isHidden: boolean) =>
+      changeObjectDisplay(objectId, { isHidden }),
+    setObjectLocked: (objectId: string, isLocked: boolean) =>
+      changeObjectDisplay(objectId, { isLocked }),
     deleteObject,
     placePoint,
     finishDraft,

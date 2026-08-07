@@ -14,6 +14,9 @@ export type Locale = (typeof SUPPORTED_LOCALES)[number];
 /** Locale used when the request expresses no usable preference. */
 export const DEFAULT_LOCALE: Locale = 'en';
 
+/** First-party cookie used by the explicit language switcher. */
+export const LOCALE_COOKIE_NAME = 'verdery_locale';
+
 export function isSupportedLocale(value: string): value is Locale {
   return (SUPPORTED_LOCALES as readonly string[]).includes(value);
 }

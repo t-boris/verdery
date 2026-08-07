@@ -32,6 +32,8 @@ function deletedObject(): MapObject {
     label: null,
     provenance: 'manualDrawing',
     confidence: null,
+    isHidden: false,
+    isLocked: false,
     lifecycleState: 'deleted',
     currentRevision: 2,
     details: { category: 'zone', details: { zoneKind: 'other' } },

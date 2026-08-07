@@ -79,6 +79,8 @@ function structureRecord(id: string, ring: readonly [number, number][]): MapObje
     category: 'structure',
     geometry: { type: 'Polygon', coordinates: [ring] },
     lifecycleState: 'active',
+    isHidden: false,
+    isLocked: false,
     revision: 1,
     createdAt: '2026-07-21T00:00:00Z',
     updatedAt: '2026-07-21T00:00:00Z',

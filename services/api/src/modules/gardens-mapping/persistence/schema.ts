@@ -146,6 +146,8 @@ export interface GardenObjectRow {
   label: string | null;
   provenance: string;
   confidence: number | null;
+  is_hidden: Generated<boolean>;
+  is_locked: Generated<boolean>;
   lifecycle_state: Generated<string>;
   current_revision: Generated<number>;
   created_by_profile_id: string;

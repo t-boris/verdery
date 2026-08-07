@@ -364,7 +364,11 @@ The rules above are held to specific, tested thresholds:
 
 ## 15. Localization
 
-English and Russian are supported from the first production release. Localization uses shared message identifiers and ICU-compatible formatting semantics.
+English and Russian are supported from the first production release. Localization uses shared
+message identifiers and ICU-compatible formatting semantics. The first request follows
+`Accept-Language`; an explicit EN/RU control in the persistent application shells and public header
+stores `verdery_locale` as a one-year first-party cookie. That explicit choice takes precedence on
+subsequent server renders, including the document's `<html lang>` value.
 
 The client owns interface strings. Server responses provide stable error codes and structured values rather than final English sentences for ordinary validation.
 

@@ -125,6 +125,8 @@ garden_object
 ├── current_revision
 ├── provenance_id
 ├── confidence
+├── is_hidden
+├── is_locked
 ├── lifecycle_state
 └── common metadata
 
@@ -136,7 +138,10 @@ tree_details
 plant_placement_details
 ```
 
-Common spatial behavior remains queryable in `garden_object`. Specialized tables enforce category-specific fields and relationships.
+Common spatial behavior remains queryable in `garden_object`. `is_hidden` and `is_locked` are
+revisioned per-object presentation state shared by collaborators; they are distinct from a client's
+local whole-layer visibility and lock preferences. Specialized tables enforce category-specific
+fields and relationships.
 
 ## 8. Local Coordinate Space
 

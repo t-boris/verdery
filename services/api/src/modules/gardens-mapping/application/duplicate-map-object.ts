@@ -6,7 +6,7 @@ import { translateGeometry } from '../domain/geometry-edit.js';
 import type { MapObject } from '../domain/map-object.js';
 import type { GardenAuthorization } from './garden-authorization.js';
 import type { GardensMappingUnitOfWork } from './gardens-mapping-unit-of-work.js';
-import { mapObjectNotFoundError } from './map-object-errors.js';
+import { mapObjectNotFoundError, requireMapObjectEditable } from './map-object-errors.js';
 import { toGardenObjectResource, type MapCommandResultResource } from './map-object-view.js';
 import { uncalibratedDuplicateDetails } from './validate-imported-background-state.js';
 import { requireValidGeometryForCategory } from './validate-map-geometry.js';
@@ -48,6 +48,7 @@ export class DuplicateMapObject {
       if (source === null) {
         throw mapObjectNotFoundError();
       }
+      requireMapObjectEditable(source);
 
       const geometry = translateGeometry(
         source.geometry,
@@ -65,6 +66,8 @@ export class DuplicateMapObject {
         // footprint as placeholder placement — see
         // validate-imported-background-state.ts.
         details: uncalibratedDuplicateDetails(source.details),
+        isHidden: false,
+        isLocked: false,
         lifecycleState: 'active',
         currentRevision: 1,
         createdByProfileId: profileId,

@@ -24,6 +24,8 @@ function objectRecord(
     category,
     geometry,
     lifecycleState: 'active',
+    isHidden: false,
+    isLocked: false,
     revision: 1,
     createdAt: '2026-07-21T00:00:00Z',
     updatedAt: '2026-07-21T00:00:00Z',

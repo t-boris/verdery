@@ -23,6 +23,7 @@ import {
   requireEnum,
   requireInteger,
   requireNumber,
+  requireOptionalBoolean,
   requireOptionalString,
   requireRecord,
   requireString,
@@ -264,6 +265,8 @@ export function parseMapCommandPayload(value: unknown, pointer: string): MapComm
         record['categoryDetails'],
         `${pointer}/categoryDetails`,
       );
+      const isHidden = requireOptionalBoolean(record['isHidden'], `${pointer}/isHidden`);
+      const isLocked = requireOptionalBoolean(record['isLocked'], `${pointer}/isLocked`);
       return {
         type: 'changeProperties',
         objectId: requireUuid(record['objectId'], `${pointer}/objectId`),
@@ -274,6 +277,8 @@ export function parseMapCommandPayload(value: unknown, pointer: string): MapComm
         ),
         ...(label === undefined ? {} : { label }),
         ...(categoryDetails === undefined ? {} : { categoryDetails }),
+        ...(isHidden === undefined ? {} : { isHidden }),
+        ...(isLocked === undefined ? {} : { isLocked }),
       };
     }
 

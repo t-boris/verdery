@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildAssignPlantCommand,
   buildChangePropertiesCommand,
+  buildChangeObjectDisplayCommand,
   buildCreateGateObjectCommand,
   buildCreateImportedBackgroundCommand,
   buildCreateObjectCommand,
@@ -248,6 +249,18 @@ describe('command builders', () => {
       categoryDetails: { category: 'zone', details: { zoneKind: 'lawn' } },
     });
     expect('label' in command).toBe(false);
+  });
+
+  it('builds a persisted object display-state command', () => {
+    expect(
+      buildChangeObjectDisplayCommand(objectId, 4, { isHidden: true, isLocked: false }),
+    ).toEqual({
+      type: 'changeProperties',
+      objectId,
+      expectedRevision: 4,
+      isHidden: true,
+      isLocked: false,
+    });
   });
 
   it('builds an assignPlant command carrying an explicit null target', () => {

@@ -184,6 +184,8 @@ describe('useCommandCommit — offline gate (P5-WEB-01)', () => {
         gardenId: 'garden-1',
         category: 'tree' as const,
         geometry: { type: 'Point' as const, coordinates: [0, 0] },
+        isHidden: false,
+        isLocked: false,
         lifecycleState: 'active' as const,
         revision: 1,
         createdAt: '2026-01-01T00:00:00.000Z',
@@ -241,5 +243,76 @@ describe('useCommandCommit — offline gate (P5-WEB-01)', () => {
     expect(affected).toBeNull();
     expect(mutateAsync).not.toHaveBeenCalled();
     expect(result.current.store.state.status?.key).toBe('map.status.layerLocked');
+  });
+
+  it('rejects edits to an individually locked object', async () => {
+    const mutateAsync = vi.fn();
+    const lockedRecord = {
+      id: objectId,
+      gardenId: 'garden-1',
+      category: 'tree' as const,
+      geometry: { type: 'Point' as const, coordinates: [0, 0] as const },
+      isHidden: false,
+      isLocked: true,
+      lifecycleState: 'active' as const,
+      revision: 2,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const { result } = renderHook(
+      () => {
+        const store = useMapEditorStore();
+        const commit = useCommandCommit(store, { mutateAsync }, () => lockedRecord);
+        return { store, commit };
+      },
+      { wrapper },
+    );
+
+    const affected = await act(() =>
+      result.current.commit(
+        { type: 'deleteObject', objectId, expectedRevision: lockedRecord.revision },
+        null,
+      ),
+    );
+
+    expect(affected).toBeNull();
+    expect(mutateAsync).not.toHaveBeenCalled();
+    expect(result.current.store.state.status?.key).toBe('map.status.objectLocked');
+  });
+
+  it('allows a locked object to be unlocked through a presentation-only change', async () => {
+    const lockedRecord = {
+      id: objectId,
+      gardenId: 'garden-1',
+      category: 'tree' as const,
+      geometry: { type: 'Point' as const, coordinates: [0, 0] as const },
+      isHidden: false,
+      isLocked: true,
+      lifecycleState: 'active' as const,
+      revision: 2,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const unlockedRecord = { ...lockedRecord, isLocked: false, revision: 3 };
+    const mutateAsync = vi.fn().mockResolvedValue([unlockedRecord]);
+    const { result } = renderHook(
+      () => {
+        const store = useMapEditorStore();
+        const commit = useCommandCommit(store, { mutateAsync }, () => lockedRecord);
+        return commit;
+      },
+      { wrapper },
+    );
+
+    const command: MapCommandPayload = {
+      type: 'changeProperties',
+      objectId,
+      expectedRevision: 2,
+      isLocked: false,
+    };
+    const affected = await act(() => result.current(command, null));
+
+    expect(mutateAsync).toHaveBeenCalledWith(command);
+    expect(affected).toEqual([unlockedRecord]);
   });
 });

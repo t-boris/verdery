@@ -116,3 +116,21 @@ describe('parseMapCommandPayload moveObjects branch', () => {
     );
   });
 });
+
+describe('parseMapCommandPayload changeProperties display state', () => {
+  const validDisplayChange = {
+    type: 'changeProperties',
+    objectId: BACKGROUND_OBJECT_ID,
+    expectedRevision: 4,
+    isHidden: true,
+    isLocked: false,
+  };
+
+  it('parses persisted per-object visibility and lock state', () => {
+    expect(parseMapCommandPayload(validDisplayChange, '/payload')).toEqual(validDisplayChange);
+  });
+
+  it('rejects non-boolean display state', () => {
+    expectRejected({ ...validDisplayChange, isLocked: 'yes' }, '/payload/isLocked');
+  });
+});

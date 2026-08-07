@@ -30,6 +30,8 @@ const WIRE_STRUCTURE: WireGardenObject = {
   // module doc comment for the confirmed request/response contract.
   details: { category: 'structure', structureKind: 'shed' },
   lifecycleState: 'active',
+  isHidden: false,
+  isLocked: false,
   revision: 3,
   createdAt: '2026-07-21T09:00:00Z',
   updatedAt: '2026-07-21T09:05:00Z',
@@ -46,6 +48,8 @@ describe('toMapObjectRecord', () => {
       geometry: WIRE_STRUCTURE.geometryEnvelope.geometry,
       label: 'Shed',
       categoryDetails: { category: 'structure', details: { structureKind: 'shed' } },
+      isHidden: false,
+      isLocked: false,
       lifecycleState: 'active',
       revision: 3,
       createdAt: '2026-07-21T09:00:00Z',
@@ -73,6 +77,8 @@ describe('toObjectSnapshot', () => {
       geometry: WIRE_STRUCTURE.geometryEnvelope.geometry,
       label: 'Shed',
       categoryDetails: { category: 'structure', details: { structureKind: 'shed' } },
+      isHidden: false,
+      isLocked: false,
       lifecycleState: 'active',
     });
   });

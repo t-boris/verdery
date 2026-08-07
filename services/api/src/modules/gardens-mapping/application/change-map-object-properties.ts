@@ -17,7 +17,7 @@ import { runIdempotentCommand } from './run-idempotent-command.js';
 
 const OPERATION = 'map.changeProperties';
 
-/** Label and/or category-specific detail changes. Geometry is untouched — that is `replaceGeometry`'s job. */
+/** Label, category details, and persisted presentation-state changes. Geometry is untouched. */
 export class ChangeMapObjectProperties {
   constructor(
     private readonly idempotency: IdempotencyStore,
@@ -43,6 +43,10 @@ export class ChangeMapObjectProperties {
 
     return runIdempotentCommand(this.idempotency, this.unitOfWork, input, 200, async (context) => {
       const now = this.clock.now();
+      const presentationOnly =
+        payload.label === undefined &&
+        payload.categoryDetails === undefined &&
+        (payload.isHidden !== undefined || payload.isLocked !== undefined);
       await requireGateReferencesExistingFence(
         context.mapObjects,
         gardenId,
@@ -66,10 +70,13 @@ export class ChangeMapObjectProperties {
                   // calibration block — see validate-imported-background-state.ts.
                   withServerOwnedCalibration(object.details, payload.categoryDetails)
                 : object.details,
+            isHidden: payload.isHidden ?? object.isHidden,
+            isLocked: payload.isLocked ?? object.isLocked,
             currentRevision: object.currentRevision + 1,
             updatedAt: now,
           };
         },
+        { allowLocked: presentationOnly },
       );
 
       await context.revisionJournal.record({

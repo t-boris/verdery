@@ -173,12 +173,14 @@
 }
 
 .sidebarFooter {
+  display: grid;
+  gap: var(--space-2);
   margin-block-start: auto;
   padding: var(--space-2);
   border-block-start: var(--border-width) solid var(--color-console-border);
 }
 
-.sidebarFooter button {
+.signOutControl button {
   inline-size: 100%;
   justify-content: flex-start;
   background-color: transparent;
@@ -186,7 +188,7 @@
   color: var(--color-console-text);
 }
 
-.sidebarFooter button:hover {
+.signOutControl button:hover {
   background-color: var(--color-console-elevated);
 }
 
@@ -230,7 +232,7 @@
     grid-row: 1;
     position: absolute;
     inset-block-start: 0;
-    inset-inline: 3.5rem 3.5rem;
+    inset-inline: 3.5rem 8.5rem;
     block-size: var(--console-header-size);
     display: flex;
     justify-content: center;
@@ -295,11 +297,14 @@
     position: absolute;
     inset-block-start: 0;
     inset-inline-end: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
     padding: var(--space-2);
     border: 0;
   }
 
-  .sidebarFooter button {
+  .signOutControl button {
     inline-size: var(--control-min-size);
     padding: 0;
     justify-content: center;

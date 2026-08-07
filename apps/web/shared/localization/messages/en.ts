@@ -91,6 +91,7 @@ export const englishMessages = {
     'This object changed before your edit was saved. Reload and try again.',
   'error.mapObjectLifecycleConflict':
     'This action does not apply to the object in its current state.',
+  'error.mapObjectLocked': 'Unlock this object before changing it.',
   'error.deletionRecentAuthenticationRequired':
     'Deleting a garden needs a recent sign-in. Sign out, sign in again, and retry.',
   'error.deletionNotFound': 'There is no deletion waiting to be undone.',
@@ -144,6 +145,9 @@ export const englishMessages = {
   'drafts.discard': 'Discard recovered draft',
 
   'shell.signOut': 'Sign out',
+  'shell.languageLabel': 'Interface language',
+  'shell.languageEnglish': 'Use English',
+  'shell.languageRussian': 'Use Russian',
   'shell.primaryNavLabel': 'Application',
   'shell.gardenNavLabel': 'Garden sections',
   'shell.overviewTab': 'Overview',

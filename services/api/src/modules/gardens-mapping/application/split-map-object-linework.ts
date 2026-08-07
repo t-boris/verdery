@@ -7,7 +7,11 @@ import type { MapObject } from '../domain/map-object.js';
 import { transitionMapObjectLifecycle } from '../domain/map-object-lifecycle.js';
 import type { GardenAuthorization } from './garden-authorization.js';
 import type { GardensMappingUnitOfWork } from './gardens-mapping-unit-of-work.js';
-import { mapObjectNotFoundError, mapObjectStaleRevisionError } from './map-object-errors.js';
+import {
+  mapObjectNotFoundError,
+  mapObjectStaleRevisionError,
+  requireMapObjectEditable,
+} from './map-object-errors.js';
 import { toGardenObjectResource, type MapCommandResultResource } from './map-object-view.js';
 import { requireValidGeometryForCategory } from './validate-map-geometry.js';
 import { runIdempotentCommand } from './run-idempotent-command.js';
@@ -52,6 +56,7 @@ export class SplitMapObjectLinework {
       if (original.currentRevision !== payload.expectedRevision) {
         throw mapObjectStaleRevisionError(original.currentRevision);
       }
+      requireMapObjectEditable(original);
 
       const [firstGeometry, secondGeometry] = splitLineString(
         original.geometry,

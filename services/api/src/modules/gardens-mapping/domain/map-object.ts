@@ -34,6 +34,8 @@ export interface MapObject {
   readonly provenance: ProvenanceKind;
   /** 0..1 where the source supplies one; `null` means "not expressed," not "certain." */
   readonly confidence: number | null;
+  readonly isHidden: boolean;
+  readonly isLocked: boolean;
   readonly lifecycleState: MapObjectLifecycleState;
   readonly currentRevision: number;
   /** Absent for categories with no specialized fields (lot, path, waterFeature). */

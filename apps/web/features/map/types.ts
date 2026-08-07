@@ -22,6 +22,8 @@ export interface MapObjectRecord {
   readonly category: GardenObjectCategory;
   readonly geometry: Geometry;
   readonly label?: string;
+  readonly isHidden: boolean;
+  readonly isLocked: boolean;
   readonly categoryDetails?: GardenObjectDetails;
   readonly lifecycleState: 'active' | 'deleted';
   readonly revision: number;

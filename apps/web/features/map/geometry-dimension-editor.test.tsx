@@ -25,6 +25,8 @@ const STRUCTURE: MapObjectRecord = {
     ],
   },
   lifecycleState: 'active',
+  isHidden: false,
+  isLocked: false,
   revision: 1,
   createdAt: '2026-07-27T00:00:00Z',
   updatedAt: '2026-07-27T00:00:00Z',

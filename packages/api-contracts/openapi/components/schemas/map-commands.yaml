@@ -25,6 +25,12 @@ CreateMapObjectCommand:
       maxLength: 200
     categoryDetails:
       $ref: '../../components/schemas/map-objects.yaml#/GardenObjectDetails'
+    isHidden:
+      type: boolean
+      description: Persisted per-object canvas visibility. Hidden objects remain in the object index.
+    isLocked:
+      type: boolean
+      description: Persisted per-object edit lock. The object may still be unlocked or hidden.
     source:
       type: object
       additionalProperties: false

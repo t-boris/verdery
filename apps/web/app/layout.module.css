@@ -58,6 +58,10 @@
   text-transform: uppercase;
 }
 
+.language {
+  margin-inline-start: auto;
+}
+
 .main {
   flex: 1;
   width: min(92rem, 100%);

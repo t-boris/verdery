@@ -340,6 +340,20 @@ export function buildChangePropertiesCommand(
   };
 }
 
+/** Builds the persisted per-object visibility/lock update carried by `changeProperties`. */
+export function buildChangeObjectDisplayCommand(
+  objectId: string,
+  expectedRevision: number,
+  display: { readonly isHidden?: boolean; readonly isLocked?: boolean },
+): ChangePropertiesPayload {
+  return {
+    type: 'changeProperties',
+    objectId,
+    expectedRevision,
+    ...display,
+  };
+}
+
 /** `targetObjectId` is `null`, not omitted, to unassign a plant from its current zone or bed. */
 export function buildAssignPlantCommand(
   plantObjectId: string,

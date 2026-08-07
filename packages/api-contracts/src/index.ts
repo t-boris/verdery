@@ -329,6 +329,8 @@ export const MapErrorCode = {
   StaleRevision: 'garden.geometry.stale_revision',
   /** The command does not apply to the object's current lifecycle state (for example, deleting an already-deleted object). */
   LifecycleConflict: 'garden.geometry.lifecycle_conflict',
+  /** The object is individually locked and the command would change content rather than presentation state. */
+  Locked: 'garden.geometry.object_locked',
 } as const;
 
 export type MapErrorCode = (typeof MapErrorCode)[keyof typeof MapErrorCode];

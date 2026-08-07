@@ -28,6 +28,8 @@ const OBJECT_COLUMNS = [
   'label',
   'provenance',
   'confidence',
+  'is_hidden',
+  'is_locked',
   'lifecycle_state',
   'current_revision',
   'created_by_profile_id',
@@ -44,6 +46,8 @@ interface ObjectRowWithGeometry {
   label: string | null;
   provenance: string;
   confidence: number | null;
+  is_hidden: boolean;
+  is_locked: boolean;
   lifecycle_state: string;
   current_revision: number;
   created_by_profile_id: string;
@@ -61,6 +65,8 @@ function toMapObjectWithoutDetails(row: ObjectRowWithGeometry): MapObject {
     label: row.label,
     provenance: row.provenance as ProvenanceKind,
     confidence: row.confidence,
+    isHidden: row.is_hidden,
+    isLocked: row.is_locked,
     lifecycleState: row.lifecycle_state as MapObjectLifecycleState,
     currentRevision: row.current_revision,
     details: undefined,
@@ -128,6 +134,8 @@ export class KyselyMapObjectRepository implements MapObjectRepository {
           label: object.label,
           provenance: object.provenance,
           confidence: object.confidence,
+          is_hidden: object.isHidden,
+          is_locked: object.isLocked,
           lifecycle_state: object.lifecycleState,
           current_revision: object.currentRevision,
           created_by_profile_id: object.createdByProfileId,
@@ -158,6 +166,8 @@ export class KyselyMapObjectRepository implements MapObjectRepository {
           label: object.label,
           provenance: object.provenance,
           confidence: object.confidence,
+          is_hidden: object.isHidden,
+          is_locked: object.isLocked,
           lifecycle_state: object.lifecycleState,
           current_revision: object.currentRevision,
           updated_at: object.updatedAt,

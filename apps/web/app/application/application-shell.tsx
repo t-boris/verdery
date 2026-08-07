@@ -6,7 +6,7 @@ import { useState, type ComponentType, type ReactNode } from 'react';
 
 import { createBrowserApiClient, createSessionGateway } from '@/core/api/public';
 import { signOutOfFirebase } from '@/core/auth/public';
-import { useLocalization, type MessageKey } from '@/shared/localization/public';
+import { LanguageSwitcher, useLocalization, type MessageKey } from '@/shared/localization/public';
 import {
   BookIcon,
   Button,
@@ -253,16 +253,19 @@ export function ApplicationShell({
           )}
 
           <div className={styles['sidebarFooter']}>
-            <Button
-              variant="secondary"
-              busy={signingOut}
-              onClick={() => void onSignOut()}
-              aria-label={t('shell.signOut')}
-              title={t('shell.signOut')}
-            >
-              <SignOutIcon />
-              <span className={styles['signOutLabel']}>{t('shell.signOut')}</span>
-            </Button>
+            <LanguageSwitcher />
+            <div className={styles['signOutControl']}>
+              <Button
+                variant="secondary"
+                busy={signingOut}
+                onClick={() => void onSignOut()}
+                aria-label={t('shell.signOut')}
+                title={t('shell.signOut')}
+              >
+                <SignOutIcon />
+                <span className={styles['signOutLabel']}>{t('shell.signOut')}</span>
+              </Button>
+            </div>
           </div>
         </aside>
 

@@ -3,7 +3,11 @@ import type { IdempotencyStore } from '../../../platform/idempotency/idempotency
 import type { Uuid } from '../../../shared/identifiers/uuid.js';
 import type { Clock } from '../../../shared/time/clock.js';
 import { transitionMapObjectLifecycle } from '../domain/map-object-lifecycle.js';
-import { mapObjectNotFoundError, mapObjectStaleRevisionError } from './map-object-errors.js';
+import {
+  mapObjectNotFoundError,
+  mapObjectStaleRevisionError,
+  requireMapObjectEditable,
+} from './map-object-errors.js';
 import type { GardenAuthorization } from './garden-authorization.js';
 import type { GardensMappingUnitOfWork } from './gardens-mapping-unit-of-work.js';
 import { toGardenObjectResource, type MapCommandResultResource } from './map-object-view.js';
@@ -55,6 +59,7 @@ export class DeleteMapObject {
       if (object.currentRevision !== payload.expectedRevision) {
         throw mapObjectStaleRevisionError(object.currentRevision);
       }
+      requireMapObjectEditable(object);
 
       const deleted = transitionMapObjectLifecycle(object, 'deleted', now);
       const applied = await context.mapObjects.updateLifecycle(deleted, object.currentRevision);

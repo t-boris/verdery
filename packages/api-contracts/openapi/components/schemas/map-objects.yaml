@@ -368,7 +368,18 @@ GardenObject:
   type: object
   additionalProperties: false
   required:
-    [id, gardenId, category, geometryEnvelope, lifecycleState, revision, createdAt, updatedAt]
+    [
+      id,
+      gardenId,
+      category,
+      geometryEnvelope,
+      isHidden,
+      isLocked,
+      lifecycleState,
+      revision,
+      createdAt,
+      updatedAt,
+    ]
   properties:
     id:
       $ref: '../../components/schemas/shared.yaml#/Uuid'
@@ -383,6 +394,12 @@ GardenObject:
       maxLength: 200
     details:
       $ref: '#/GardenObjectDetails'
+    isHidden:
+      type: boolean
+      description: Whether this individual object is hidden from the map canvas.
+    isLocked:
+      type: boolean
+      description: Whether this individual object is protected from editing.
     lifecycleState:
       $ref: '#/GardenObjectLifecycleState'
     revision:
