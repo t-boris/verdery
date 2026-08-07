@@ -65,6 +65,19 @@ public struct PlantsHomeView: View {
             destination(plantId)
         }
         .toolbar {
+            // A door to the review stack, and only when there is something
+            // behind it: a permanent button that usually leads to an empty
+            // screen teaches people not to press it.
+            ToolbarItem(placement: .navigation) {
+                if let gardenId = model.reviewGardenId {
+                    NavigationLink(value: PlantsReviewRoute(gardenId: gardenId)) {
+                        Label(model.reviewOpenTitle, systemImage: "hand.raised")
+                            .labelStyle(.iconOnly)
+                    }
+                    .accessibilityIdentifier("plants.review.open")
+                }
+            }
+
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     Button {

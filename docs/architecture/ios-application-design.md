@@ -361,7 +361,43 @@ Attribution is rendered verbatim whenever a reading is displayed — a licence
 obligation carried on the record itself, snapshotted at fetch time, not a
 courtesy. [Source: architecture/external-integrations.md, section "5. Weather"]
 
-### 14.3 Notifications
+### 14.3 The Review Stack
+
+Fifteen photographs taken on a walk produce fifteen suggestions, and reviewing
+them one detail screen at a time is the slow path: each costs a push, a scroll,
+a decision and a pop. The stack puts the photograph, the guess and the two
+answers on one card and keeps a counter. The garden is for capturing; the
+kitchen table is for resolving, and this screen is the table.
+
+**Nothing auto-confirms.** Every acceptance is an explicit
+`ConfirmPlantIdentification` — ADR-0015 holding exactly, because a swipe is a
+decision somebody made and not the absence of one. **Declining sends nothing at
+all**: the plant already exists with its photograph as its identity, and "not
+this species" is not a server fact. Opening a card is neither, and leaves it
+waiting.
+
+Each acceptance commits immediately rather than batching to the end of the
+stack, so somebody who puts the phone down halfway through has still recorded
+what they decided. A failed confirm keeps its card: silently advancing would
+leave a person believing they had answered.
+
+Confidence is shown as a bar **and** a number. The bar is read at a glance
+across a stack; the number is what somebody quotes back when the suggestion is
+wrong, and it is the half that survives a screenshot. The bar carries no
+red-amber-green scale — that would be this application's opinion about where a
+provider's figure stops being trustworthy, and it does not have one.
+
+A capture run's summary is four separate counts rather than a percentage:
+"12 photographed · 9 identified · 3 need you · 4 still uploading" answers both
+questions somebody has after a walk — is my work safe, and what is left for me —
+where a single progress figure answers neither. Every count is drawn including
+the zeroes, so "0 failed" is distinguishable from not having looked.
+
+The reduction of a sitting's answers to commands is a pure function
+(`CoreDomain.IdentificationReviews`) and is unit-tested as one, because the
+property that matters is arithmetic rather than visual.
+
+### 14.4 Notifications
 
 The inbox is the channel; push only announces it. A notification intent writes
 its inbox row when it is created, before and independent of any delivery

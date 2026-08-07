@@ -92,6 +92,12 @@ public final class PlantsHomeViewModel {
     public var taxonomyPickerSearchLabel: String { strings(.plantsTaxonomyPickerSearchLabel) }
     public var taxonomyPickerEmptyMessage: String { strings(.plantsTaxonomyPickerEmpty) }
     public var closeTitle: String { strings(.plantsClose) }
+    public var reviewOpenTitle: String { strings(.reviewOpen) }
+
+    /// The garden the review stack would be for. Non-nil is what puts the door
+    /// in the toolbar — a permanent button that usually leads to an empty
+    /// screen teaches people not to press it.
+    public var reviewGardenId: String? { gardenId }
     public var quantityUnitLabel: String { strings(.plantsQuantityUnit) }
 
     /// The date dial's four shortcuts, as words. They were previously rendered

@@ -187,6 +187,21 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue, parameters: parameters)
     }
 
+    /// The same resolution for the identification review stack and the
+    /// capture-run summary. See ``IdentificationReviewLocalizationKey``.
+    public func callAsFunction(_ key: IdentificationReviewLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
+    /// The same parameterized resolution for that key set's templated entries
+    /// (a remaining count, a confidence percentage).
+    public func string(
+        _ key: IdentificationReviewLocalizationKey,
+        parameters: [String: String]
+    ) -> String {
+        string(forKey: key.rawValue, parameters: parameters)
+    }
+
     /// The same resolution for the date dial's relative shortcuts.
     public func callAsFunction(_ key: RelativeDayLocalizationKey) -> String {
         string(forKey: key.rawValue)
@@ -233,6 +248,7 @@ public struct LocalizedStrings: Sendable {
         + NotificationLocalizationKey.allCases.map(\.rawValue)
         + GeoreferenceLocalizationKey.allCases.map(\.rawValue)
         + RelativeDayLocalizationKey.allCases.map(\.rawValue)
+        + IdentificationReviewLocalizationKey.allCases.map(\.rawValue)
 
     /// Resolves an arbitrary key, used for codes that originate in Core.
     ///

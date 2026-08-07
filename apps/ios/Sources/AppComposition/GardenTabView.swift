@@ -118,6 +118,10 @@ struct GardenTabView: View {
 
             Tab(strings(.shellTabPlants), systemImage: "leaf.fill", value: 2) {
                 stack {
+                    // The review stack sits on this tab rather than as a sixth
+                    // one: what it reviews are plants, and both of its doors —
+                    // the "needs you" entry and a capture run's own summary —
+                    // are here.
                     PlantsHomeView(
                         model: composition.makePlantsHomeViewModel(gardenId: gardenId),
                         listModel: composition.makePlantsListViewModel(gardenId: gardenId),
@@ -169,6 +173,13 @@ struct GardenTabView: View {
                             }
                             .accessibilityIdentifier("candidates.tab.open")
                         }
+                    }
+                    .navigationDestination(for: PlantsReviewRoute.self) { route in
+                        IdentificationReviewView(
+                            model: composition.makeIdentificationReviewViewModel(
+                                gardenId: route.gardenId
+                            )
+                        )
                     }
                     .navigationDestination(isPresented: $isCandidatesPresented) {
                         CandidatesScreenView(

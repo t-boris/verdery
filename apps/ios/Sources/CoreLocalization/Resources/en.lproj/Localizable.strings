@@ -1199,3 +1199,32 @@
 /* A candidate's price, as a nudgeable numeral. */
 "candidates.price.increase" = "More";
 "candidates.price.decrease" = "Less";
+
+/* Answering for a walk's photographs. The garden is for capturing; the kitchen
+   table is for resolving, and this screen is the table. */
+"review.title" = "Needs you";
+"review.open" = "Review suggestions";
+"review.explanation" = "Each of these has a photograph and a guess. Accepting one records the species; declining leaves the plant as it is, with its photograph, which is a complete record.";
+"review.remaining" = "{count} left";
+"review.confirm" = "Yes, that's it";
+"review.skip" = "Not this";
+"review.openPlant" = "Open the plant";
+"review.confidence" = "{percent}% sure";
+"review.noSuggestion" = "No species came back for this one. Its photograph is still its record.";
+"review.doneTitle" = "All answered";
+"review.doneMessage" = "Nothing else is waiting for you.";
+"review.emptyTitle" = "Nothing waiting";
+"review.emptyMessage" = "Photograph a plant and its suggestion will appear here.";
+"review.offline" = "Suggestions need a connection. Your photographs are already saved.";
+"review.failed" = "That could not be recorded. Nothing changed, and the card is still here.";
+
+/* What a walk produced. */
+"run.summaryTitle" = "That walk";
+"run.captured" = "photographed";
+"run.resolved" = "identified";
+"run.awaiting" = "need you";
+"run.uploading" = "still uploading";
+"run.failed" = "failed";
+"run.allDone" = "Everything is saved and answered.";
+"run.reviewNow" = "Answer them now";
+"run.keepWalking" = "Keep walking";

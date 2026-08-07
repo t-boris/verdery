@@ -81,6 +81,21 @@ extension AppCompositionRoot {
     /// `FetchPlantIdentification` are the three gateway-only use cases
     /// `PlantsUseCases.swift`'s own doc comment previously named as reachable
     /// from no real UI flow.
+    /// The review stack — a walk's worth of suggestions answered at a table.
+    public func makeIdentificationReviewViewModel(gardenId: String)
+        -> IdentificationReviewViewModel
+    {
+        IdentificationReviewViewModel(
+            gardenId: gardenId,
+            listAwaitingReview: ListPlantsAwaitingReview(
+                searchPlants: SearchPlants(gateway: plantGateway),
+                fetchIdentification: FetchPlantIdentification(gateway: plantGateway)
+            ),
+            confirmIdentification: ConfirmPlantIdentification(gateway: plantGateway),
+            strings: localizedStrings
+        )
+    }
+
     public func makePlantAddFromPhotoViewModel(gardenId: String) -> PlantAddFromPhotoViewModel {
         PlantAddFromPhotoViewModel(
             gardenId: gardenId,
