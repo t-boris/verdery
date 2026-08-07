@@ -64,10 +64,52 @@ the signing path locally proved that several prerequisites are already satisfied
    works, because the inbox is the durable record and push only announces it, but the announcement
    never arrives.
 
-   **This cannot be automated.** Verified rather than assumed: the App Store Connect API serves
-   `/v1/certificates` but answers `404 The specified resource does not exist` for `/v1/authKeys`,
-   `/v1/apnsKeys` and `/v1/keys`. Auth keys exist only in the web portal, and the Firebase upload
-   only in the Firebase console.
+   **The key itself is ready.** `F3BLFGAB32` was created on August 7, 2026 and verified against
+   APNs directly: it answers `BadDeviceToken` on **both** `api.sandbox.push.apple.com` and
+   `api.push.apple.com`, which is the correct result — the JWT was accepted and only the deliberately
+   invalid device token was refused. It is held at `~/private_keys/AuthKey_F3BLFGAB32.p8` (mode 600,
+   directory 700), outside the repository, and `.gitignore` covers `*.p8`.
+
+   **Both environments matter, and this is where the first attempt failed.** An APNs key's
+   environment is chosen at creation and cannot be changed. A Sandbox-only key answers
+   `BadEnvironmentKeyInToken` on the production host — and TestFlight and App Store builds use
+   **production**, while only a development-signed build uses sandbox. So a Sandbox-only key works
+   over a cable and fails in TestFlight, silently, in exactly the way `aps-environment` does. The
+   first key created for this app (`NWD3SR958W`) was Sandbox-only, was caught by that test before it
+   reached Firebase, and was revoked.
+
+   **The upload cannot be automated.** Verified two ways rather than assumed:
+
+   - The App Store Connect API serves `/v1/certificates` but answers
+     `404 The specified resource does not exist` for `/v1/authKeys`, `/v1/apnsKeys` and `/v1/keys`.
+     Auth keys exist only in the web portal.
+   - The Firebase CLI exposes `apps:android:sha:create` for the Android equivalent and has **no iOS
+     APNs command at all**. The upload exists only in the Firebase console.
+
+   **The Push Notifications capability is already enabled** and needs no action. Checked against the
+   API on August 7, 2026: `com.verdery.app` (bundle-id resource `5KXAC9Z93J`) carries
+   `APPLE_ID_AUTH`, `IN_APP_PURCHASE` and `PUSH_NOTIFICATIONS`.
+
+   ### Verifying any APNs key, before trusting it
+
+   ```bash
+   python3 - <<'EOF'
+   import time, subprocess, jwt
+   KEY_ID, TEAM, PATH = "F3BLFGAB32", "3M68DG8S7N", "~/private_keys/AuthKey_F3BLFGAB32.p8"
+   import os; PATH = os.path.expanduser(PATH)
+   for host in ["api.sandbox.push.apple.com", "api.push.apple.com"]:
+       t = jwt.encode({"iss": TEAM, "iat": int(time.time())}, open(PATH).read(),
+                      algorithm="ES256", headers={"kid": KEY_ID})
+       print(host, subprocess.run(["curl","-s","--http2","-H",f"authorization: bearer {t}",
+         "-H","apns-topic: com.verdery.app","-H","apns-push-type: alert",
+         "-d",'{"aps":{"alert":"x"}}',
+         f"https://{host}/3/device/"+"0"*64], capture_output=True, text=True).stdout)
+   EOF
+   ```
+
+   `BadDeviceToken` on both hosts is the pass. It delivers nothing to anyone — the token is 64
+   zeroes and belongs to no device. `InvalidProviderToken` means the key is not an APNs key for that
+   team; `BadEnvironmentKeyInToken` on the production host means the key is Sandbox-only.
 
    **The Push Notifications capability is already enabled** and needs no action. Checked against the
    API on August 7, 2026: `com.verdery.app` (bundle-id resource `5KXAC9Z93J`) carries
