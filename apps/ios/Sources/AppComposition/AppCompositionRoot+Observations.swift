@@ -22,7 +22,11 @@ extension AppCompositionRoot {
             // P6-IOS-01: real background-capable upload capability for the
             // record-observation form's photo attachment — see
             // `makePhotoAttachmentController`'s own doc comment.
-            photoAttachment: makePhotoAttachmentController(gardenId: gardenId, mediaClass: .gardenPhoto)
+            photoAttachment: makePhotoAttachmentController(gardenId: gardenId, mediaClass: .gardenPhoto),
+            // What an observation is about, by name. The sheet used to ask for
+            // a raw UUID, which nobody knows.
+            listTargetPlants: ListObservationTargetPlants(gateway: plantGateway),
+            listTargetObjects: ListObservationTargetObjects(gateway: mapGateway)
         )
     }
 

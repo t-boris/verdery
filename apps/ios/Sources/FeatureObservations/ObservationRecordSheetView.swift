@@ -52,6 +52,7 @@ struct ObservationRecordSheetView: View {
                 }
                 .padding(Metrics.space4)
             }
+            .task { await model.loadRecordTargets() }
             .navigationTitle(model.recordSectionTitle)
             .inlineNavigationTitle()
             .screenBackground()
@@ -149,12 +150,18 @@ struct ObservationRecordSheetView: View {
                             // what makes the journal's comparison sequences
                             // comparable, so it is asked for rather than
                             // assumed.
-                            Picker(model.photoPurposeLabel, selection: $model.recordPhotoPurpose) {
-                                ForEach(ObservationPhotoPurpose.allCases, id: \.self) { purpose in
-                                    Text(model.photoPurposeName(purpose)).tag(purpose)
-                                }
-                            }
-                            .accessibilityIdentifier("observations.record.photo.purposePicker")
+                            ChoiceChipGrid(
+                                fieldName: model.photoPurposeLabel,
+                                options: ObservationPhotoPurpose.allCases.map {
+                                    ChoiceChipGrid.Option(
+                                        value: $0,
+                                        label: model.photoPurposeName($0),
+                                        symbol: "camera"
+                                    )
+                                },
+                                selection: $model.recordPhotoPurpose
+                            )
+                            .accessibilityIdentifier("observations.record.photo.purpose")
 
                             HStack(spacing: Metrics.space2) {
                                 if photoAttachment.status.isRetryable,
@@ -190,23 +197,21 @@ struct ObservationRecordSheetView: View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
             SectionEyebrow(symbol: "text.bubble", title: model.noteTextLabel)
 
-            SurfaceCard {
-                VStack(alignment: .leading, spacing: Metrics.space3) {
-                    TextField(model.noteTextLabel, text: $model.recordNoteText, axis: .vertical)
-                        .textFieldStyle(.roundedBorder)
-                        .lineLimit(3...6)
-                        .focused($isNoteFocused)
-                        .accessibilityIdentifier("observations.record.noteField")
+            // Testimony is content, not a control: no box is drawn around it.
+            VStack(alignment: .leading, spacing: Metrics.space3) {
+                NoteCanvas(
+                    accessibilityName: model.noteTextLabel,
+                    placeholder: model.noteTextLabel,
+                    text: $model.recordNoteText
+                )
+                .accessibilityIdentifier("observations.record.noteField")
 
-                    TextField(
-                        model.conditionSummaryLabel,
-                        text: $model.recordConditionSummary,
-                        axis: .vertical
-                    )
-                    .textFieldStyle(.roundedBorder)
-                    .lineLimit(2...4)
-                    .accessibilityIdentifier("observations.record.conditionField")
-                }
+                NoteCanvas(
+                    accessibilityName: model.conditionSummaryLabel,
+                    placeholder: model.conditionSummaryLabel,
+                    text: $model.recordConditionSummary
+                )
+                .accessibilityIdentifier("observations.record.conditionField")
             }
         }
     }
@@ -222,18 +227,33 @@ struct ObservationRecordSheetView: View {
                 VStack(alignment: .leading, spacing: Metrics.space3) {
                     ForEach($model.recordSymptoms) { $symptom in
                         VStack(alignment: .leading, spacing: Metrics.space2) {
-                            Picker(model.symptomKindLabel, selection: $symptom.kind) {
-                                ForEach(model.availableSymptomKinds(for: symptom), id: \.self) { kind in
-                                    Text(model.symptomKindName(kind)).tag(kind)
-                                }
-                            }
+                            ChoiceChipGrid(
+                                fieldName: model.symptomKindLabel,
+                                options: model.availableSymptomKinds(for: symptom).map {
+                                    ChoiceChipGrid.Option(
+                                        value: $0,
+                                        label: model.symptomKindName($0),
+                                        symbol: "leaf"
+                                    )
+                                },
+                                selection: $symptom.kind
+                            )
                             .accessibilityIdentifier("observations.record.symptom.kind")
 
-                            Picker(model.symptomSeverityLabel, selection: $symptom.severity) {
-                                ForEach(ObservationSymptomSeverity.allCases, id: \.self) { severity in
-                                    Text(model.symptomSeverityName(severity)).tag(severity)
-                                }
-                            }
+                            // Severity is an ordered scale, so it reads as a
+                            // rail: the range and this symptom's place in it
+                            // are visible at once.
+                            SegmentedRail(
+                                fieldName: model.symptomSeverityLabel,
+                                options: ObservationSymptomSeverity.allCases.map {
+                                    SegmentedRail.Option(
+                                        value: $0,
+                                        label: model.symptomSeverityName($0),
+                                        symbol: "exclamationmark.triangle"
+                                    )
+                                },
+                                selection: $symptom.severity
+                            )
                             .accessibilityIdentifier("observations.record.symptom.severity")
 
                             CompactActionButton(
@@ -271,27 +291,42 @@ struct ObservationRecordSheetView: View {
                 VStack(alignment: .leading, spacing: Metrics.space3) {
                     ForEach($model.recordMeasurements) { $measurement in
                         VStack(alignment: .leading, spacing: Metrics.space2) {
-                            Picker(model.measurementKindLabel, selection: $measurement.kind) {
-                                ForEach(model.availableMeasurementKinds(for: measurement), id: \.self) { kind in
-                                    Text(model.measurementKindName(kind)).tag(kind)
-                                }
-                            }
+                            ChoiceChipGrid(
+                                fieldName: model.measurementKindLabel,
+                                options: model.availableMeasurementKinds(for: measurement).map {
+                                    ChoiceChipGrid.Option(
+                                        value: $0,
+                                        label: model.measurementKindName($0),
+                                        symbol: "ruler"
+                                    )
+                                },
+                                selection: $measurement.kind
+                            )
                             .accessibilityIdentifier("observations.record.measurement.kind")
 
-                            TextField(
-                                model.measurementValueLabel,
+                            // A measurement is a numeral you nudge, and its
+                            // locale separator is the component's problem
+                            // rather than every caller's: `3,5` typed on a
+                            // Russian keypad has to round-trip to 3.5.
+                            MeasureField(
+                                fieldName: model.measurementValueLabel,
+                                unitLabel: measurement.unit,
+                                decreaseLabel: model.measurementDecreaseLabel,
+                                increaseLabel: model.measurementIncreaseLabel,
                                 value: $measurement.value,
-                                format: .number
+                                locale: .autoupdatingCurrent
                             )
-                            .textFieldStyle(.roundedBorder)
-                            #if os(iOS)
-                                .keyboardType(.decimalPad)
-                            #endif
                             .accessibilityIdentifier("observations.record.measurement.value")
 
-                            TextField(model.measurementUnitLabel, text: $measurement.unit)
-                                .textFieldStyle(.roundedBorder)
-                                .accessibilityIdentifier("observations.record.measurement.unit")
+                            ComposerField(
+                                symbol: "character.textbox",
+                                accessibilityName: model.measurementUnitLabel,
+                                placeholder: model.measurementUnitLabel,
+                                commitLabel: model.recordSubmitTitle,
+                                text: $measurement.unit,
+                                commit: {}
+                            )
+                            .accessibilityIdentifier("observations.record.measurement.unit")
 
                             CompactActionButton(
                                 symbol: "trash",
@@ -319,35 +354,88 @@ struct ObservationRecordSheetView: View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
             SectionEyebrow(symbol: "scope", title: model.plantIdLabel)
 
-            SurfaceCard {
+            // Names, not identifiers. Both lists are optional: an observation
+            // with no target is a garden-wide note, which is a real thing to
+            // record and the default when nothing is chosen.
+            if model.recordTargetPlants.isEmpty && model.recordTargetObjects.isEmpty {
+                InlineMessage(model.mapObjectIdHint, tone: .neutral)
+                    .accessibilityIdentifier("observations.record.targetEmpty")
+            } else {
                 VStack(alignment: .leading, spacing: Metrics.space2) {
-                    TextField(model.plantIdLabel, text: $model.recordPlantId)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("observations.record.plantIdField")
-                    TextField(model.gardenObjectIdLabel, text: $model.recordGardenObjectId)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityIdentifier("observations.record.gardenObjectIdField")
-                    InlineMessage(model.mapObjectIdHint, tone: .neutral)
+                    ForEach(model.recordTargetPlants) { plant in
+                        targetRow(
+                            symbol: "leaf",
+                            name: plant.displayName,
+                            isSelected: model.recordPlantId == plant.id
+                        ) { model.selectRecordPlant(plant) }
+                    }
+                    ForEach(model.recordTargetObjects) { object in
+                        targetRow(
+                            symbol: "square.dashed",
+                            name: model.objectName(object),
+                            isSelected: model.recordGardenObjectId == object.id
+                        ) { model.selectRecordObject(object) }
+                    }
                 }
             }
         }
+    }
+
+    /// One target, tappable off as well as on: choosing the wrong bed and
+    /// having no way back to "the whole garden" is the trap a radio group sets.
+    private func targetRow(
+        symbol: String,
+        name: String,
+        isSelected: Bool,
+        select: @escaping () -> Void
+    ) -> some View {
+        Button(action: select) {
+            SurfaceCard {
+                HStack(spacing: Metrics.space3) {
+                    IconMedallion(symbol: symbol, label: name, tone: isSelected ? .positive : .neutral)
+                    Text(name)
+                        .font(FieldConsoleType.bodyStrong.font)
+                        .foregroundStyle(Palette.text)
+                    Spacer(minLength: 0)
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(isSelected ? Palette.interaction : Palette.border)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .accessibilityIdentifier("observations.record.target")
     }
 
     private var timingSection: some View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
             SectionEyebrow(symbol: "clock", title: model.observedAtLabel)
 
-            SurfaceCard {
-                VStack(alignment: .leading, spacing: Metrics.space3) {
-                    Toggle(model.observedAtToggleLabel, isOn: $model.recordHasObservedAt)
-                        .accessibilityIdentifier("observations.record.observedAtToggle")
-                    if model.recordHasObservedAt {
-                        DatePicker(model.observedAtLabel, selection: $model.recordObservedAt)
-                            .accessibilityIdentifier("observations.record.observedAtPicker")
-                    }
-                }
+            OptionalValueCard(
+                fieldName: model.observedAtLabel,
+                addPrompt: model.observedAtToggleLabel,
+                clearLabel: model.closeTitle,
+                symbol: "clock",
+                displayValue: model.recordHasObservedAt
+                    ? CalendarText.day(model.recordObservedAt) : nil,
+                clear: { model.recordHasObservedAt = false }
+            ) {
+                DateDial(
+                    fieldName: model.observedAtLabel,
+                    selection: $model.recordObservedAt,
+                    now: .now,
+                    calendar: .current,
+                    chipTitle: model.relativeDayTitle,
+                    dayNumber: CalendarText.dayNumber,
+                    weekdayName: CalendarText.weekday,
+                    longDate: CalendarText.day
+                )
+                // Opening the editor is asking for the value; the switch that
+                // used to gate it was bookkeeping nobody asked for.
+                .onAppear { model.recordHasObservedAt = true }
             }
-            .tint(Palette.interaction)
+            .accessibilityIdentifier("observations.record.observedAt")
         }
     }
 

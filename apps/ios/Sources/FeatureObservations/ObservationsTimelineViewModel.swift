@@ -1,3 +1,4 @@
+import CoreDesignSystem
 import CoreDomain
 import CoreLocalization
 import CoreMediaTransfer
@@ -54,6 +55,11 @@ public final class ObservationsTimelineViewModel {
     // Record-observation form fields.
     public var recordNoteText: String = ""
     public var recordConditionSummary: String = ""
+    /// What an observation can be about, by name. Loaded when the record
+    /// sheet opens and left empty when unreachable — a target is optional, so
+    /// an unavailable list means "garden-wide", never an error.
+    public internal(set) var recordTargetPlants: [Plant] = []
+    public internal(set) var recordTargetObjects: [GardenMapObject] = []
     public var recordPlantId: String = ""
     public var recordGardenObjectId: String = ""
     public var recordHasObservedAt: Bool = false
@@ -82,6 +88,8 @@ public final class ObservationsTimelineViewModel {
     public private(set) var correctionErrorMessage: String?
 
     public let gardenId: String
+    let listTargetPlants: ListObservationTargetPlants?
+    let listTargetObjects: ListObservationTargetObjects?
     /// The record form's own "Add Photo" affordance — `nil` for a view
     /// model built with no media-upload capability wired in, matching
     /// `FeaturePlants.PlantDetailViewModel.photoAttachment`'s identical
@@ -123,7 +131,9 @@ public final class ObservationsTimelineViewModel {
         correctObservation: CorrectObservation,
         setHealthSuggestionDisposition: SetHealthSuggestionDisposition,
         strings: LocalizedStrings,
-        photoAttachment: PhotoAttachmentController? = nil
+        photoAttachment: PhotoAttachmentController? = nil,
+        listTargetPlants: ListObservationTargetPlants? = nil,
+        listTargetObjects: ListObservationTargetObjects? = nil
     ) {
         self.gardenId = gardenId
         self.recordObservation = recordObservation
@@ -133,6 +143,8 @@ public final class ObservationsTimelineViewModel {
         self.setHealthSuggestionDisposition = setHealthSuggestionDisposition
         self.strings = strings
         self.photoAttachment = photoAttachment
+        self.listTargetPlants = listTargetPlants
+        self.listTargetObjects = listTargetObjects
     }
 
     public var title: String { strings(.observationsTitle) }
@@ -205,6 +217,18 @@ public final class ObservationsTimelineViewModel {
     public var correctionKindLabel: String { strings(.observationsCorrectionKindLabel) }
     public var correctionSubmitTitle: String { strings(.observationsCorrectionSubmit) }
     public var closeTitle: String { strings(.observationsClose) }
+    public var measurementIncreaseLabel: String { strings(.plantsQuantityIncrease) }
+    public var measurementDecreaseLabel: String { strings(.plantsQuantityDecrease) }
+
+    /// The date dial's four shortcuts, as words rather than as dates.
+    public func relativeDayTitle(_ kind: RelativeDayOption.Kind) -> String {
+        switch kind {
+        case .today: strings(.relativeDayToday)
+        case .tomorrow: strings(.relativeDayTomorrow)
+        case .thisWeekend: strings(.relativeDayThisWeekend)
+        case .nextWeek: strings(.relativeDayNextWeek)
+        }
+    }
 
     public func correctionKindName(_ kind: ObservationCorrectionKind) -> String {
         ObservationsLocalization.correctionKindName(kind, strings: strings)
