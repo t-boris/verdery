@@ -443,3 +443,34 @@ the API never got the new image.
   by breaking it.
 - Renaming a migration is safe only while it has not been applied anywhere. Check
   before renaming; here the deploy had refused the whole batch, so none had run.
+
+## A multi-line regex is not a refactoring tool
+
+**What happened**: adding one argument to two SwiftUI sheet initializers, I used
+`re.sub` on a pattern ending `onClose: \{[^}]*\}` with the replacement text
+written out literally — including the body `{ model.editingTask = nil }` copied
+from the first call site. The pattern matched **three** call sites, not two, and
+the replacement overwrote all three bodies with the first one's. `TasksListView`
+then closed the reschedule sheet by clearing `editingTaskId`, and the assign
+sheet by clearing it too. It compiled. Every one of 1173 tests passed, because
+no test drives a sheet's dismissal.
+
+**Why it was nearly invisible**: the diff was three lines that all looked like
+plausible code, in a file with three near-identical blocks. Reading the patch
+without reading the *original* would not have caught it.
+
+**Rules for next time**:
+
+- Never let a regex replacement carry a literal body copied out of one match. If
+  the replacement needs part of the match, capture it (`\1`) — if it cannot be
+  captured, the edit is not a regex edit.
+- `count=1` on `re.sub` is not a safety net when there are several call sites;
+  it just picks an arbitrary one. Prefer N exact `str.replace(old, new, 1)` calls
+  with enough surrounding context that each is unique.
+- After any pattern-based edit, run `git diff <file>` and read the **minus**
+  lines, not just the plus lines. What was deleted is where this class of bug
+  lives, and here `git diff | grep '^[-+].*onClose'` showed it in one line.
+- A green suite says nothing about view wiring. This repository tests values and
+  conventions, deliberately and by ADR — so callbacks, dismissals and navigation
+  are exactly the code a test run cannot vouch for, and exactly where a careless
+  edit survives.
