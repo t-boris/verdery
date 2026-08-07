@@ -156,7 +156,15 @@ struct GardenTabView: View {
                         },
                         makeAddFromPhotoModel: {
                             composition.makePlantAddFromPhotoViewModel(gardenId: gardenId)
-                        }
+                        },
+                        // The Action button, Shortcuts and Siri all land here:
+                        // opening the camera needs a signed-in profile and a
+                        // chosen garden, and both are true by the time this
+                        // screen exists.
+                        isCaptureRequested: Binding(
+                            get: { composition.isCaptureRequested },
+                            set: { if !$0 { composition.clearCaptureRequest() } }
+                        )
                     )
                     // Plant candidates (P11-IOS-01) — a peer section of the
                     // Plants tab, not a sixth tab of its own, pushed onto
@@ -258,6 +266,11 @@ struct GardenTabView: View {
         // tab bar, so the two questions a person has on every screen — which
         // garden, and is my work safe — are answered without either one
         // occupying a toolbar slot on all five tabs.
+        .onChange(of: composition.isCaptureRequested) { _, requested in
+            // Switch to the tab that owns the camera. Without this the request
+            // is honoured behind whichever tab happened to be showing.
+            if requested { selection = 2 }
+        }
         .safeAreaInset(edge: .bottom) {
             ConsoleStatusStrip(
                 gardenName: gardenName,

@@ -154,6 +154,24 @@ public final class AppCompositionRoot {
         pendingNotificationLink = nil
     }
 
+    /// Somebody asked to photograph a plant from outside the application — the
+    /// Action button, Shortcuts, or Siri.
+    ///
+    /// Recorded rather than acted on, for the same reason a scanned label is:
+    /// the shell decides when the capture surface can open, and it may have to
+    /// sign somebody in or pick a garden first. A request that arrives before
+    /// either is possible waits here rather than being dropped, so pressing the
+    /// Action button on a locked phone still lands on the viewfinder.
+    public internal(set) var isCaptureRequested = false
+
+    public func requestCapture() {
+        isCaptureRequested = true
+    }
+
+    public func clearCaptureRequest() {
+        isCaptureRequested = false
+    }
+
     /// The two synchronization triggers `RootScene` used to document as
     /// missing: reconnection, and an occasional background opportunity.
     /// `lazy` because both need `syncStatusCenter`.
@@ -482,17 +500,6 @@ public final class AppCompositionRoot {
     /// tab titles still have to be keyed and translated like every other
     /// user-visible string.
     public var localizedStrings: LocalizedStrings { strings }
-
-    public func makeSignInViewModel() -> SignInViewModel {
-        SignInViewModel(authenticationGateway: authenticationGateway, strings: strings)
-    }
-
-    // `handleIncomingURL(_:)` — routes a URL the OS delivered to the app,
-    // including this app's own `verdery://` collaboration deep links — lives
-    // in `AppCompositionRoot+DeepLinks.swift`, split out purely to keep this
-    // file under this repository's 600-line rule, the same
-    // `AppCompositionRoot+LocalStores.swift`/`AccountEntryPoint.swift`
-    // precedent.
 
     public func makeGardensListViewModel() -> GardensListViewModel {
         let store = localGardenStore()

@@ -82,6 +82,11 @@ struct VerderyApp: App {
         // exists by the time this initializer body runs).
         appDelegate.composition = root
 
+        // The seam an `AppIntent` reaches through. Registered here because an
+        // intent is constructed by the system and cannot be handed the
+        // composition root the way every screen is.
+        AppIntentBridge.register(root)
+
         // The notification centre's delegate must be set before launch
         // finishes, or a notification that launched this process is delivered
         // to nobody and the tap is lost. Registering for remote notifications

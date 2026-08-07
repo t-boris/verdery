@@ -30,13 +30,19 @@ public struct PlantsHomeView: View {
     @State private var isOpenByIdExpanded = false
     private let destination: (String) -> AnyView
     private let makeAddFromPhotoModel: () -> PlantAddFromPhotoViewModel
+    /// A capture asked for from outside the application — the Action button,
+    /// Shortcuts, or Siri. Bound rather than observed so the shell can clear it
+    /// once it has been honoured, and a stale request cannot re-fire.
+    @Binding private var isCaptureRequested: Bool
 
     public init(
         model: PlantsHomeViewModel,
         listModel: PlantsListViewModel,
         destination: @escaping (String) -> AnyView,
-        makeAddFromPhotoModel: @escaping () -> PlantAddFromPhotoViewModel
+        makeAddFromPhotoModel: @escaping () -> PlantAddFromPhotoViewModel,
+        isCaptureRequested: Binding<Bool> = .constant(false)
     ) {
+        _isCaptureRequested = isCaptureRequested
         _model = State(wrappedValue: model)
         _listModel = State(wrappedValue: listModel)
         self.destination = destination
@@ -63,6 +69,19 @@ public struct PlantsHomeView: View {
         .screenBackground()
         .navigationDestination(item: $openedPlantId) { plantId in
             destination(plantId)
+        }
+        // Honoured here rather than at the intent, because opening the camera
+        // may first require a signed-in profile and a chosen garden — both of
+        // which are true by the time this screen exists.
+        .onChange(of: isCaptureRequested) { _, requested in
+            guard requested else { return }
+            isAddFromPhotoPresented = true
+            isCaptureRequested = false
+        }
+        .onAppear {
+            guard isCaptureRequested else { return }
+            isAddFromPhotoPresented = true
+            isCaptureRequested = false
         }
         .toolbar {
             // A door to the review stack, and only when there is something

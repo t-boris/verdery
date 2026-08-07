@@ -397,7 +397,31 @@ The reduction of a sitting's answers to commands is a pure function
 (`CoreDomain.IdentificationReviews`) and is unit-tested as one, because the
 property that matters is arithmetic rather than visual.
 
-### 14.4 Notifications
+### 14.4 Capture From Outside the Application
+
+`CapturePlantIntent` is the shortest path in the product: from a locked phone to
+a live viewfinder in one press of the Action button, with no tab, menu or sheet
+in between. Shortcuts and Siri reach the same intent, and `AppShortcutsProvider`
+offers it without anybody assembling a shortcut first — a capability nobody can
+find is a capability nobody has.
+
+It sets `openAppWhenRun`. A photograph needs a viewfinder, so there is nothing
+here that could honestly run headlessly, and an intent that pretended otherwise
+would report success for a picture nobody took.
+
+The request is **recorded, not acted on** at the intent. Opening the camera may
+first require signing in and choosing a garden, so the composition root holds
+the request and the shell honours it — switching to the tab that owns the camera
+first, because otherwise it opens behind whichever tab happened to be showing.
+Dropping the request when a sign-in was needed would make the button work only
+when it was least needed.
+
+`AppIntentBridge` is the one piece of global state an intent can reach: an
+intent is constructed by the system and cannot be handed the composition root
+the way every screen is. It is one setter, written once at launch, holding one
+weak reference, and it is deliberately not a way to reach anything else.
+
+### 14.5 Notifications
 
 The inbox is the channel; push only announces it. A notification intent writes
 its inbox row when it is created, before and independent of any delivery
