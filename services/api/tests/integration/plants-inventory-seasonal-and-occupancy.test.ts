@@ -42,6 +42,7 @@ import { KyselyBedOccupancyHistoryReader } from '../../src/modules/plants-invent
 import { KyselyPlantRepository } from '../../src/modules/plants-inventory/persistence/kysely-plant-repository.js';
 import { KyselyPlantsInventoryUnitOfWork } from '../../src/modules/plants-inventory/persistence/kysely-plants-inventory-unit-of-work.js';
 import { KyselyTaxonomySeasonalFactRepository } from '../../src/modules/plants-inventory/persistence/kysely-taxonomy-seasonal-fact-repository.js';
+import { KyselyTaxonomyReferenceRepository } from '../../src/modules/plants-inventory/persistence/kysely-taxonomy-reference-repository.js';
 import type { DatabaseSchema } from '../../src/platform/database/database-gateway.js';
 import { KyselyIdempotencyStore } from '../../src/platform/idempotency/kysely-idempotency-store.js';
 import { generateUuidV7 } from '../../src/shared/identifiers/uuid.js';
@@ -203,6 +204,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         unitOfWork,
         authorization,
         clock,
+        new KyselyTaxonomyReferenceRepository(db),
       ),
     };
   }

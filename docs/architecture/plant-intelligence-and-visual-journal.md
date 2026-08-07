@@ -91,6 +91,10 @@ Conversion to an actual plant is an explicit revision-aware command. It:
    the working lifecycle. If that plant is later marked `removed`, the user may explicitly delete
    the converted candidate and its conversion link permanently.
 
+Photo-created inventory plants begin with an explicit `Unidentified plant` placeholder. Confirming
+an identification replaces that placeholder with the canonical taxonomy common name (or scientific
+name when no common name exists), while preserving any display name the gardener edited manually.
+
 Actual plants are not silently demoted to candidates. Removing an actual plant uses the existing
 lifecycle and archival model.
 

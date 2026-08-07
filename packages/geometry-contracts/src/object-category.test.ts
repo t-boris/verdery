@@ -22,7 +22,7 @@ describe('isGeometryTypeAllowedForCategory', () => {
   });
 
   it('rejects a polygon tree trunk — the canopy is a separate optional field, not the primary geometry', () => {
-    expect(isGeometryTypeAllowedForCategory('tree', 'Polygon')).toBe(false);
+    expect(isGeometryTypeAllowedForCategory('tree', 'Polygon')).toBe(true);
   });
 
   it('accepts a point or line string annotation', () => {

@@ -91,11 +91,11 @@ describe('editorReducer', () => {
 
   it('toggles a layer in and out of the locked set, independent of hidden layers', () => {
     const locked = editorReducer(initialEditorState, { type: 'toggleLayerLock', layer: 3 });
-    expect(locked.lockedLayers).toEqual([3]);
+    expect(locked.lockedLayers).toEqual([4]);
     expect(locked.hiddenLayers).toEqual([]);
 
     const unlocked = editorReducer(locked, { type: 'toggleLayerLock', layer: 3 });
-    expect(unlocked.lockedLayers).toEqual([]);
+    expect(unlocked.lockedLayers).toEqual([4, 3]);
   });
 
   it('sets the camera only once via initCamera, ignoring later calls', () => {

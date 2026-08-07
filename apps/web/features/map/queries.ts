@@ -2,7 +2,7 @@
 
 import type { MapCommandPayload } from '@verdery/geometry-contracts';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
 import {
   ApiFailureError,
@@ -91,6 +91,55 @@ function mergeAffected(
   return { ...current, objects };
 }
 
+function revisionOf(document: MapDocumentData | undefined, objectId: string): number | null {
+  return document?.objects.find((object) => object.id === objectId)?.revision ?? null;
+}
+
+/**
+ * Rebinds a queued command to the latest authoritative revisions already
+ * returned by earlier commands from this same editor session. External
+ * concurrent edits are not hidden: the cache still carries their older
+ * revision, so the server returns its normal 412 and asks for a refetch.
+ */
+export function withCurrentMapRevisions(
+  payload: MapCommandPayload,
+  document: MapDocumentData | undefined,
+): MapCommandPayload {
+  switch (payload.type) {
+    case 'moveObject':
+    case 'replaceGeometry':
+    case 'editVertex':
+    case 'splitLinework':
+    case 'changeProperties':
+    case 'deleteObject':
+    case 'restoreObject': {
+      const revision = revisionOf(document, payload.objectId);
+      return revision === null ? payload : { ...payload, expectedRevision: revision };
+    }
+    case 'assignPlant': {
+      const revision = revisionOf(document, payload.plantObjectId);
+      return revision === null ? payload : { ...payload, expectedRevision: revision };
+    }
+    case 'upsertCalibration': {
+      const revision = revisionOf(document, payload.backgroundObjectId);
+      return revision === null ? payload : { ...payload, expectedRevision: revision };
+    }
+    case 'joinLinework': {
+      const firstRevision = revisionOf(document, payload.firstObjectId);
+      const secondRevision = revisionOf(document, payload.secondObjectId);
+      return {
+        ...payload,
+        ...(firstRevision === null ? {} : { firstExpectedRevision: firstRevision }),
+        ...(secondRevision === null ? {} : { secondExpectedRevision: secondRevision }),
+      };
+    }
+    case 'createObject':
+    case 'duplicateObject':
+    case 'decideProposal':
+      return payload;
+  }
+}
+
 /**
  * Submits one map editor command and folds the server's authoritative
  * response back into the cached map document.
@@ -103,22 +152,33 @@ function mergeAffected(
 export function useSubmitMapCommand(gardenId: string) {
   const gateway = useMapGateway();
   const queryClient = useQueryClient();
+  const queue = useRef<Promise<void>>(Promise.resolve());
 
   return useMutation<readonly MapObjectRecord[], ApiFailureError, MapCommandPayload>({
-    mutationFn: async (payload) => {
-      const commandId = generateMapId();
-      const clientTimestamp = new Date().toISOString();
-      const idempotencyKey = generateIdempotencyKey();
-
-      const result = unwrap(
-        await gateway.submitCommand(gardenId, commandId, clientTimestamp, payload, idempotencyKey),
+    mutationFn: (payload) => {
+      const execute = queue.current.then(async () => {
+        const current = queryClient.getQueryData<MapDocumentData>(mapQueryKey(gardenId));
+        const currentPayload = withCurrentMapRevisions(payload, current);
+        const result = unwrap(
+          await gateway.submitCommand(
+            gardenId,
+            generateMapId(),
+            new Date().toISOString(),
+            currentPayload,
+            generateIdempotencyKey(),
+          ),
+        );
+        const affected = result.affectedObjects.map(toMapObjectRecord);
+        queryClient.setQueryData<MapDocumentData>(mapQueryKey(gardenId), (cached) =>
+          cached === undefined ? cached : mergeAffected(cached, affected),
+        );
+        return affected;
+      });
+      queue.current = execute.then(
+        () => undefined,
+        () => undefined,
       );
-      return result.affectedObjects.map(toMapObjectRecord);
-    },
-    onSuccess: (affected) => {
-      queryClient.setQueryData<MapDocumentData>(mapQueryKey(gardenId), (current) =>
-        current === undefined ? current : mergeAffected(current, affected),
-      );
+      return execute;
     },
   });
 }

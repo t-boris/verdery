@@ -36,8 +36,8 @@ import {
   useConfirmPlantIdentification,
   usePlant,
   usePlantIdentification,
+  usePlantTaxonProfile,
   useRecordObservationFromIdentification,
-  useTaxonomyReferenceSearch,
 } from './queries';
 
 export interface PlantDetailProps {
@@ -50,17 +50,15 @@ export interface PlantDetailProps {
 }
 
 function PlantTaxonomySummary({
-  gardenId,
   taxonomyReferenceId,
   displayName,
 }: {
-  readonly gardenId: string;
   readonly taxonomyReferenceId: string;
   readonly displayName: string;
 }) {
   const { t } = useLocalization();
-  const search = useTaxonomyReferenceSearch(gardenId, displayName);
-  const reference = search.data?.items.find((item) => item.id === taxonomyReferenceId);
+  const profile = usePlantTaxonProfile(taxonomyReferenceId);
+  const reference = profile.data?.taxonomyReference;
 
   if (reference === undefined) {
     return <span>{t('plants.taxonomyLinked')}</span>;
@@ -115,7 +113,11 @@ export function PlantDetail({
   const { t } = useLocalization();
   const router = useRouter();
   const query = usePlant(gardenId, plantId);
-  const identification = usePlantIdentification(gardenId, plantId);
+  const identification = usePlantIdentification(
+    gardenId,
+    plantId,
+    query.data?.acceptedIdentificationId === null,
+  );
   const confirmIdentification = useConfirmPlantIdentification(gardenId);
   const recordObservation = useRecordObservationFromIdentification(gardenId);
 
@@ -207,7 +209,6 @@ export function PlantDetail({
                 t('plants.taxonomyNone')
               ) : (
                 <PlantTaxonomySummary
-                  gardenId={gardenId}
                   taxonomyReferenceId={plant.taxonomyReferenceId}
                   displayName={plant.displayName}
                 />

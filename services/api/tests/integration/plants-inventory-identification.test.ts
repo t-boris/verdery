@@ -191,6 +191,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
         unitOfWork,
         authorization,
         clock,
+        new KyselyTaxonomyReferenceRepository(db),
       ),
       getPlantIdentification: new GetPlantIdentification(
         plantRepository,

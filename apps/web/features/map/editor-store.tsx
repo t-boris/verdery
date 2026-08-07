@@ -70,8 +70,8 @@ export interface EditorState {
    * Layer visibility/locking (`map-layers.ts`, `map-layer-panel.tsx`): a user
    * preference, not server-persisted domain state — architecture doc section
    * "12. Layer Model" ("Layer visibility and opacity are user preferences").
-   * Resets to all-visible/all-unlocked on reload, the ordinary behavior of a
-   * client preference this pass does not persist.
+   * Resets to the safe defaults on reload: traced property/layout layers are
+   * locked, while imported backgrounds and living objects remain editable.
    */
   readonly hiddenLayers: readonly LayerId[];
   readonly lockedLayers: readonly LayerId[];
@@ -92,6 +92,14 @@ export interface EditorState {
    * the default because tracing is what someone opens a georeferenced,
    * still-empty garden to do.
    */
+  readonly backdrop: BackdropKind;
+}
+
+export interface MapViewPreferences {
+  readonly camera: MapCamera;
+  readonly hiddenLayers: readonly LayerId[];
+  readonly lockedLayers: readonly LayerId[];
+  readonly backgroundOpacity: number;
   readonly backdrop: BackdropKind;
 }
 
@@ -119,7 +127,8 @@ type Action =
   | { readonly type: 'setPlatAlignmentTransform'; readonly transform: PlatAlignmentTransform }
   | { readonly type: 'clearPlatAlignment' }
   | { readonly type: 'setBackgroundOpacity'; readonly opacity: number }
-  | { readonly type: 'setBackdrop'; readonly backdrop: BackdropKind };
+  | { readonly type: 'setBackdrop'; readonly backdrop: BackdropKind }
+  | { readonly type: 'restoreViewPreferences'; readonly preferences: MapViewPreferences };
 
 export const initialEditorState: EditorState = {
   selectedObjectId: null,
@@ -134,7 +143,7 @@ export const initialEditorState: EditorState = {
   redoStack: [],
   status: null,
   hiddenLayers: [],
-  lockedLayers: [],
+  lockedLayers: [3, 4],
   calibrationDraft: null,
   platAlignmentDraft: null,
   backgroundOpacity: 0.85,
@@ -244,6 +253,16 @@ export function editorReducer(state: EditorState, action: Action): EditorState {
       return { ...state, backgroundOpacity: Math.min(1, Math.max(0.15, action.opacity)) };
     case 'setBackdrop':
       return { ...state, backdrop: action.backdrop };
+    case 'restoreViewPreferences':
+      return {
+        ...state,
+        camera: action.preferences.camera,
+        cameraInitialized: true,
+        hiddenLayers: action.preferences.hiddenLayers,
+        lockedLayers: action.preferences.lockedLayers,
+        backgroundOpacity: action.preferences.backgroundOpacity,
+        backdrop: action.preferences.backdrop,
+      };
   }
 }
 
@@ -270,6 +289,7 @@ export interface MapEditorStore {
   readonly clearPlatAlignment: () => void;
   readonly setBackgroundOpacity: (opacity: number) => void;
   readonly setBackdrop: (backdrop: BackdropKind) => void;
+  readonly restoreViewPreferences: (preferences: MapViewPreferences) => void;
 }
 
 const MapEditorContext = createContext<MapEditorStore | null>(null);
@@ -302,6 +322,8 @@ export function MapEditorStoreProvider({ children }: { readonly children: ReactN
       clearPlatAlignment: () => dispatch({ type: 'clearPlatAlignment' }),
       setBackgroundOpacity: (opacity) => dispatch({ type: 'setBackgroundOpacity', opacity }),
       setBackdrop: (backdrop) => dispatch({ type: 'setBackdrop', backdrop }),
+      restoreViewPreferences: (preferences) =>
+        dispatch({ type: 'restoreViewPreferences', preferences }),
     }),
     [state],
   );

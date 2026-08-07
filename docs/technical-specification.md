@@ -315,6 +315,8 @@ The proposed product target is to make this journey possible without requiring a
 - The editor must support undo and redo.
 - The editor must support panning and zooming.
 - The editor should support grid snapping, object snapping, dimension display, and layer locking.
+- The editor must restore each garden's last camera center, zoom, rotation, backdrop, opacity, and
+  layer visibility/lock state after reload or navigation.
 - Selecting a plant on the map must open the same plant record used elsewhere.
 - The map must not claim survey-grade or legal-boundary accuracy.
 
@@ -327,6 +329,9 @@ The map must support the following conceptual geometries:
 - **Polygon:** a lot boundary, building, deck, lawn, bed, greenhouse, or planted area.
 - **Polyline with width:** a path, hedge, or other linear area.
 - **Point with radius:** a tree canopy, shrub, or approximate influence area.
+
+New tree and plant placement drawn in the web editor uses polygon area geometry. Point trees and
+plants remain readable for legacy/imported records.
 
 Curves may be represented through editable control points. The map design requires a renderer-independent canonical approximation or curve representation; the exact encoding is selected during implementation and validated through shared fixtures.
 

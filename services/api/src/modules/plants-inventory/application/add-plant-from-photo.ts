@@ -25,7 +25,11 @@ import type {
   IdentifyPlantSpecies,
   PlantPhotoReference,
 } from '../../integrations/public.js';
-import { createPlant, type PlantPlacement } from '../domain/plant.js';
+import {
+  createPlant,
+  UNIDENTIFIED_PLANT_DISPLAY_NAME,
+  type PlantPlacement,
+} from '../domain/plant.js';
 import { createPlantIdentification } from '../domain/plant-identification.js';
 import { createPlantPhoto } from '../domain/plant-photo.js';
 import { identifyPlantFromPhoto } from './identify-plant-from-photo.js';
@@ -41,9 +45,6 @@ import { runIdempotentCommand } from './run-idempotent-command.js';
 import type { TaxonomyReferenceRepository } from './taxonomy-reference-repository.js';
 
 const OPERATION = 'plants.addPlantFromPhoto';
-
-/** Always this plant's `displayName`, unconditionally, even when identification (ADR-0015) DOES produce a confident, catalog-matched candidate: accepting a suggested name into the plant's own record requires the same separate `ConfirmPlantIdentification` call a low-confidence result would — the suggestion feeds only the `plant_identification` proposal row this command inserts, never the plant record directly, matching identification's own "never auto-confirms" invariant. */
-const UNIDENTIFIED_PLANT_DISPLAY_NAME = 'Unidentified plant';
 
 export interface AddPlantFromPhotoInput {
   /** Client-generated id for the new plant, when supplied — see `AddPlantInput.plantId`'s own doc comment for why this is optional and additive. */

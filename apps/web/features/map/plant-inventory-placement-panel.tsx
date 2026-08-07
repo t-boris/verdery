@@ -83,20 +83,31 @@ export function PlantInventoryPlacementPanel({
         ),
       ),
     onSuccess: async (plant) => {
-      await actions.changeProperties(
-        record.id,
-        plant.displayName,
-        record.categoryDetails?.category === 'plant'
+      const categoryDetails =
+        record.category === 'tree'
           ? {
-              category: 'plant',
+              category: 'tree' as const,
               details: {
-                ...record.categoryDetails.details,
+                ...(record.categoryDetails?.category === 'tree'
+                  ? record.categoryDetails.details
+                  : {}),
                 commonName: plant.displayName,
-                quantity: plant.quantity ?? 1,
               },
             }
-          : { category: 'plant', details: { commonName: plant.displayName, quantity: 1 } },
-      );
+          : record.categoryDetails?.category === 'plant'
+            ? {
+                category: 'plant' as const,
+                details: {
+                  ...record.categoryDetails.details,
+                  commonName: plant.displayName,
+                  quantity: plant.quantity ?? 1,
+                },
+              }
+            : {
+                category: 'plant' as const,
+                details: { commonName: plant.displayName, quantity: 1 },
+              };
+      await actions.changeProperties(record.id, plant.displayName, categoryDetails);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: linkedKey }),
         queryClient.invalidateQueries({ queryKey: unassignedKey }),

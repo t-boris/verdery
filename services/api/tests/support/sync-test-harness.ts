@@ -309,6 +309,7 @@ export function buildSyncTestHarness(db: Kysely<DatabaseSchema>, clock: Clock) {
     plantsInventoryUnitOfWork,
     gardenAuthorization,
     clock,
+    new KyselyTaxonomyReferenceRepository(db),
   );
   const transitionPlantLifecycleStage = new TransitionPlantLifecycleStage(
     plantRepository,

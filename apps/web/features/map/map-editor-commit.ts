@@ -96,16 +96,9 @@ interface SubmitMutationLike {
  * independent copies of either.
  *
  * This is also the single choke point for the layer-lock check
- * (`map-layers.ts`): every command that targets an *existing* object —
- * `moveObject`, `replaceGeometry`, `editVertex`, `changeProperties`,
- * `deleteObject`, `assignPlant`, `splitLinework` — is rejected here before it
- * ever reaches the server when `objectIdOf(command)` names an object on a
- * locked layer, per architecture doc section "12. Layer Model". `createObject`
- * is exempt (a user deliberately drawing a new object is not "interacting with
- * an existing object in that layer"), as are `duplicateObject` and
- * `joinLinework`, whose `objectIdOf` names a *new* object identity that does
- * not exist yet — `findRecord` correctly finds nothing for either, so this
- * check is a no-op for them rather than something to special-case. Undo/redo
+ * (`map-layers.ts`): every command that changes content on a locked layer is
+ * rejected before reaching the server. That includes creation, duplication,
+ * and joining, not only commands whose primary id already exists. Undo/redo
  * (`use-map-editor-actions.ts`'s `stepHistory`) submits through
  * `submitMutation` directly, bypassing this gate deliberately: a lock applied
  * after an edit should not strand the user unable to undo that same edit.
@@ -136,12 +129,25 @@ export function useCommandCommit(
         return null;
       }
 
-      if (command.type !== 'createObject') {
-        const target = findRecord(objectIdOf(command));
-        if (target !== null && isCategoryLocked(target.category, store.state.lockedLayers)) {
-          store.setStatus({ key: 'map.status.layerLocked', tone: 'alert' });
-          return null;
-        }
+      const targets =
+        command.type === 'createObject'
+          ? [command.category]
+          : command.type === 'duplicateObject'
+            ? [findRecord(command.sourceObjectId)?.category]
+            : command.type === 'joinLinework'
+              ? [
+                  findRecord(command.firstObjectId)?.category,
+                  findRecord(command.secondObjectId)?.category,
+                ]
+              : [findRecord(objectIdOf(command))?.category];
+      if (
+        targets.some(
+          (category) =>
+            category !== undefined && isCategoryLocked(category, store.state.lockedLayers),
+        )
+      ) {
+        store.setStatus({ key: 'map.status.layerLocked', tone: 'alert' });
+        return null;
       }
 
       try {

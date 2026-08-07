@@ -194,4 +194,38 @@ describe('useCommandCommit — offline gate (P5-WEB-01)', () => {
     expect(mutateAsync).toHaveBeenCalledWith(CREATE_COMMAND);
     expect(affected).toEqual(affectedRecord);
   });
+
+  it('rejects creating content in a locked layer', async () => {
+    const mutateAsync = vi.fn();
+    const { result } = renderHook(
+      () => {
+        const store = useMapEditorStore();
+        const commit = useCommandCommit(store, { mutateAsync }, () => null);
+        return { store, commit };
+      },
+      { wrapper },
+    );
+    const command: MapCommandPayload = {
+      type: 'createObject',
+      objectId,
+      category: 'lot',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [0, 0],
+            [1, 0],
+            [0, 1],
+            [0, 0],
+          ],
+        ],
+      },
+    };
+
+    const affected = await act(() => result.current.commit(command, null));
+
+    expect(affected).toBeNull();
+    expect(mutateAsync).not.toHaveBeenCalled();
+    expect(result.current.store.state.status?.key).toBe('map.status.layerLocked');
+  });
 });

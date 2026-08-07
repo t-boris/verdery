@@ -54,6 +54,10 @@ applied to every local object and to the MapLibre bearing, so a lot, structures,
 cannot rotate or zoom independently. North up sets the view rotation to the inverse of the accepted
 georeference rotation; it does not rewrite that georeference.
 
+The web editor persists camera center, zoom, view rotation, backdrop choice, background opacity, and
+layer visibility/lock state per garden. Reloading or returning to a garden restores that exact view;
+selection and an active interaction tool remain transient.
+
 #### Backdrops
 
 A georeferenced garden may be drawn over a provider backdrop. Two exist, and the person chooses
@@ -293,7 +297,11 @@ Logical layers are ordered independently from rendering implementation:
 6. Generated proposals.
 7. Selection, handles, measurements, and validation overlays.
 
-Layer visibility and opacity are user preferences. Domain objects do not store arbitrary visual stacking that would invalidate semantic ordering.
+Layer visibility, locking, and opacity are per-garden user preferences. Domain objects do not store
+arbitrary visual stacking that would invalidate semantic ordering. Lot/structure and
+zone/bed/path/fence layers start locked to protect traced layout. A lock blocks creation,
+selection, dragging, geometry/property edits, duplication, joining, and deletion until explicitly
+unlocked.
 
 ## 13. Web Rendering
 

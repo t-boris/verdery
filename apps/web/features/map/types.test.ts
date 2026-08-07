@@ -11,8 +11,9 @@ describe('existingObjectsAreInteractive', () => {
   });
 });
 
-describe('plant creation geometry', () => {
-  it('traces the area occupied by a plant instead of dropping a point marker', () => {
+describe('living plant creation geometry', () => {
+  it('traces the area occupied by plants and trees instead of dropping point markers', () => {
     expect(CREATABLE_GEOMETRY_KIND.plant).toBe('polygon');
+    expect(CREATABLE_GEOMETRY_KIND.tree).toBe('polygon');
   });
 });

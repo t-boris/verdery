@@ -82,7 +82,10 @@ export function defaultCategoryDetails(
     case 'tree':
       return { category: 'tree', details: {} };
     case 'plant':
-      return { category: 'plant', details: { commonName: '', quantity: 1 } };
+      return {
+        category: 'plant',
+        details: { commonName: 'Unidentified plant', quantity: 1 },
+      };
     case 'annotation':
       return { category: 'annotation', details: {} };
   }

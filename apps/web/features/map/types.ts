@@ -91,7 +91,9 @@ export const CREATABLE_GEOMETRY_KIND: Readonly<
   bed: 'polygon',
   waterFeature: 'polygon',
   utilityExclusion: 'polygon',
-  tree: 'point',
+  // Trees are plants with meaningful canopy/root-zone extent. Point geometry
+  // remains readable for legacy imports, while new work traces an area.
+  tree: 'polygon',
   // A plant occupies real ground/canopy space. The contracts already allow
   // both Point and Polygon for imported/legacy data, but new editor work is
   // always an area the gardener traces and can later resize.

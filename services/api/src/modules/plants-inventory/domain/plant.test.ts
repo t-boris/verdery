@@ -4,6 +4,7 @@ import {
   confirmPlantIdentification,
   createPlant,
   movePlant,
+  UNIDENTIFIED_PLANT_DISPLAY_NAME,
   updatePlantDetails,
   validateAcquisitionDate,
   validateDisplayName,
@@ -391,8 +392,8 @@ describe('confirmPlantIdentification', () => {
     expect(confirmed.acceptedIdentificationId).toBe(IDENTIFICATION_ID);
   });
 
-  it('sets displayName from the raw AI name guess when there is no catalog row to link', () => {
-    const plant = individualPlant();
+  it('sets the untouched photo-created placeholder from the confirmed name', () => {
+    const plant = { ...individualPlant(), displayName: UNIDENTIFIED_PLANT_DISPLAY_NAME };
     const confirmed = confirmPlantIdentification(
       plant,
       null,
@@ -410,7 +411,7 @@ describe('confirmPlantIdentification', () => {
   });
 
   it('rejects a blank raw name guess when there is no catalog row to link', () => {
-    const plant = individualPlant();
+    const plant = { ...individualPlant(), displayName: UNIDENTIFIED_PLANT_DISPLAY_NAME };
     expect(() =>
       confirmPlantIdentification(
         plant,

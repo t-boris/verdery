@@ -256,12 +256,10 @@ export function updatePlantDetails(plant: Plant, changes: PlantDetailsChanges, n
  * `taxonomyReferenceId` may end up `null` here — a confirmed "no confident
  * match" identification is still a legitimate accepted state.
  *
- * When there is no catalog row to link (`taxonomyReferenceId === null`) but
- * the identification carried the AI's own raw name guess
- * (`suggestedCommonName`), that name is applied to `displayName` instead —
- * the only meaningful action confirming can take without a taxonomy row to
- * point to. A real catalog match (`taxonomyReferenceId !== null`) leaves
- * `displayName` untouched, exactly as before this capability existed.
+ * A photo-created plant begins with `UNIDENTIFIED_PLANT_DISPLAY_NAME`.
+ * Confirmation replaces only that untouched placeholder with the canonical
+ * catalog common/scientific name, or with the AI's raw common name when no
+ * catalog row exists. A name the owner changed by hand is never overwritten.
  *
  * `suggestedVarietyLabel`/`suggestedConditionNote`/`suggestedCareGuidanceNote`/
  * `suggestedLifecycleStage`/`suggestedAcquisitionDate` each apply to the
@@ -275,10 +273,12 @@ export function updatePlantDetails(plant: Plant, changes: PlantDetailsChanges, n
  * closest of the three enum values to "the AI is guessing when this entered
  * the garden," not "the day it was planted from seed."
  */
+export const UNIDENTIFIED_PLANT_DISPLAY_NAME = 'Unidentified plant';
+
 export function confirmPlantIdentification(
   plant: Plant,
   taxonomyReferenceId: Uuid | null,
-  suggestedCommonName: string | null,
+  confirmedDisplayName: string | null,
   suggestedVarietyLabel: string | null,
   suggestedLifecycleStage: LifecycleStage | null,
   suggestedConditionNote: string | null,
@@ -288,8 +288,8 @@ export function confirmPlantIdentification(
   now: Date,
 ): Plant {
   const displayName =
-    taxonomyReferenceId === null && suggestedCommonName !== null
-      ? validateDisplayName(suggestedCommonName)
+    plant.displayName === UNIDENTIFIED_PLANT_DISPLAY_NAME && confirmedDisplayName !== null
+      ? validateDisplayName(confirmedDisplayName)
       : plant.displayName;
   const varietyLabel =
     plant.varietyLabel === null && suggestedVarietyLabel !== null

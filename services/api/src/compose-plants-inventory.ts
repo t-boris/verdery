@@ -164,6 +164,7 @@ export function composePlantsInventory(
     plantsInventoryUnitOfWork,
     gardenAuthorization,
     clock,
+    taxonomyReferenceRepository,
   );
   const transitionPlantLifecycleStage = new TransitionPlantLifecycleStage(
     plantRepository,

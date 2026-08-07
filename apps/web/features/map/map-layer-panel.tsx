@@ -14,6 +14,7 @@ import {
 } from './map-layers';
 import styles from './map-layer-panel.module.css';
 import type { MapEditorActions } from './use-map-editor-actions';
+import { creatableCategoryOfTool } from './types';
 
 export interface MapLayerPanelProps {
   readonly actions: MapEditorActions;
@@ -56,6 +57,10 @@ export function MapLayerPanel({ actions }: MapLayerPanelProps) {
   const handleToggleLock = (layer: LayerId) => {
     const aboutToLock = !isLayerLocked(layer, lockedLayers);
     if (aboutToLock) {
+      const creatingCategory = creatableCategoryOfTool(store.state.tool);
+      if (creatingCategory !== null && layerForCategory(creatingCategory) === layer) {
+        store.setTool('select');
+      }
       if (selectedObjectId !== null) {
         const selected = actions.findRecord(selectedObjectId);
         if (selected !== null && layerForCategory(selected.category) === layer) {

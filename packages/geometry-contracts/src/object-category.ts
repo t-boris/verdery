@@ -69,8 +69,9 @@ const ALLOWED_GEOMETRY_TYPES: Record<GardenObjectCategory, readonly Geometry['ty
   bed: ['Polygon', 'MultiPolygon'],
   waterFeature: ['Polygon', 'MultiPolygon'],
   utilityExclusion: ['Polygon', 'MultiPolygon'],
-  // Trunk position; canopy is a second, optional geometry — see TreeDetails.
-  tree: ['Point'],
+  // Legacy imports may carry only a trunk point; new editor work traces the
+  // canopy/ground area as a polygon so the tree has real spatial extent.
+  tree: ['Point', 'Polygon'],
   plant: ['Point', 'Polygon'],
   annotation: ['Point', 'LineString'],
   importedBackground: ['Polygon'],
@@ -118,7 +119,7 @@ export interface BedDetails {
 }
 
 export interface TreeDetails {
-  /** Absent until the user draws or accepts a canopy outline. */
+  /** Optional secondary canopy outline on legacy point-based tree records. */
   readonly canopyGeometry?: Geometry;
   readonly commonName?: string;
   readonly estimatedHeightMetres?: number;

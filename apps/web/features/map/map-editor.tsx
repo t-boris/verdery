@@ -35,6 +35,7 @@ import { MapToolbar } from './map-toolbar';
 import { MapWarningsPanel } from './map-warnings-panel';
 import { useGardenMap } from './queries';
 import { useMapDraftPersistence } from './use-map-draft-persistence';
+import { useMapViewPersistence } from './use-map-view-persistence';
 import { DEFAULT_SCALE } from './viewport';
 import { useMapEditorActions } from './use-map-editor-actions';
 
@@ -72,6 +73,7 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
   const store = useMapEditorStore();
   const actions = useMapEditorActions(gardenId);
   const mapDraft = useMapDraftPersistence(gardenId, store);
+  const mapViewReady = useMapViewPersistence(gardenId, store);
   const aerialTracing = useTraceAerial(gardenId);
 
   /*
@@ -137,7 +139,7 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [actions]);
 
-  if (mapQuery.isPending) {
+  if (mapQuery.isPending || !mapViewReady) {
     return <p role="status">{t('map.loading')}</p>;
   }
 

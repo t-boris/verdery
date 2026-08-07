@@ -134,7 +134,7 @@ function PropertyForm({
         </div>
       </CommandSurface>
       {record.category === 'plant' && <PlantAssignmentField actions={actions} record={record} />}
-      {record.category === 'plant' && (
+      {(record.category === 'plant' || record.category === 'tree') && (
         <PlantInventoryPlacementPanel gardenId={gardenId} actions={actions} record={record} />
       )}
       <div className={styles['actions']}>

@@ -13,6 +13,7 @@ import { toPlantResource, type PlantResource } from './plant-view.js';
 import type { PlantsInventoryUnitOfWork } from './plants-inventory-unit-of-work.js';
 import { requirePlantAndAuthorize } from './require-plant-and-authorize.js';
 import { runIdempotentCommand } from './run-idempotent-command.js';
+import type { TaxonomyReferenceRepository } from './taxonomy-reference-repository.js';
 
 const OPERATION = 'plants.confirmIdentification';
 
@@ -23,6 +24,7 @@ export class ConfirmPlantIdentification {
     private readonly unitOfWork: PlantsInventoryUnitOfWork,
     private readonly authorization: GardenAuthorization,
     private readonly clock: Clock,
+    private readonly taxonomyReferences: TaxonomyReferenceRepository,
   ) {}
 
   async execute(
@@ -55,6 +57,15 @@ export class ConfirmPlantIdentification {
           throw plantIdentificationMismatchError();
         }
 
+        const taxonomyReference =
+          identification.suggestedTaxonomyId === null
+            ? null
+            : await this.taxonomyReferences.findById(identification.suggestedTaxonomyId);
+        const confirmedDisplayName =
+          taxonomyReference?.commonName ??
+          taxonomyReference?.scientificName ??
+          identification.suggestedCommonName;
+
         const now = this.clock.now();
         const confirmed = await applyPlantRevisionGuardedUpdate(
           context.plants,
@@ -64,7 +75,7 @@ export class ConfirmPlantIdentification {
             confirmPlantIdentification(
               plant,
               identification.suggestedTaxonomyId,
-              identification.suggestedCommonName,
+              confirmedDisplayName,
               identification.suggestedVarietyLabel,
               identification.suggestedLifecycleStage,
               identification.suggestedConditionNote,

@@ -79,7 +79,7 @@ describe('defaultCategoryDetails', () => {
   it('gives plant the required commonName and quantity fields', () => {
     expect(defaultCategoryDetails('plant')).toEqual({
       category: 'plant',
-      details: { commonName: '', quantity: 1 },
+      details: { commonName: 'Unidentified plant', quantity: 1 },
     });
   });
 });
@@ -91,15 +91,32 @@ describe('command builders', () => {
 
   it('builds a createObject command with the category default details', () => {
     const command = buildCreateObjectCommand(objectId, 'tree', {
-      type: 'Point',
-      coordinates: [1, 2],
+      type: 'Polygon',
+      coordinates: [
+        [
+          [0, 0],
+          [2, 0],
+          [1, 2],
+          [0, 0],
+        ],
+      ],
     });
 
     expect(command).toEqual({
       type: 'createObject',
       objectId,
       category: 'tree',
-      geometry: { type: 'Point', coordinates: [1, 2] },
+      geometry: {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [0, 0],
+            [2, 0],
+            [1, 2],
+            [0, 0],
+          ],
+        ],
+      },
       categoryDetails: { category: 'tree', details: {} },
     });
   });

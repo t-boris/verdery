@@ -9,6 +9,7 @@ import { styleForCategory } from './category-style';
 import { useMapEditorStore } from './editor-store';
 import { MapCategoryIcon } from './map-category-icon';
 import { MapSaveStatus } from './map-save-status';
+import { isCategoryLocked } from './map-layers';
 import styles from './map-toolbar.module.css';
 import { createToolMode } from './types';
 import type { CreatableCategory } from './types';
@@ -102,8 +103,13 @@ export function MapToolbar({ actions }: MapToolbarProps) {
         >
           {group.categories.map((category) => {
             const categoryTool = createToolMode(category);
-            const disabled = category === 'gate' && !hasFence;
-            const title = disabled ? t('map.toolbar.gateNeedsFence') : t(TOOL_LABEL_KEY[category]);
+            const locked = isCategoryLocked(category, store.state.lockedLayers);
+            const disabled = locked || (category === 'gate' && !hasFence);
+            const title = locked
+              ? t('map.status.layerLocked')
+              : category === 'gate' && !hasFence
+                ? t('map.toolbar.gateNeedsFence')
+                : t(TOOL_LABEL_KEY[category]);
             return (
               <span
                 key={category}

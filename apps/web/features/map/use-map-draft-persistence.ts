@@ -38,9 +38,10 @@ export interface MapDraftPersistence {
  * crossed, per architecture doc section "10. Map Editor Integration"
  * ("Commands are committed at stable interaction boundaries"), so there is
  * no separately-persisted "session" beyond this one in-progress draft.
- * Selection, camera, and layer visibility are ordinary, trivially
- * re-derivable view state, not user-authored work at risk of being lost, so
- * none of them are persisted here.
+ * Selection remains transient. Camera, backdrop, opacity, and layer
+ * visibility/locks are persisted separately by
+ * `use-map-view-persistence.ts`, because they are stable per-garden view
+ * preferences rather than recoverable command drafts.
  *
  * Source: architecture/web-application-design.md, section "9. Online-First
  * Behavior" ("Unsaved editor work remains in a local draft").

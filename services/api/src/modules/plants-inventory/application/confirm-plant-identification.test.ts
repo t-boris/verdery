@@ -4,6 +4,8 @@ import {
   NotFoundError,
 } from '../../../platform/errors/application-error.js';
 import { ConfirmPlantIdentification } from './confirm-plant-identification.js';
+import type { TaxonomyReferenceRepository } from './taxonomy-reference-repository.js';
+import { UNIDENTIFIED_PLANT_DISPLAY_NAME } from '../domain/plant.js';
 import {
   authorizationGranting,
   buildPlant,
@@ -28,9 +30,40 @@ const OWNER_MEMBERSHIP = {
   role: 'owner' as const,
 };
 
+function taxonomyReferences(): TaxonomyReferenceRepository {
+  return {
+    findById: (id) =>
+      Promise.resolve(
+        id === TAXONOMY_ID
+          ? {
+              id: TAXONOMY_ID,
+              scientificName: 'Fraxinus pennsylvanica',
+              commonName: 'Green ash',
+              varietyName: null,
+              family: 'Oleaceae',
+              genus: 'Fraxinus',
+              source: 'provider_sourced',
+              createdByProfileId: null,
+              createdAt: NOW,
+            }
+          : null,
+      ),
+    search: () => Promise.resolve([]),
+    searchAcrossNames: () => Promise.resolve([]),
+    resolveProviderSuggestion: () => Promise.reject(new Error('Not used by this test.')),
+  };
+}
+
 function fakesWithPlantAndIdentification() {
   const fakes = createPlantsInventoryFakes();
-  fakes.plants.plants.set(PLANT_ID, buildPlant({ id: PLANT_ID, gardenId: GARDEN_ID }));
+  fakes.plants.plants.set(
+    PLANT_ID,
+    buildPlant({
+      id: PLANT_ID,
+      gardenId: GARDEN_ID,
+      displayName: UNIDENTIFIED_PLANT_DISPLAY_NAME,
+    }),
+  );
   fakes.plantIdentifications.identifications.set(IDENTIFICATION_ID, {
     id: IDENTIFICATION_ID,
     plantId: PLANT_ID,
@@ -50,7 +83,7 @@ function fakesWithPlantAndIdentification() {
 }
 
 describe('ConfirmPlantIdentification', () => {
-  it('sets taxonomyReferenceId and acceptedIdentificationId from the identification row', async () => {
+  it('sets the catalog identity and replaces the untouched placeholder with its common name', async () => {
     const fakes = fakesWithPlantAndIdentification();
     const confirmPlantIdentification = new ConfirmPlantIdentification(
       fakes.plants,
@@ -58,6 +91,7 @@ describe('ConfirmPlantIdentification', () => {
       new FakePlantsInventoryUnitOfWork(fakes),
       authorizationGranting(OWNER_MEMBERSHIP),
       fixedClock(NOW),
+      taxonomyReferences(),
     );
 
     const result = await confirmPlantIdentification.execute(
@@ -69,6 +103,7 @@ describe('ConfirmPlantIdentification', () => {
     );
 
     expect(result.taxonomyReferenceId).toBe(TAXONOMY_ID);
+    expect(result.displayName).toBe('Green ash');
     expect(result.acceptedIdentificationId).toBe(IDENTIFICATION_ID);
     expect(result.revision).toBe(2);
     expect(fakes.revisionJournal.entries).toEqual([
@@ -88,7 +123,14 @@ describe('ConfirmPlantIdentification', () => {
 
   it('sets displayName from the raw AI name guess when there is no catalog row to link', async () => {
     const fakes = createPlantsInventoryFakes();
-    fakes.plants.plants.set(PLANT_ID, buildPlant({ id: PLANT_ID, gardenId: GARDEN_ID }));
+    fakes.plants.plants.set(
+      PLANT_ID,
+      buildPlant({
+        id: PLANT_ID,
+        gardenId: GARDEN_ID,
+        displayName: UNIDENTIFIED_PLANT_DISPLAY_NAME,
+      }),
+    );
     fakes.plantIdentifications.identifications.set(IDENTIFICATION_ID, {
       id: IDENTIFICATION_ID,
       plantId: PLANT_ID,
@@ -110,6 +152,7 @@ describe('ConfirmPlantIdentification', () => {
       new FakePlantsInventoryUnitOfWork(fakes),
       authorizationGranting(OWNER_MEMBERSHIP),
       fixedClock(NOW),
+      taxonomyReferences(),
     );
 
     const result = await confirmPlantIdentification.execute(
@@ -149,6 +192,7 @@ describe('ConfirmPlantIdentification', () => {
       new FakePlantsInventoryUnitOfWork(fakes),
       authorizationGranting(OWNER_MEMBERSHIP),
       fixedClock(NOW),
+      taxonomyReferences(),
     );
 
     const result = await confirmPlantIdentification.execute(
@@ -201,6 +245,7 @@ describe('ConfirmPlantIdentification', () => {
       new FakePlantsInventoryUnitOfWork(fakes),
       authorizationGranting(OWNER_MEMBERSHIP),
       fixedClock(NOW),
+      taxonomyReferences(),
     );
 
     const result = await confirmPlantIdentification.execute(
@@ -226,6 +271,7 @@ describe('ConfirmPlantIdentification', () => {
       new FakePlantsInventoryUnitOfWork(fakes),
       authorizationGranting(OWNER_MEMBERSHIP),
       fixedClock(NOW),
+      taxonomyReferences(),
     );
 
     await expect(
@@ -251,6 +297,7 @@ describe('ConfirmPlantIdentification', () => {
       new FakePlantsInventoryUnitOfWork(fakes),
       authorizationGranting(OWNER_MEMBERSHIP),
       fixedClock(NOW),
+      taxonomyReferences(),
     );
 
     await expect(
