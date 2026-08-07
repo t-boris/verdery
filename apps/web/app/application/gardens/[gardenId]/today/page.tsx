@@ -36,8 +36,18 @@ export default async function TodayPage({
         <RoutePanel>
           <WeatherPanel gardenId={gardenId} />
         </RoutePanel>
-        {/* No band heading: it would repeat the route title verbatim. */}
-        <RoutePanel fill>
+        {/* No band heading: it would repeat the route title verbatim.
+
+            Deliberately NOT `fill`. `fill` means "take the body's leftover
+            height and scroll inside yourself", which is right for a route
+            whose panel is the only thing on it (seasonal-plan). This route
+            has three panels, and the two around this one size to their own
+            content, so there is no leftover height to take — `fill` would
+            resolve to its `flex-basis: 0` and collapse the recommendations
+            into a scrolling sliver, which is exactly what it did. The body
+            already scrolls as one column; this panel sizes to its content
+            like its siblings. */}
+        <RoutePanel>
           <TodayList gardenId={gardenId} />
         </RoutePanel>
         {/* Below the list, deliberately: this answers a question the list
