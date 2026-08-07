@@ -995,3 +995,12 @@
 "taxonProfile.imageAlt" = "Эталонная фотография этого растения";
 "taxonProfile.imageAltOrgan" = "Эталонная фотография этого растения: %@";
 "taxonProfile.imageCredit" = "Фотография: %@";
+
+/* The console status strip. One word each: the strip is read at a glance while
+   the reader is doing something else, and the sentence that explains a state
+   belongs to the sheet the strip opens. */
+"syncStatus.synced" = "Синхронизировано";
+"syncStatus.syncing" = "Синхронизация";
+"syncStatus.savedLocally" = "На устройстве";
+"syncStatus.offline" = "Нет сети";
+"syncStatus.requiresAttention" = "Нужно решить";

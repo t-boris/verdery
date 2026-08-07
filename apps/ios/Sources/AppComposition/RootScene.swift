@@ -178,9 +178,8 @@ public struct RootView: View {
     /// UI's own explicit retry once built — resolves it.
     @MainActor
     private static func triggerSyncOnForeground(composition: AppCompositionRoot) {
-        let engine = composition.makeSyncEngine()
         Task {
-            try? await engine.retryNow()
+            await composition.syncStatusCenter.synchronize()
         }
     }
 

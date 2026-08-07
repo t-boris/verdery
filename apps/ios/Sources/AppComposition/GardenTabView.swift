@@ -192,6 +192,11 @@ struct GardenTabView: View {
         // foregrounding.
         .task {
             await composition.refreshIncomingOwnershipTransfers()
+            // Read the outbox on the way in, so opening a garden reports what
+            // is actually queued rather than whatever the last cycle left
+            // behind. Deliberately not a sync: opening a garden is not a
+            // reason to spend the network.
+            await composition.syncStatusCenter.noteLocalMutation()
         }
         // Shown across every tab, not tucked inside Settings — see
         // `IncomingOwnershipTransferBanner`'s own doc comment for why this is
@@ -204,6 +209,21 @@ struct GardenTabView: View {
                 makeReviewModel: {
                     composition.makeIncomingOwnershipTransferReviewViewModel(gardenId: gardenId, gardenName: gardenName)
                 }
+            )
+        }
+        // The console chassis: a 24-point status strip sitting directly on the
+        // tab bar, so the two questions a person has on every screen — which
+        // garden, and is my work safe — are answered without either one
+        // occupying a toolbar slot on all five tabs.
+        .safeAreaInset(edge: .bottom) {
+            ConsoleStatusStrip(
+                gardenName: gardenName,
+                // The same glyph the garden toolbar button below uses, so the
+                // two read as one thing while both exist.
+                gardenSymbol: "tree.fill",
+                status: composition.syncStatusCenter.consoleStatus(strings: strings),
+                openGardens: onSwitchGarden,
+                openStatus: { isSettingsPresented = true }
             )
         }
         .sheet(isPresented: $isSettingsPresented) {

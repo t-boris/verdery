@@ -124,6 +124,25 @@ extension AppCompositionRoot {
         }
     }
 
+    /// The outbox, for reading rather than draining.
+    ///
+    /// `makeSyncEngine()` builds its own `GRDBSyncOutboxStore` and keeps it
+    /// private, which is right for the engine but leaves nothing able to
+    /// answer "how much is waiting" — the number the console status strip
+    /// shows. Opened per call for the same profile-switch-safety reason every
+    /// store above gives.
+    func syncOutboxStore() -> any SyncOutboxStore {
+        let profileIdentifier = currentProfileIdentifier()
+
+        do {
+            let dbQueue = try LocalDatabase.open(profileIdentifier: profileIdentifier)
+            return GRDBSyncOutboxStore(dbQueue: dbQueue)
+        } catch {
+            log.record(.error, "Could not open the local sync outbox; reporting an empty queue.")
+            return InMemorySyncOutboxStore()
+        }
+    }
+
     /// The same identifier `localGardenStore()` opens the on-disk database
     /// by, also used to tag every garden outbox operation's `profileId`
     /// (P5-IOS-02). That field is local bookkeeping only — the contract's

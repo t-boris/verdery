@@ -996,3 +996,12 @@
 "taxonProfile.imageAlt" = "A reference photograph of this plant";
 "taxonProfile.imageAltOrgan" = "A reference photograph of this plant: %@";
 "taxonProfile.imageCredit" = "Photograph: %@";
+
+/* The console status strip. One word each: the strip is read at a glance while
+   the reader is doing something else, and the sentence that explains a state
+   belongs to the sheet the strip opens. */
+"syncStatus.synced" = "Synced";
+"syncStatus.syncing" = "Syncing";
+"syncStatus.savedLocally" = "On device";
+"syncStatus.offline" = "Offline";
+"syncStatus.requiresAttention" = "Needs you";

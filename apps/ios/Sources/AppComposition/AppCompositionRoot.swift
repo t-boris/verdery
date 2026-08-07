@@ -1,4 +1,5 @@
 import CoreAuthentication
+import CoreDesignSystem
 import CoreDomain
 import CoreLocalization
 import CoreMediaTransfer
@@ -66,11 +67,17 @@ public final class AppCompositionRoot {
     // `collaborationGateway` above already are `let`.
     let seasonalPlanGateway: any SeasonalPlanGateway
     let gardenContextGateway: any GardenContextGateway
-    private let syncGateway: any SyncGateway
+    // `let`, not `private let`: read by `AppCompositionRoot+Synchronization
+    // .swift`'s `makeSyncEngine()`, a same-type extension in another file,
+    // which `private` (a file scope, not a type scope) would exclude — the
+    // same reason `mapGateway`/`plantGateway` above already are `let`.
+    let syncGateway: any SyncGateway
     // `let`, not `private let`: read by `AppCompositionRoot+Plants.swift`'s
     // `makePlantDetailViewModel`, the same reason `mapGateway` above is `let`.
     let mediaGateway: any MediaGateway
-    private let clientInstallationStore: any ClientInstallationIdentityStore
+    // `let` for the same reason `syncGateway` above is: `makeSyncEngine()`
+    // now lives in a same-type extension in another file.
+    let clientInstallationStore: any ClientInstallationIdentityStore
     // Module-internal, not `private`: read by the per-profile store
     // factories in `AppCompositionRoot+LocalStores.swift`, and — for the two
     // below — by the account screen's factory in `AccountEntryPoint.swift`.
@@ -86,6 +93,19 @@ public final class AppCompositionRoot {
     /// `RootScene`/`GardenTabView` read it directly to decide whether to
     /// present the accept-invitation screen or an ownership-transfer banner.
     public let collaborationSessionState = CollaborationSessionState()
+
+    /// The application-lifetime owner of synchronization status.
+    ///
+    /// `lazy` because its three closures need `self`, and app-lifetime rather
+    /// than per-call because a status nobody holds is a status nobody can
+    /// show — which is exactly the gap `SyncEngineStatus` documented. It binds
+    /// to a profile rather than to a moment, so the profile-switch safety
+    /// `makeSyncEngine()` protects is kept; see ``SyncStatusCenter``.
+    public private(set) lazy var syncStatusCenter = SyncStatusCenter(
+        makeEngine: { [unowned self] in self.makeSyncEngine() },
+        makeOutboxStore: { [unowned self] in self.syncOutboxStore() },
+        currentProfileIdentifier: { [unowned self] in self.currentProfileIdentifier() }
+    )
 
     /// The real background-capable upload transport (P6-IOS-01) —
     /// constructed eagerly, here in `init`, not lazily on first screen
@@ -264,6 +284,13 @@ public final class AppCompositionRoot {
             emailSignInContinueURL: AppEnvironment.emailSignInContinueURL
         )
         self.sessionObserver = AuthenticationSessionObserver()
+
+        // Before the first window. `UITabBarAppearance` is a proxy, so a tab
+        // bar built before this runs keeps the system's grey chrome; and it
+        // registers the bundled typefaces, which the tab labels are set in.
+        // Here rather than in the entry point so `VerderyApp` keeps depending
+        // on this module alone.
+        ConsoleAppearance.install()
 
         // Device-scoped, not per-profile — see that type's own doc comment
         // for why. Constructed once here, not per `makeSyncEngine()` call,
@@ -492,100 +519,4 @@ public final class AppCompositionRoot {
         )
     }
 
-    /// One garden's durable sync conflicts screen (P5-CONFLICT-01). Shares
-    /// `makeSyncEngine()`'s own "opened fresh per call" reasoning for both
-    /// the conflict store and the engine it hands `SyncConflictsViewModel`
-    /// as its `ConflictResolvingSyncEngine` — see that method's own doc
-    /// comment.
-    public func makeSyncConflictsViewModel(gardenId: String) -> SyncConflictsViewModel {
-        SyncConflictsViewModel(
-            gardenId: gardenId,
-            conflictStore: syncConflictStore(),
-            engine: makeSyncEngine(),
-            strings: strings
-        )
-    }
-
-    /// The real, network-backed push/pull engine (P5-IOS-03, Stages 5a/5b)
-    /// — reads `sync_outbox`/`sync_cursor` for the current profile's
-    /// database, pushes and pulls through `syncGateway`, applying each of
-    /// the five features' results through its own registered
-    /// `SyncRecordApplier`. This is the one place a concrete
-    /// `SyncRecordApplier` conformer is named alongside the engine it is
-    /// registered with — see `CoreSynchronization.SyncRecordApplier`'s own
-    /// doc comment for why that pairing can only happen here.
-    ///
-    /// Opened fresh per call, matching every `local*Store()` method's own
-    /// reasoning (`AppCompositionRoot+LocalStores.swift`): cheap relative
-    /// to a call's lifetime, and avoids
-    /// holding a database handle open for a profile that has since signed
-    /// out. Deliberately still a plain factory, not a stored singleton
-    /// (Stage 5b considered and rejected making this a long-lived, cached
-    /// instance): every trigger this stage wires
-    /// (`RootView`'s scene-phase `.onChange`) calls this fresh each time it
-    /// fires, for the same profile-switch-safety reason `local*Store()`
-    /// already gives — a cached engine instance bound to whatever profile
-    /// was signed in at construction time would keep operating against a
-    /// stale `DatabaseQueue`/profile after a sign-out/sign-in as a different
-    /// user. One real consequence, noted plainly rather than glossed over:
-    /// `RemoteSyncEngine.status` is therefore only observable within one
-    /// instance's own call — see that property's own doc comment, and
-    /// `SyncEngineStatus`'s, for why wiring it into per-screen UI is this
-    /// stage's own deliberately separate follow-up rather than something
-    /// this factory shape could serve today anyway.
-    public func makeSyncEngine() -> RemoteSyncEngine {
-        let profileIdentifier = currentProfileIdentifier()
-        let appliers: [any SyncRecordApplier] = [
-            GardenSyncRecordApplier(localStore: localGardenStore()),
-            MapSyncRecordApplier(localStore: localMapStore()),
-            PlantSyncRecordApplier(localStore: localPlantStore()),
-            ObservationSyncRecordApplier(localStore: localObservationStore()),
-            TaskSyncRecordApplier(localStore: localTaskStore()),
-        ]
-
-        do {
-            let dbQueue = try LocalDatabase.open(profileIdentifier: profileIdentifier)
-            return RemoteSyncEngine(
-                outboxStore: GRDBSyncOutboxStore(dbQueue: dbQueue),
-                conflictStore: GRDBSyncConflictStore(dbQueue: dbQueue),
-                // Same `dbQueue` as the outbox/conflict stores immediately
-                // above — required for real transaction atomicity between
-                // them (`SyncTransactionContext`'s own doc comment): two
-                // different `DatabaseQueue` connections to the same SQLite
-                // file cannot share one GRDB transaction, so this only works
-                // because all three are constructed from this one instance.
-                outboxConflictTransaction: GRDBSyncConflictResolutionOutboxTransaction(dbQueue: dbQueue),
-                operationResultStore: GRDBSyncOperationResultStore(dbQueue: dbQueue),
-                gateway: syncGateway,
-                clientInstallationStore: clientInstallationStore,
-                cursorStore: GRDBSyncCursorStore(dbQueue: dbQueue),
-                appliers: appliers,
-                appVersion: Self.currentAppVersion,
-                log: log
-            )
-        } catch {
-            log.record(.error, "Could not open the local synchronization database; falling back to an in-memory outbox.")
-            return RemoteSyncEngine(
-                outboxStore: InMemorySyncOutboxStore(),
-                conflictStore: InMemorySyncConflictStore(),
-                operationResultStore: InMemorySyncOperationResultStore(),
-                gateway: syncGateway,
-                clientInstallationStore: clientInstallationStore,
-                cursorStore: InMemorySyncCursorStore(),
-                appliers: appliers,
-                appVersion: Self.currentAppVersion,
-                log: log
-            )
-        }
-    }
-
-    /// `CFBundleShortVersionString` is unset for the headless `swift build`/
-    /// `swift test` SPM executable (only the Xcode-built app target carries
-    /// a real `Info.plist`) — the same "no bundle metadata outside the real
-    /// app target" gap `VerderyApp`'s own doc comment notes for
-    /// `GoogleService-Info.plist`, so this falls back to a placeholder
-    /// rather than failing.
-    private static var currentAppVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
-    }
 }

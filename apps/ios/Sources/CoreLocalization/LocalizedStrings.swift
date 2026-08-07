@@ -135,6 +135,13 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue)
     }
 
+    /// The same resolution for the console status strip's own key set. See
+    /// ``SyncStatusLocalizationKey`` for why this is yet another key set
+    /// rather than more cases somewhere existing.
+    public func callAsFunction(_ key: SyncStatusLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
     /// Every key any of the application's key sets declares.
     ///
     /// Exposed so catalogue completeness stays one check over one list rather
@@ -156,6 +163,7 @@ public struct LocalizedStrings: Sendable {
         + PlantCandidatesLocalizationKey.allCases.map(\.rawValue)
         + ObservationJournalLocalizationKey.allCases.map(\.rawValue)
         + TaxonProfileLocalizationKey.allCases.map(\.rawValue)
+        + SyncStatusLocalizationKey.allCases.map(\.rawValue)
 
     /// Resolves an arbitrary key, used for codes that originate in Core.
     ///
