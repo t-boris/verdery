@@ -75,6 +75,9 @@ public final class AppCompositionRoot {
     let notificationGateway: any NotificationGateway
     /// Finding an address, and recording where a garden sits.
     let geographyGateway: any GeographyGateway
+    /// Reading a plat, and tracing an aerial photograph. Both return proposals
+    /// and neither writes garden state — see ADR-0018.
+    let planReadingGateway: any PlanReadingGateway
     // The Seasonal plan and Context quality surfaces (P9D-UX-01) — same
     // scope as `recommendationGateway` immediately above: both are ONLINE,
     // gateway-backed capabilities with no local read-model table (see each
@@ -343,6 +346,13 @@ public final class AppCompositionRoot {
             appCheckTokenProvider: appCheckTokenProvider,
             log: log
         )
+        self.planReadingGateway = URLSessionPlanReadingGateway(
+            configuration: configuration,
+            session: session,
+            authTokenProvider: tokenProvider,
+            appCheckTokenProvider: appCheckTokenProvider,
+            log: log
+        )
         self.geographyGateway = URLSessionGeographyGateway(
             configuration: configuration,
             session: session,
@@ -507,21 +517,6 @@ public final class AppCompositionRoot {
         return GardensListViewModel(
             listGardens: ListGardens(gateway: gardenGateway, localStore: store),
             createGarden: CreateGarden(localStore: store, profileId: currentProfileIdentifier()),
-            strings: strings
-        )
-    }
-
-    public func makeGardenSettingsViewModel(gardenId: String) -> GardenSettingsViewModel {
-        let store = localGardenStore()
-        let profileId = currentProfileIdentifier()
-
-        return GardenSettingsViewModel(
-            gardenId: gardenId,
-            listGardens: ListGardens(gateway: gardenGateway, localStore: store),
-            getGarden: GetGarden(gateway: gardenGateway, localStore: store),
-            renameGarden: RenameGarden(localStore: store, profileId: profileId),
-            archiveGarden: ArchiveGarden(localStore: store, profileId: profileId),
-            requestGardenDeletion: RequestGardenDeletion(localStore: store, profileId: profileId),
             strings: strings
         )
     }

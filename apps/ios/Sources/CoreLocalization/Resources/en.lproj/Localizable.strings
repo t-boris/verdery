@@ -1237,3 +1237,50 @@
 "map.calibration.distanceUnit" = "m";
 "map.calibration.distanceIncrease" = "Longer";
 "map.calibration.distanceDecrease" = "Shorter";
+
+/* Reading a surveyor's plat. Nothing here writes to the garden: accepting is a
+   separate act, per ADR-0018. */
+"plat.title" = "What the drawing says";
+"plat.open" = "Read the drawing";
+"plat.explanation" = "Nothing is added to your garden by reading. What you accept below is added; what you leave is not.";
+"plat.reading" = "Reading the drawing.";
+"plat.notAPlat" = "This page is not a plat of survey. That is an answer, not a failure — the drawing is still usable as a background to trace over.";
+"plat.failed" = "The drawing could not be read. Nothing was changed.";
+"plat.offline" = "Reading a drawing needs a connection.";
+"plat.address" = "Address on the sheet";
+"plat.north" = "North arrow";
+"plat.northValue" = "{degrees}° from the top of the page";
+"plat.statedArea" = "Area the sheet states";
+"plat.walkedArea" = "Area the calls describe";
+"plat.areaValue" = "{value} m²";
+"plat.areaAgrees" = "The two areas agree, which is the sheet's own check on the reading.";
+"plat.areaDisagrees" = "The two areas disagree. Something was misread — compare the calls below against the drawing before accepting anything.";
+"plat.closure" = "Closure error";
+"plat.closureValue" = "{value} m";
+"plat.closesTitle" = "The boundary closes";
+"plat.doesNotCloseTitle" = "The boundary does not close";
+"plat.doesNotCloseMessage" = "The walk ended away from where it started, so a bearing or a distance was misread. This is not trustworthy as a boundary and nothing from the sheet is offered.";
+"plat.recoveredBearing" = "Call {number}'s direction was taken from the figure's own closing rather than read off the page. Its printed length differs from the closing line's by {metres} m.";
+"plat.callsTitle" = "Boundary calls";
+"plat.callLine" = "{bearing} · {distance} ft · {source}";
+"plat.callBearingMissing" = "direction not legible";
+"plat.objectsTitle" = "Also drawn";
+"plat.objectsWithheld" = "Nothing else is offered, because every object's position rides the same fit as the boundary.";
+"plat.pageFit" = "Page fit";
+"plat.pageFitValue" = "within {value} m";
+"plat.acceptBoundary" = "Add the boundary";
+"plat.acceptLocation" = "Set the garden's location and north";
+"plat.acceptObjects" = "Add what is ticked";
+"plat.accepted" = "Added.";
+"plat.nothingSelected" = "Tick what you want before adding.";
+
+/* Tracing an aerial photograph. */
+"aerial.title" = "What the photograph shows";
+"aerial.open" = "Trace the aerial photograph";
+"aerial.explanation" = "Imagery is a backdrop, never geometry. Everything below is a proposal until you accept it.";
+"aerial.tracing" = "Looking at the photograph.";
+"aerial.empty" = "Nothing was found that is worth proposing.";
+"aerial.visible" = "Seen";
+"aerial.inferred" = "Guessed";
+"aerial.needsGeoreference" = "This needs the garden's location first — a photograph of somewhere cannot be found without knowing where.";
+"aerial.accept" = "Add what is ticked";

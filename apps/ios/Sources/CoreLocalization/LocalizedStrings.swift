@@ -202,6 +202,17 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue, parameters: parameters)
     }
 
+    /// The same resolution for the plat reading and aerial tracing screens.
+    public func callAsFunction(_ key: PlatReadingLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
+    /// The same parameterized resolution for that key set's templated entries
+    /// (an area, a closure error, one boundary call).
+    public func string(_ key: PlatReadingLocalizationKey, parameters: [String: String]) -> String {
+        string(forKey: key.rawValue, parameters: parameters)
+    }
+
     /// The same resolution for the calibration bar's measurement controls.
     public func callAsFunction(_ key: MapCalibrationLocalizationKey) -> String {
         string(forKey: key.rawValue)
@@ -255,6 +266,7 @@ public struct LocalizedStrings: Sendable {
         + RelativeDayLocalizationKey.allCases.map(\.rawValue)
         + IdentificationReviewLocalizationKey.allCases.map(\.rawValue)
         + MapCalibrationLocalizationKey.allCases.map(\.rawValue)
+        + PlatReadingLocalizationKey.allCases.map(\.rawValue)
 
     /// Resolves an arbitrary key, used for codes that originate in Core.
     ///

@@ -104,6 +104,12 @@ struct GardenTabView: View {
                                         gardenId: route.gardenId,
                                         existing: existing
                                     )
+                                },
+                                makePlatReadingModel: { planMediaId in
+                                    composition.makePlatReadingViewModel(
+                                        gardenId: route.gardenId,
+                                        planMediaId: planMediaId
+                                    )
                                 }
                             )
                         }
@@ -223,6 +229,12 @@ struct GardenTabView: View {
                             composition.makeGeoreferenceViewModel(
                                 gardenId: gardenId,
                                 existing: existing
+                            )
+                        },
+                        makePlatReadingModel: { planMediaId in
+                            composition.makePlatReadingViewModel(
+                                gardenId: gardenId,
+                                planMediaId: planMediaId
                             )
                         }
                     )

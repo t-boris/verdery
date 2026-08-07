@@ -16,6 +16,9 @@ public struct MapEditorView: View {
     @State var isWarningsSheetPresented = false
     @State var isBackgroundPanelPresented = false
     @State var isGeoreferencePresented = false
+    /// Which uploaded plan is being read, if any. An identifier rather than a
+    /// boolean, because the sheet needs to know which drawing.
+    @State var readingPlanMediaId: PlanReadingRequest?
     /// Honours the system Reduce Transparency setting; see ``scaleIndicator``.
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     /// The scale pill's own padding, scaled with the reader's text size so
@@ -33,13 +36,17 @@ public struct MapEditorView: View {
     /// wires no geography gateway simply omits the button rather than showing
     /// one that could only fail.
     let makeGeoreferenceModel: ((GardenGeoreference?) -> GeoreferenceViewModel)?
+    /// Building the plat reader for one uploaded plan.
+    let makePlatReadingModel: ((String) -> PlatReadingViewModel)?
 
     public init(
         model: MapEditorViewModel,
-        makeGeoreferenceModel: ((GardenGeoreference?) -> GeoreferenceViewModel)? = nil
+        makeGeoreferenceModel: ((GardenGeoreference?) -> GeoreferenceViewModel)? = nil,
+        makePlatReadingModel: ((String) -> PlatReadingViewModel)? = nil
     ) {
         _model = State(wrappedValue: model)
         self.makeGeoreferenceModel = makeGeoreferenceModel
+        self.makePlatReadingModel = makePlatReadingModel
     }
 
     public var body: some View {
@@ -47,6 +54,18 @@ public struct MapEditorView: View {
             .navigationTitle(model.title)
             .task { await model.load() }
             .toolbar { toolbarContent }
+            .sheet(item: $readingPlanMediaId) { request in
+                if let makePlatReadingModel {
+                    PlatReadingView(
+                        model: makePlatReadingModel(request.planMediaId),
+                        accept: { acceptance in
+                            readingPlanMediaId = nil
+                            Task { await model.acceptPlatReading(acceptance) }
+                        },
+                        close: { readingPlanMediaId = nil }
+                    )
+                }
+            }
             .sheet(isPresented: $isGeoreferencePresented) {
                 if let makeGeoreferenceModel {
                     GeoreferenceView(model: makeGeoreferenceModel(model.georeference)) {
@@ -112,7 +131,13 @@ public struct MapEditorView: View {
             .sheet(isPresented: $isBackgroundPanelPresented) {
                 MapBackgroundPanelView(
                     model: model,
-                    onClose: { isBackgroundPanelPresented = false }
+                    onClose: { isBackgroundPanelPresented = false },
+                    readPlatAction: makePlatReadingModel == nil
+                        ? nil
+                        : { planMediaId in
+                            isBackgroundPanelPresented = false
+                            readingPlanMediaId = PlanReadingRequest(planMediaId: planMediaId)
+                        }
                 )
             }
             .sheet(isPresented: $isWarningsSheetPresented) {

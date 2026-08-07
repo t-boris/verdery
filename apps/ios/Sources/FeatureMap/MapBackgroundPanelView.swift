@@ -12,6 +12,10 @@ import SwiftUI
 struct MapBackgroundPanelView: View {
     @Bindable var model: MapEditorViewModel
     let onClose: () -> Void
+    /// Opening the plat reader for one uploaded plan. Absent where this panel
+    /// has nowhere to present it, in which case the button is not drawn rather
+    /// than drawn dead.
+    var readPlatAction: ((String) -> Void)?
 
     /// PDF page selection per plan row, kept here (form state) exactly like
     /// the web panel's `pageByMediaId`.
@@ -228,6 +232,11 @@ struct MapBackgroundPanelView: View {
     /// means and what the command carries. The numeral works in numbers, so
     /// the two meet here; an unparsable value reads as page one, which is the
     /// page every document has.
+    /// Opening the plat reader for one uploaded plan. Absent where this panel
+    /// has nowhere to present it, in which case the button is not drawn rather
+    /// than drawn dead.
+    var readPlat: ((String) -> Void)? { readPlatAction }
+
     private func pageNumberValueBinding(for planId: String) -> Binding<Double> {
         let text = pageNumberBinding(for: planId)
         return Binding(

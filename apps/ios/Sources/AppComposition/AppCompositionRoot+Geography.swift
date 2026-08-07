@@ -13,6 +13,20 @@ extension AppCompositionRoot {
     @MainActor
     private static let locationProvider = DeviceLocationProvider()
 
+    /// Reviewing what a plat says. Reading writes nothing; what the reviewer
+    /// ticks becomes ordinary commands afterwards.
+    public func makePlatReadingViewModel(
+        gardenId: String,
+        planMediaId: String
+    ) -> PlatReadingViewModel {
+        PlatReadingViewModel(
+            gardenId: gardenId,
+            planMediaId: planMediaId,
+            readPlat: ReadPlatFromPlan(gateway: planReadingGateway),
+            strings: localizedStrings
+        )
+    }
+
     public func makeGeoreferenceViewModel(
         gardenId: String,
         existing: GardenGeoreference?
