@@ -84,16 +84,26 @@ struct PlantsListView: View {
         }
     }
 
-    /// A `Picker` re-searches immediately on selection — see
+    /// Re-searches immediately on selection — see
     /// `PlantsListViewModel.identifiedFilterDidChange()`'s own doc comment
     /// for why this differs from `searchField`'s explicit-submit shape.
+    ///
+    /// A rail rather than a segmented `Picker`: the two draw the same shape,
+    /// but the rail's type, tint and selected-state contrast are this
+    /// application's rather than UIKit's, and it declares `isSelected` so
+    /// selection is not carried by fill alone.
     private var identifiedFilterPicker: some View {
-        Picker(model.identifiedFilterLabel, selection: $model.identifiedFilter) {
-            ForEach(PlantsIdentifiedFilter.allCases, id: \.self) { filter in
-                Text(model.identifiedFilterOptionTitle(filter)).tag(filter)
-            }
-        }
-        .pickerStyle(.segmented)
+        SegmentedRail(
+            fieldName: model.identifiedFilterLabel,
+            options: PlantsIdentifiedFilter.allCases.map {
+                SegmentedRail.Option(
+                    value: $0,
+                    label: model.identifiedFilterOptionTitle($0),
+                    symbol: "leaf"
+                )
+            },
+            selection: $model.identifiedFilter
+        )
         .accessibilityIdentifier("plants.list.identifiedFilter")
         .onChange(of: model.identifiedFilter) {
             Task { await model.identifiedFilterDidChange() }

@@ -83,15 +83,26 @@ struct ContextQualityRowView: View {
     private var editForm: some View {
         VStack(alignment: .leading, spacing: Metrics.space2) {
             if let options = model.valueOptions(for: row.id) {
-                Picker(model.valueLabel, selection: $editedValue) {
-                    ForEach(options, id: \.value) { option in
-                        Text(option.label).tag(option.value)
-                    }
-                }
+                ChoiceChipGrid(
+                    fieldName: model.valueLabel,
+                    options: options.map {
+                        ChoiceChipGrid.Option(
+                            value: $0.value, label: $0.label, symbol: "checkmark"
+                        )
+                    },
+                    selection: $editedValue
+                )
+                .accessibilityIdentifier("contextQuality.row.\(row.id.rawValue).valueChoice")
             } else {
-                TextField(model.valueLabel, text: $editedValue)
-                    .textFieldStyle(.roundedBorder)
-                    .accessibilityIdentifier("contextQuality.row.\(row.id.rawValue).valueField")
+                ComposerField(
+                    symbol: "square.and.pencil",
+                    accessibilityName: model.valueLabel,
+                    placeholder: model.valueLabel,
+                    commitLabel: model.saveTitle,
+                    text: $editedValue,
+                    commit: {}
+                )
+                .accessibilityIdentifier("contextQuality.row.\(row.id.rawValue).valueField")
             }
 
             if showRequiredError {

@@ -152,18 +152,23 @@ public struct MapEditorView: View {
 
     private var loadedContent: some View {
         VStack(spacing: 0) {
-            // A named control, with the name hidden visually: the segmented
-            // style already reads as a view switcher on screen, but an empty
-            // `Picker("")` label left VoiceOver with nothing to announce the
-            // control itself as.
-            Picker(model.tabPickerLabel, selection: $selectedTab) {
-                Text(model.canvasTabTitle).tag(Tab.canvas)
-                Text(model.listTabTitle).tag(Tab.list)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .accessibilityLabel(model.tabPickerLabel)
-            .padding([.horizontal, .top], 8)
+            // A rail rather than a segmented `Picker`. The two draw the same
+            // shape; the rail's type, tint and selected-state contrast are
+            // this application's, and it names itself for VoiceOver rather
+            // than needing a label hidden back in.
+            SegmentedRail(
+                fieldName: model.tabPickerLabel,
+                options: [
+                    SegmentedRail.Option(
+                        value: Tab.canvas, label: model.canvasTabTitle, symbol: "map"
+                    ),
+                    SegmentedRail.Option(
+                        value: Tab.list, label: model.listTabTitle, symbol: "list.bullet"
+                    ),
+                ],
+                selection: $selectedTab
+            )
+            .padding([.horizontal, .top], Metrics.space2)
             .accessibilityIdentifier("map.editor.tabPicker")
 
             if !isDisclosureDismissed {

@@ -352,20 +352,26 @@ public struct ObservationsTimelineView: View {
     /// never a one-shot confirmation.
     private func dispositionControl(_ summary: ObservationAnalysisSummary) -> some View {
         VStack(alignment: .leading, spacing: Metrics.space1) {
-            HStack(spacing: Metrics.space2) {
-                Picker(
-                    model.analysisDispositionLabel,
+            VStack(alignment: .leading, spacing: Metrics.space2) {
+                // Chips rather than a menu: a menu hides every option but the
+                // chosen one behind a tap, and deciding what to do with a
+                // model's proposal is exactly when the alternatives should be
+                // visible together.
+                ChoiceChipGrid(
+                    fieldName: model.analysisDispositionLabel,
+                    options: HealthSuggestionDisposition.allCases.map {
+                        ChoiceChipGrid.Option(
+                            value: $0,
+                            label: model.dispositionName($0),
+                            symbol: "stethoscope"
+                        )
+                    },
                     selection: Binding(
                         get: { model.disposition(for: summary) },
                         set: { model.selectedDisposition[summary.id] = $0 }
                     )
-                ) {
-                    ForEach(HealthSuggestionDisposition.allCases, id: \.self) { disposition in
-                        Text(model.dispositionName(disposition)).tag(disposition)
-                    }
-                }
-                .pickerStyle(.menu)
-                .accessibilityIdentifier("observations.analysis.\(summary.id).dispositionPicker")
+                )
+                .accessibilityIdentifier("observations.analysis.\(summary.id).disposition")
 
                 Button(model.analysisSaveDispositionTitle) {
                     Task { await model.saveDisposition(for: summary) }

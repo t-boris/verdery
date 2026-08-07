@@ -204,14 +204,22 @@ struct MapObjectPropertyView: View {
     /// change rather than waiting for Save.
     private var assignedToSection: some View {
         Section(strings(.mapPlantAssignedToLabel)) {
-            Picker(strings(.mapPlantAssignedToLabel), selection: assignedToBinding) {
-                Text(strings(.mapPlantAssignedToNone)).tag(String?.none)
-                ForEach(assignablePlantTargets) { target in
-                    Text(target.label?.isEmpty == false ? target.label! : strings(.mapListUntitled))
-                        .tag(String?.some(target.id))
-                }
-            }
-            .labelsHidden()
+            ChoiceChipGrid(
+                fieldName: strings(.mapPlantAssignedToLabel),
+                options: [ChoiceChipGrid.Option(
+                    value: String?.none,
+                    label: strings(.mapPlantAssignedToNone),
+                    symbol: "circle"
+                )] + assignablePlantTargets.map { target in
+                    ChoiceChipGrid.Option(
+                        value: String?.some(target.id),
+                        label: target.label?.isEmpty == false
+                            ? target.label! : strings(.mapListUntitled),
+                        symbol: "leaf"
+                    )
+                },
+                selection: assignedToBinding
+            )
             .accessibilityIdentifier("map.property.assignedTo")
         }
     }

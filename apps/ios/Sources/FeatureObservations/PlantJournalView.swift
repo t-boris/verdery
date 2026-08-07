@@ -24,13 +24,22 @@ public struct PlantJournalView: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: Metrics.space3) {
-            Picker(model.purposeFilterLabel, selection: $model.purpose) {
-                Text(model.allPurposesTitle).tag(ObservationPhotoPurpose?.none)
-                ForEach(ObservationPhotoPurpose.allCases, id: \.self) { purpose in
-                    Text(model.purposeName(purpose)).tag(ObservationPhotoPurpose?.some(purpose))
-                }
-            }
-            .accessibilityIdentifier("observations.journal.purposePicker")
+            ChoiceChipGrid(
+                fieldName: model.purposeFilterLabel,
+                options: [ChoiceChipGrid.Option(
+                    value: ObservationPhotoPurpose?.none,
+                    label: model.allPurposesTitle,
+                    symbol: "circle"
+                )] + ObservationPhotoPurpose.allCases.map {
+                    ChoiceChipGrid.Option(
+                        value: ObservationPhotoPurpose?.some($0),
+                        label: model.purposeName($0),
+                        symbol: "camera"
+                    )
+                },
+                selection: $model.purpose
+            )
+            .accessibilityIdentifier("observations.journal.purposeFilter")
 
             if model.isLoading {
                 ProgressView()
