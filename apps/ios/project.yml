@@ -101,6 +101,13 @@ targets:
         # points (add-plant-from-photo, plant-detail attach-photo,
         # observation-record photo).
         NSCameraUsageDescription: "Verdery uses the camera so you can photograph a plant to identify it or add it to your garden records."
+        # Required by `AppComposition.DeviceLocationProvider`: one fix, on
+        # demand, from the "Use my location" button on the georeference screen,
+        # and one compass heading for the north dial. Nothing is tracked and
+        # nothing is requested at launch — the prompt belongs to the button
+        # that needs it, and the other two ways of placing a garden work
+        # without ever granting this.
+        NSLocationWhenInUseUsageDescription: "Verdery uses your location once, when you ask it to, to place your garden on the map and to point its north dial. It never tracks you."
         # Occasional system-granted time to drain the offline outbox while the
         # app is closed — the third synchronization trigger
         # architecture/ios-application-design.md section 8 names. iOS refuses

@@ -54,4 +54,32 @@ public enum GeographicProjection {
             y: georeference.localAnchor.y + rotatedNorth / scale
         )
     }
+
+    /// Moves a WGS84 coordinate by a compass-aligned offset in metres.
+    ///
+    /// The other direction from ``localPosition(latitude:longitude:georeference:)``,
+    /// and the same tangent-plane approximation for the same reason. Used to
+    /// derive where a basemap's camera must sit so the photograph under the
+    /// canvas agrees with the garden drawn on it.
+    ///
+    /// The longitude scale is taken at the origin coordinate rather than at
+    /// the result, so panning across a garden cannot walk the scale.
+    public static func offset(
+        from origin: Position,
+        eastMetres: Double,
+        northMetres: Double
+    ) -> Position {
+        let metresPerDegreeLongitude =
+            metresPerDegreeLatitude * cos(origin.y * .pi / 180)
+        // At a pole a degree of longitude has no width and the division is
+        // meaningless. No garden is there; guarding is cheaper than the NaN
+        // that would otherwise reach a camera.
+        let longitudeDelta = abs(metresPerDegreeLongitude) < 1
+            ? 0
+            : eastMetres / metresPerDegreeLongitude
+        return Position(
+            x: origin.x + longitudeDelta,
+            y: origin.y + northMetres / metresPerDegreeLatitude
+        )
+    }
 }

@@ -1147,3 +1147,40 @@
 "push.permissionDenied" = "Push is switched off for this application in iOS Settings. The inbox is unaffected.";
 "push.permissionGranted" = "Push is on for this device.";
 "push.openSettings" = "Open Settings";
+
+/* Placing a garden on the Earth. Everything geographic reads this: weather,
+   hemisphere and season, and any later solar work. A garden without it is
+   complete and fully usable — it simply has no geography. */
+"georeference.title" = "Where this garden is";
+"georeference.open" = "Set the location";
+"georeference.explanation" = "This records where the garden's origin sits and which way it faces. It changes no distance between two beds — only where the garden is drawn on a map, and what the weather and season readings are for.";
+"georeference.notSet" = "This garden has no location yet.";
+"georeference.useMyLocation" = "Use my location";
+"georeference.locating" = "Finding you.";
+"georeference.locationDenied" = "Location is switched off for this application in iOS Settings. The address search and the map pin both still work.";
+"georeference.searchAddress" = "Search an address";
+"georeference.searchHint" = "United States addresses only, for now.";
+"georeference.noCandidates" = "No address matched. Check the spelling — this is an answer, not a failure.";
+"georeference.providerUnavailable" = "The address service could not be reached, so this says nothing about the address. Try again, or place a pin instead.";
+"georeference.dropPin" = "Place a pin";
+"georeference.dropPinHint" = "Drag the map under the crosshair.";
+"georeference.useThisPoint" = "Use this point";
+"georeference.precision.streetAddress" = "This address";
+"georeference.precision.street" = "This street";
+"georeference.precision.area" = "This area";
+"georeference.north" = "North";
+"georeference.northHint" = "Turn the dial until it points the way north lies from the garden.";
+"georeference.northValue" = "{degrees}° from the garden's up";
+"georeference.useDeviceHeading" = "Use the compass";
+"georeference.headingProposed" = "Proposed from the compass. Nothing is changed until you save.";
+"georeference.anchor" = "Anchor";
+"georeference.anchorValue" = "{latitude}, {longitude}";
+"georeference.accuracy" = "Accuracy";
+"georeference.accuracyValue" = "±{metres} m";
+"georeference.accuracyUnknown" = "Not reported";
+"georeference.save" = "Save the location";
+"georeference.saved" = "Saved.";
+"georeference.conflict" = "The location changed elsewhere. Yours was not saved — reopen this screen to see the current one.";
+"georeference.failed" = "The location could not be saved. Nothing changed.";
+"georeference.offline" = "Setting a location needs a connection.";
+"georeference.replaceWarning" = "This garden already has a location. Saving replaces it and keeps the old one in its history.";

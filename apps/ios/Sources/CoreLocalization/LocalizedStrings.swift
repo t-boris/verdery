@@ -187,6 +187,18 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue, parameters: parameters)
     }
 
+    /// The same resolution for the georeference screen's own key set. See
+    /// ``GeoreferenceLocalizationKey`` for why this is yet another key set.
+    public func callAsFunction(_ key: GeoreferenceLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
+    /// The same parameterized resolution for ``GeoreferenceLocalizationKey``'s
+    /// templated entries (a coordinate pair, a rotation, an accuracy).
+    public func string(_ key: GeoreferenceLocalizationKey, parameters: [String: String]) -> String {
+        string(forKey: key.rawValue, parameters: parameters)
+    }
+
     /// Every key any of the application's key sets declares.
     ///
     /// Exposed so catalogue completeness stays one check over one list rather
@@ -214,6 +226,7 @@ public struct LocalizedStrings: Sendable {
         + ExportLocalizationKey.allCases.map(\.rawValue)
         + WeatherLocalizationKey.allCases.map(\.rawValue)
         + NotificationLocalizationKey.allCases.map(\.rawValue)
+        + GeoreferenceLocalizationKey.allCases.map(\.rawValue)
 
     /// Resolves an arbitrary key, used for codes that originate in Core.
     ///

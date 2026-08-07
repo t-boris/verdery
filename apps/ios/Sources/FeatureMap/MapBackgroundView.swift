@@ -2,48 +2,86 @@ import CoreDomain
 import MapKit
 import SwiftUI
 
-/// Optional real-world context rendered behind the canonical `Canvas` layer,
-/// shown only when the garden has a ``GardenGeoreference``.
+/// Real-world context rendered behind the canonical `Canvas` layer, shown only
+/// when the garden has a ``GardenGeoreference``.
 ///
 /// This is the *only* file in `FeatureMap` — and, by construction, the only
-/// file in the whole application outside `VerderyApp`'s own Xcode project
-/// glue — that imports MapKit. That is what the work package's title means
-/// by "without making canonical garden geometry provider-dependent": no
-/// `CoreDomain` type has ever heard of `MKCoordinateRegion` or
-/// `CLLocationCoordinate2D`, and `MapEditorViewModel` hands this view nothing
-/// but the plain WGS84 longitude/latitude pair `GardenGeoreference` already
-/// carries. Swapping MapKit for another provider later touches this one
-/// file.
+/// file in the whole application outside `VerderyApp`'s own Xcode project glue
+/// — that imports MapKit. That is what "without making canonical garden
+/// geometry provider-dependent" means: no `CoreDomain` type has ever heard of
+/// `MKCoordinateRegion` or `CLLocationCoordinate2D`, and the camera it draws
+/// arrives as a plain ``BasemapCamera`` derived by pure, tested arithmetic.
+/// Swapping MapKit for another provider later touches this one file.
 ///
-/// Read-only and decorative: the `Canvas` layer above owns every gesture and
-/// every unit of interaction, so this view disables its own interaction and
-/// hides itself from VoiceOver — the accessible object list, not this map,
-/// is the real alternative to the canvas, per the work package's
-/// accessibility requirement.
+/// **It follows the canvas.** An earlier pass pinned a fixed 200-metre span at
+/// the anchor and never updated it, so panning or zooming left the photograph
+/// still underneath — imagery that actively claimed a bed was somewhere it was
+/// not. That is worse than no imagery, because a wrong picture is believed. The
+/// camera is now recomputed from the same viewport transform the canvas draws
+/// with, every time it changes.
+///
+/// Read-only and decorative in the interaction sense: the `Canvas` above owns
+/// every gesture, so this view disables its own hit testing and hides itself
+/// from VoiceOver — the accessible object list, not this map, is the real
+/// alternative to the canvas.
 struct MapBackgroundView: View {
-    let georeference: GardenGeoreference
+    let camera: BasemapCamera
+    let style: BasemapStyle
+
+    @State private var position: MapCameraPosition = .automatic
 
     var body: some View {
-        Map(initialPosition: .region(region))
+        Map(position: $position)
+            .mapStyle(style.mapKitStyle)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
+            .onAppear { apply(camera) }
+            // `onChange` rather than a computed `initialPosition`: the camera
+            // changes on every pan and zoom, and `initialPosition` is read once.
+            // That single word is the whole of the defect this replaced.
+            .onChange(of: camera) { _, updated in apply(updated) }
     }
 
-    private var region: MKCoordinateRegion {
-        MKCoordinateRegion(
-            center: CLLocationCoordinate2D(
-                latitude: georeference.geographicAnchor.y,
-                longitude: georeference.geographicAnchor.x
-            ),
-            latitudinalMeters: Self.defaultSpanMetres,
-            longitudinalMeters: Self.defaultSpanMetres
+    private func apply(_ camera: BasemapCamera) {
+        position = .camera(
+            MapCamera(
+                centerCoordinate: CLLocationCoordinate2D(
+                    latitude: camera.centre.y,
+                    longitude: camera.centre.x
+                ),
+                // MapKit measures distance from the camera to the ground, and
+                // the derivation produces a ground span. They differ by the
+                // field of view; at a garden's scale, taking one for the other
+                // is close enough to keep the picture aligned and far simpler
+                // than a projection nobody can check.
+                distance: camera.spanMetres,
+                heading: camera.headingDegrees
+            )
         )
     }
+}
 
-    /// A generous fixed span around the garden's anchor. This pass has no UI
-    /// to keep the backdrop's region in sync with the canvas's own pan/zoom —
-    /// TODO(P3-IOS-02): derive the span from the render snapshot's content
-    /// bounds and `georeference.scaleCorrection` once that alignment is
-    /// designed, rather than a fixed guess.
-    private static let defaultSpanMetres: CLLocationDistance = 200
+/// Which backdrop to draw.
+///
+/// Two, not a provider list: aerial imagery for tracing what is actually there,
+/// and the standard map for recognising where the plot sits among streets.
+/// MapKit's standard styling beats a raster street tile set here, and sidesteps
+/// a tile-usage policy this application would otherwise have to honour.
+public enum BasemapStyle: String, CaseIterable, Sendable {
+    case imagery
+    case standard
+
+    var mapKitStyle: MapStyle {
+        switch self {
+        case .imagery: .imagery
+        case .standard: .standard
+        }
+    }
+
+    public var symbol: String {
+        switch self {
+        case .imagery: "globe.americas.fill"
+        case .standard: "map"
+        }
+    }
 }

@@ -97,7 +97,15 @@ struct GardenTabView: View {
                         // within this same stack — see
                         // `SeasonalPlanCalibrationRoute`'s own doc comment.
                         .navigationDestination(for: SeasonalPlanCalibrationRoute.self) { route in
-                            MapEditorView(model: composition.makeMapEditorViewModel(gardenId: route.gardenId))
+                            MapEditorView(
+                                model: composition.makeMapEditorViewModel(gardenId: route.gardenId),
+                                makeGeoreferenceModel: { existing in
+                                    composition.makeGeoreferenceViewModel(
+                                        gardenId: route.gardenId,
+                                        existing: existing
+                                    )
+                                }
+                            )
                         }
                 }
             }
@@ -190,7 +198,15 @@ struct GardenTabView: View {
 
             Tab(strings(.shellTabMap), systemImage: "map.fill", value: 4) {
                 stack {
-                    MapEditorView(model: composition.makeMapEditorViewModel(gardenId: gardenId))
+                    MapEditorView(
+                        model: composition.makeMapEditorViewModel(gardenId: gardenId),
+                        makeGeoreferenceModel: { existing in
+                            composition.makeGeoreferenceViewModel(
+                                gardenId: gardenId,
+                                existing: existing
+                            )
+                        }
+                    )
                         // The one screen allowed to rotate: a garden canvas is
                         // wider than it is tall, and tracing a lot benefits
                         // from the whole screen. Every other screen stays

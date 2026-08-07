@@ -25,6 +25,9 @@ import Observation
 public final class MapEditorViewModel {
     public internal(set) var state: MapEditorViewState = .loading
     public internal(set) var transform = MapViewportTransform(scale: 20, origin: .zero)
+    /// Which backdrop to draw. Imagery by default: somebody who georeferenced
+    /// a garden did it to see their own hedge, and a street map shows none.
+    public var basemapStyle: BasemapStyle = .imagery
     public internal(set) var selectedObjectId: String?
     public var armedCreateCategory: CreatableMapObjectCategory?
     /// The shape currently being drawn, if any — see
@@ -121,7 +124,9 @@ public final class MapEditorViewModel {
     /// `load()` completes, exactly like `georeference` just below.
     var coordinateSpaceId: String?
     private var hasFitInitialViewport = false
-    private var viewportSize = CGSize.zero
+    /// Module-internal, not `private`: the basemap camera is derived from it
+    /// alongside `transform`, in `MapEditorViewModel+Basemap.swift`.
+    var viewportSize = CGSize.zero
 
     public init(
         gardenId: String,

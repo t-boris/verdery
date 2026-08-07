@@ -1146,3 +1146,40 @@
 "push.permissionDenied" = "Push для приложения выключен в настройках iOS. На список это не влияет.";
 "push.permissionGranted" = "Push включён для этого устройства.";
 "push.openSettings" = "Открыть настройки";
+
+/* Привязка сада к Земле. Отсюда читает всё географическое: погода, полушарие
+   и сезон, любые будущие расчёты по солнцу. Сад без привязки полноценен —
+   у него просто нет географии. */
+"georeference.title" = "Где этот сад";
+"georeference.open" = "Указать местоположение";
+"georeference.explanation" = "Здесь записывается, где находится начало координат сада и куда он повёрнут. Расстояния между грядками это не меняет — только то, где сад рисуется на карте и к чему относятся показания погоды и сезона.";
+"georeference.notSet" = "У этого сада ещё нет местоположения.";
+"georeference.useMyLocation" = "Взять моё местоположение";
+"georeference.locating" = "Определяем.";
+"georeference.locationDenied" = "Геолокация для приложения выключена в настройках iOS. Поиск по адресу и метка на карте работают.";
+"georeference.searchAddress" = "Найти по адресу";
+"georeference.searchHint" = "Пока только адреса США.";
+"georeference.noCandidates" = "Ни один адрес не подошёл. Проверьте написание — это ответ, а не сбой.";
+"georeference.providerUnavailable" = "До адресной службы не достучались, так что об адресе это ничего не говорит. Повторите или поставьте метку вручную.";
+"georeference.dropPin" = "Поставить метку";
+"georeference.dropPinHint" = "Двигайте карту под прицелом.";
+"georeference.useThisPoint" = "Взять эту точку";
+"georeference.precision.streetAddress" = "Этот адрес";
+"georeference.precision.street" = "Эта улица";
+"georeference.precision.area" = "Этот район";
+"georeference.north" = "Север";
+"georeference.northHint" = "Поверните диск так, чтобы он указывал, где север относительно сада.";
+"georeference.northValue" = "{degrees}° от «верха» сада";
+"georeference.useDeviceHeading" = "Взять с компаса";
+"georeference.headingProposed" = "Предложено компасом. Пока вы не сохраните, ничего не меняется.";
+"georeference.anchor" = "Точка привязки";
+"georeference.anchorValue" = "{latitude}, {longitude}";
+"georeference.accuracy" = "Точность";
+"georeference.accuracyValue" = "±{metres} м";
+"georeference.accuracyUnknown" = "Не сообщается";
+"georeference.save" = "Сохранить местоположение";
+"georeference.saved" = "Сохранено.";
+"georeference.conflict" = "Местоположение изменили в другом месте. Ваша версия не сохранена — откройте экран заново, чтобы увидеть текущую.";
+"georeference.failed" = "Сохранить местоположение не удалось. Ничего не изменилось.";
+"georeference.offline" = "Для установки местоположения нужна связь.";
+"georeference.replaceWarning" = "У сада уже есть местоположение. Сохранение заменит его, старое останется в истории.";

@@ -73,6 +73,8 @@ public final class AppCompositionRoot {
     /// The notification inbox, its preferences, and this device's push
     /// channel. `let`: read by `AppCompositionRoot+Notifications.swift`.
     let notificationGateway: any NotificationGateway
+    /// Finding an address, and recording where a garden sits.
+    let geographyGateway: any GeographyGateway
     // The Seasonal plan and Context quality surfaces (P9D-UX-01) — same
     // scope as `recommendationGateway` immediately above: both are ONLINE,
     // gateway-backed capabilities with no local read-model table (see each
@@ -317,6 +319,13 @@ public final class AppCompositionRoot {
         // Same scope as every Phase 4/5 gateway above — P9A-API-01's
         // operational-collaboration surface.
         self.collaborationGateway = URLSessionCollaborationGateway(
+            configuration: configuration,
+            session: session,
+            authTokenProvider: tokenProvider,
+            appCheckTokenProvider: appCheckTokenProvider,
+            log: log
+        )
+        self.geographyGateway = URLSessionGeographyGateway(
             configuration: configuration,
             session: session,
             authTokenProvider: tokenProvider,

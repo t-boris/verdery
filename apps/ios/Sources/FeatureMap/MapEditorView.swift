@@ -8,11 +8,14 @@ import SwiftUI
 public struct MapEditorView: View {
     private enum Tab: Hashable { case canvas, list }
 
-    @State private var model: MapEditorViewModel
+    @State var model: MapEditorViewModel
     @State private var selectedTab: Tab = .canvas
-    @State private var isLayersSheetPresented = false
-    @State private var isWarningsSheetPresented = false
-    @State private var isBackgroundPanelPresented = false
+    @State var isLayersSheetPresented = false
+    /// Module-internal, not `private`: `MapEditorView+Toolbar.swift` raises
+    /// these sheets, and `private` is a file scope in Swift.
+    @State var isWarningsSheetPresented = false
+    @State var isBackgroundPanelPresented = false
+    @State var isGeoreferencePresented = false
     /// Honours the system Reduce Transparency setting; see ``scaleIndicator``.
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     /// The scale pill's own padding, scaled with the reader's text size so
@@ -26,8 +29,17 @@ public struct MapEditorView: View {
     /// one tap."
     @State private var isDisclosureDismissed = false
 
-    public init(model: MapEditorViewModel) {
+    /// Building the georeference screen. Optional, so a composition that
+    /// wires no geography gateway simply omits the button rather than showing
+    /// one that could only fail.
+    let makeGeoreferenceModel: ((GardenGeoreference?) -> GeoreferenceViewModel)?
+
+    public init(
+        model: MapEditorViewModel,
+        makeGeoreferenceModel: ((GardenGeoreference?) -> GeoreferenceViewModel)? = nil
+    ) {
         _model = State(wrappedValue: model)
+        self.makeGeoreferenceModel = makeGeoreferenceModel
     }
 
     public var body: some View {
@@ -35,6 +47,18 @@ public struct MapEditorView: View {
             .navigationTitle(model.title)
             .task { await model.load() }
             .toolbar { toolbarContent }
+            .sheet(isPresented: $isGeoreferencePresented) {
+                if let makeGeoreferenceModel {
+                    GeoreferenceView(model: makeGeoreferenceModel(model.georeference)) {
+                        isGeoreferencePresented = false
+                        // The backdrop and every geographic reading follow the
+                        // anchor, so the document is re-read rather than
+                        // patched: a georeference write is a separate revision
+                        // and the map's own copy is now behind.
+                        Task { await model.load() }
+                    }
+                }
+            }
             .sheet(isPresented: isPropertySheetPresented) {
                 if let object = model.propertySheetObject {
                     MapObjectPropertyView(
@@ -243,8 +267,8 @@ public struct MapEditorView: View {
 
     private var canvasSurface: some View {
         ZStack {
-            if let georeference = model.georeference {
-                MapBackgroundView(georeference: georeference)
+            if let camera = model.basemapCamera {
+                MapBackgroundView(camera: camera, style: model.basemapStyle)
             }
 
             if case let .loaded(snapshot) = model.state {
@@ -464,72 +488,13 @@ public struct MapEditorView: View {
         }
     }
 
-    private var toolbarContent: some ToolbarContent {
-        // `.primaryAction` (not `.navigationBarTrailing`, which is iOS-only —
-        // unavailable even for the headless macOS build this package also
-        // targets, see `Package.swift`'s doc comment) resolves to the
-        // trailing navigation bar position on iOS and to a sensible position
-        // on every other platform this target compiles for.
-        ToolbarItemGroup(placement: .primaryAction) {
-            saveStatusIndicator
-
-            // Only shown once there is something to show — see
-            // `MapValidationPresentation`'s doc comment for why
-            // `model.validationSummary` is reliably empty against the real
-            // API today; the button and its badge count become live the
-            // moment that changes.
-            if !model.validationSummary.isEmpty {
-                Button {
-                    isWarningsSheetPresented = true
-                } label: {
-                    Label(
-                        model.warningsButtonTitle,
-                        systemImage: model.hasValidationErrors ? "xmark.octagon.fill" : "exclamationmark.triangle.fill"
-                    )
-                }
-                .accessibilityIdentifier("map.editor.warnings")
-            }
-
-            // The plan-background panel (P6-PLAN iOS parity) — upload
-            // management lives on the garden screen; this manages placement.
-            Button {
-                isBackgroundPanelPresented = true
-            } label: {
-                Label(model.backgroundsButtonTitle, systemImage: "doc.richtext")
-            }
-            .accessibilityIdentifier("map.editor.backgrounds")
-
-            Button {
-                isLayersSheetPresented = true
-            } label: {
-                Label(model.layersButtonTitle, systemImage: "square.3.layers.3d")
-            }
-            .accessibilityIdentifier("map.editor.layers")
-
-            Button {
-                Task { await model.undo() }
-            } label: {
-                Label(model.undoTitle, systemImage: "arrow.uturn.backward")
-            }
-            .disabled(!model.canUndo)
-            .accessibilityIdentifier("map.editor.undo")
-
-            Button {
-                Task { await model.redo() }
-            } label: {
-                Label(model.redoTitle, systemImage: "arrow.uturn.forward")
-            }
-            .disabled(!model.canRedo)
-            .accessibilityIdentifier("map.editor.redo")
-        }
-    }
 
     /// A small, persistent save-status indicator — distinct from
     /// `model.errorMessage`'s existing one-shot banner (still shown
     /// separately above). Renders nothing for `.idle`, so the toolbar stays
     /// uncluttered when there is nothing to report.
     @ViewBuilder
-    private var saveStatusIndicator: some View {
+    var saveStatusIndicator: some View {
         switch model.saveStatus {
         case .idle:
             EmptyView()

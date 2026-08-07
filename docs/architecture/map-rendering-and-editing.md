@@ -360,6 +360,53 @@ all selected objects atomically. Vertex editing remains a separate, single-geome
 - Render snapshots are immutable and `Sendable`.
 - Metal is introduced only when representative profiling shows Canvas/Core Graphics cannot meet the frame budget.
 
+### 14.x Basemap Camera and Georeference Authoring (iOS)
+
+**The backdrop follows the canvas.** An earlier iOS pass pinned a fixed
+200-metre span at the georeference anchor and never updated it, so panning or
+zooming the canvas left the aerial photograph still underneath. That is not a
+decorative layer with a missing feature — it is imagery actively claiming a bed
+is somewhere it is not, and a wrong picture is believed and traced onto. The
+camera is now derived every time the viewport changes, by
+`CoreDomain.BasemapCameras.derive`: pure, platform-neutral arithmetic that is
+the exact inverse of `GeographicProjection.localPosition`, unit-tested by round
+trip across several rotations so a sign error cannot survive. `MapBackgroundView`
+remains the only file in the application outside the Xcode glue that imports
+MapKit.
+
+**Two basemaps, not a provider list.** Aerial imagery for tracing what is
+actually there, and MapKit's standard styling for recognising where the plot
+sits among streets. Standard styling beats a raster street tile set here and
+sidesteps a tile-usage policy this application would otherwise have to honour.
+
+**Georeference authoring** offers three ways in, side by side rather than as a
+wizard, because they are not steps: a device fix for somebody standing in the
+garden, an address search for somebody at a desk, and a dropped pin for somebody
+whose address the geocoder does not know. They differ in what they can honestly
+claim, and the draft records which produced it — the server derives provenance
+from the method rather than accepting a second field that could disagree.
+
+- A device fix carries its own accuracy. A geocoded address carries none, and
+  none is invented from the precision class.
+- A dropped pin claims neither, and the summary says "not reported" rather than
+  leaving a reassuring blank. Absent accuracy means _not expressed_, never
+  _exact_.
+- The pin is placed by dragging the map under a **fixed crosshair**, not by
+  dragging a pin: a fingertip covers roughly the area a garden occupies at this
+  zoom, so a pin you drag is a pin you cannot see while placing it.
+- North is a **dial**, because the question is spatial — "north is that way",
+  pointed at, not "north is 37 degrees", computed. Turning past north wraps,
+  which is what a dial does; the value that leaves is always in `[0, 360)`. The
+  contract rejects an out-of-range rotation rather than normalising it, and that
+  rejection is aimed at a client that miscalculated — not at a gesture.
+- Device heading is **proposed evidence only** and never applied on its own, per
+  section 3.2: a phone in a pocket near a fence produces confident nonsense.
+
+The geocoder's two empty answers stay apart. `providerAvailable: false` means we
+could not ask and says nothing about the address; an empty list with the provider
+available means the address does not exist. Showing them the same way sends
+somebody rewriting an address that was right.
+
 ## 15. Provider Independence
 
 The map-provider adapter supplies:
