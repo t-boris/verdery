@@ -48,7 +48,11 @@ public final class AppCompositionRoot {
     // `let`, not `private let`: read by `AppCompositionRoot+Candidates.swift`'s
     // factories, the same reason `plantGateway` above is `let`.
     let plantCandidateGateway: any PlantCandidateGateway
-    private let taskGateway: any TaskGateway
+    /// `let`, not `private let`: a plant's care card reads the garden's
+    /// outstanding tasks, and its factory lives in
+    /// `AppCompositionRoot+Plants.swift` — a same-type extension in another
+    /// file, which `private` (a file scope, not a type scope) would exclude.
+    let taskGateway: any TaskGateway
     /// P9A-TASK-01's task-assignment picker is this instance's only consumer
     /// today — see `makeTasksListViewModel(gardenId:)`'s own construction of
     /// `ListGardenMembers`. `FeatureGardens`'s own collaboration-
@@ -56,7 +60,14 @@ public final class AppCompositionRoot {
     /// become a second consumer of this same instance once it lands, not a
     /// reason to construct a second one.
     let collaborationGateway: any CollaborationGateway
-    private let recommendationGateway: any RecommendationGateway
+    /// Module-internal for the same reason as `taskGateway` above: a plant's
+    /// care card reads the garden's undecided suggestions.
+    let recommendationGateway: any RecommendationGateway
+    /// The garden's stored conditions, read by Today's panel and by a plant's
+    /// care card. `let`, not `private let`: also read by
+    /// `AppCompositionRoot+Plants.swift`'s factory, a same-type extension in
+    /// another file, which `private` (a file scope) would exclude.
+    let weatherGateway: any WeatherGateway
     // The Seasonal plan and Context quality surfaces (P9D-UX-01) — same
     // scope as `recommendationGateway` immediately above: both are ONLINE,
     // gateway-backed capabilities with no local read-model table (see each
@@ -281,6 +292,15 @@ public final class AppCompositionRoot {
         // Same scope as every Phase 4/5 gateway above — P9A-API-01's
         // operational-collaboration surface.
         self.collaborationGateway = URLSessionCollaborationGateway(
+            configuration: configuration,
+            session: session,
+            authTokenProvider: tokenProvider,
+            appCheckTokenProvider: appCheckTokenProvider,
+            log: log
+        )
+        // Weather is garden context: an ordinary `viewGarden` read of what
+        // the scheduled sweep already fetched, never a call to a provider.
+        self.weatherGateway = URLSessionWeatherGateway(
             configuration: configuration,
             session: session,
             authTokenProvider: tokenProvider,
@@ -570,17 +590,5 @@ public final class AppCompositionRoot {
     /// and no profile id: every use case here is online, gateway-backed by
     /// deliberate decision — see `FeatureRecommendations.TodayUseCases`'s
     /// own doc comment.
-    public func makeTodayViewModel(gardenId: String) -> TodayViewModel {
-        TodayViewModel(
-            gardenId: gardenId,
-            loadToday: LoadToday(gateway: recommendationGateway),
-            completeRecommendation: CompleteRecommendation(gateway: recommendationGateway),
-            postponeRecommendation: PostponeRecommendation(gateway: recommendationGateway),
-            dismissRecommendation: DismissRecommendation(gateway: recommendationGateway),
-            markRecommendationIrrelevant: MarkRecommendationIrrelevant(gateway: recommendationGateway),
-            convertRecommendationToTask: ConvertRecommendationToTask(gateway: recommendationGateway),
-            strings: strings
-        )
-    }
 
 }

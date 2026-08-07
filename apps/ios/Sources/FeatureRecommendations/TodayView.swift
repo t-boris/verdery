@@ -29,6 +29,9 @@ public struct TodayView: View {
             .navigationTitle(model.title)
             .screenBackground()
             .task { await model.load() }
+            // Its own task: conditions are a separate read that fails
+            // separately, and the list must not wait on them.
+            .task { await model.conditions?.load(gardenId: model.gardenId) }
             .navigationDestination(for: TodayItemDetailRoute.self) { route in
                 TodayItemDetailView(model: model, itemId: route.itemId)
             }
@@ -64,6 +67,7 @@ public struct TodayView: View {
             ScrollView {
                 VStack(spacing: Metrics.space4) {
                     staleNotice
+                    conditionsPanel
                     seasonalPlanCard
                     EmptyStateView(
                         symbol: "checkmark.seal.fill",
@@ -80,6 +84,7 @@ public struct TodayView: View {
             ScrollView {
                 LazyVStack(spacing: Metrics.space3) {
                     staleNotice
+                    conditionsPanel
                     seasonalPlanCard
                     ForEach(items) { item in
                         NavigationLink(value: TodayItemDetailRoute(itemId: item.id)) {
@@ -96,6 +101,14 @@ public struct TodayView: View {
                 .padding(Metrics.space4)
             }
             .refreshable { await model.load() }
+        }
+    }
+
+    /// Above the recommendations, because it is the evidence they quote.
+    @ViewBuilder
+    private var conditionsPanel: some View {
+        if let conditions = model.conditions {
+            ConditionsPanelView(controller: conditions, setLocation: nil)
         }
     }
 

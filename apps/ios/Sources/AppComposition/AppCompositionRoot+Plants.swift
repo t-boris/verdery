@@ -1,4 +1,5 @@
 import CoreMediaTransfer
+import CoreNetworking
 import FeaturePlants
 
 /// The plants feature's screen factories — split from `AppCompositionRoot.swift`
@@ -59,6 +60,15 @@ extension AppCompositionRoot {
             ),
             observationSuggestion: ObservationSuggestionController(
                 recordObservationFromIdentification: RecordObservationFromIdentification(gateway: plantGateway),
+                strings: strings
+            ),
+            // "What do I do with this plant" — the tasks and suggestions that
+            // already name it, beside the readings the watering rule read.
+            // Three independent reads, each reporting its own failure.
+            care: PlantCareController(
+                listProposals: ListGardenProposals(gateway: recommendationGateway),
+                listTasks: ListGardenOutstandingTasks(gateway: taskGateway),
+                getWeather: FeaturePlants.GetGardenWeather(gateway: weatherGateway),
                 strings: strings
             )
         )

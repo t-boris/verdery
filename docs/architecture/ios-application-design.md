@@ -311,6 +311,52 @@ The native application supports operational household and professional team part
 
 The initial professional client experience is responsive web, not a full native operational garden. Client invitation links opened on iOS route to the authenticated web portal or an approved universal-link handoff. If a native client portal is introduced later, it uses a publication-only read model and never opens the operational garden database for a client engagement.
 
+### 14.2 Conditions and Plant Care
+
+The garden's stored weather appears on two screens, and both read the same
+`GET /gardens/{gardenId}/weather` — a pure read of what the scheduled refresh
+sweep already fetched, never a call to a provider.
+
+**Today** carries the full conditions panel above the recommendation list,
+because two of the rules read weather and their stored explanations quote the
+exact reading they fired on. Showing those readings above the list is what makes
+"check whether this needs watering" verifiable rather than asserted, and on a day
+with no weather it makes the _absence_ of those recommendations legible instead
+of looking like an empty list.
+
+**A plant's detail screen** carries a care card directly under the plant's own
+state: what wants doing, the conditions, and the garden's recent rainfall. It is
+assembled entirely from records that already exist — the tasks and undecided
+recommendations whose `targetPlantId` is this plant, beside the rainfall series
+the watering rule accumulates over. No endpoint and no server concept was added
+for it, and the assembly itself (`CoreDomain.PlantCareDigests`) is a pure
+function over values.
+
+Four honesty rules bind both screens, each of them a distinction that leads to
+opposite decisions if collapsed:
+
+- **Absent is not zero.** Every measurement is nullable by contract; an absent
+  one renders as "not reported" rather than being dropped or shown as `0`. For
+  precipitation this is the difference between "we do not know whether it
+  rained" and "it did not rain".
+- **Unmeasured is not dry.** A `null` rainfall series means no history exists; a
+  series of zeroes means measured and dry. Each has its own sentence.
+- **Stale is displayable state, not an error.** An out-of-date reading is kept
+  and labelled, because it is still the most recent one this garden has and the
+  rule engine branches on exactly that classification.
+- **Could-not-ask is not nothing-to-do.** The care card's three reads fail
+  independently and are reported independently: tasks are offline-capable and
+  weather is not, so a plant opened in a dead zone still shows planned work while
+  saying plainly that it cannot show conditions.
+
+The three `unavailableReason` values stay three different sentences, because only
+`gardenNotGeoreferenced` is something the reader can resolve, and it is the only
+one offered a way to resolve it.
+
+Attribution is rendered verbatim whenever a reading is displayed — a licence
+obligation carried on the record itself, snapshotted at fetch time, not a
+courtesy. [Source: architecture/external-integrations.md, section "5. Weather"]
+
 ## 15. Concurrency
 
 - Swift structured concurrency is the default asynchronous model.

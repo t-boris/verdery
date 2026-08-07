@@ -1051,3 +1051,48 @@
 "export.failed" = "Архив собрать не удалось. Никуда ничего не отправлено.";
 "export.alreadyRunning" = "Один архив уже собирается. Нужно дождаться его завершения.";
 "export.reauthenticate" = "Для безопасности нужен свежий вход. Выйдите, войдите снова и вернитесь сюда.";
+
+/* Погода над садом. Три причины отсутствия остаются тремя разными фразами:
+   исправить читатель может только одну из них. */
+"weather.title" = "Условия";
+"weather.observationLabel" = "Сейчас";
+"weather.forecastLabel" = "Прогноз";
+"weather.measuredAt" = "Измерено {time}";
+"weather.forecastFor" = "На {time}";
+"weather.temperature" = "Температура";
+"weather.precipitation" = "Осадки";
+"weather.wind" = "Ветер";
+"weather.humidity" = "Влажность";
+"weather.temperatureValue" = "{value} °C";
+"weather.precipitationValue" = "{value} мм";
+"weather.windValue" = "{value} м/с";
+"weather.humidityValue" = "{value} %";
+"weather.measurementMissing" = "Нет данных";
+"weather.stale" = "Устарело";
+"weather.staleExplanation" = "Это самое свежее измерение для этого сада, но оно старше окна обновления. Проверки полива учитывают его с меньшей уверенностью, а предупреждения о заморозках не выдаются вовсе.";
+"weather.unavailableTitle" = "Погоды для этого сада пока нет";
+"weather.reasonNoProvider" = "В этой установке не включён поставщик погоды, поэтому измерений не получает ни один сад. Здесь ничего делать не нужно.";
+"weather.reasonNotGeoreferenced" = "У сада ещё нет местоположения, а запрос погоды состоит именно из координат. Укажите местоположение — измерения появятся при ближайшем обновлении.";
+"weather.reasonNotYetFetched" = "Плановое обновление пока не дошло до этого сада. Измерения появятся сами в ближайшее время.";
+"weather.setLocation" = "Указать местоположение";
+"weather.rainfallTitle" = "Дожди за последние {days} дн.";
+"weather.rainfallTotal" = "{total} мм";
+"weather.rainfallDayValue" = "{day}: {value} мм";
+"weather.rainfallNone" = "Осадки для этого сада ещё ни разу не измерялись. Это не то же самое, что «дождя не было».";
+"weather.rainfallDry" = "За это окно осадков не измерено.";
+"weather.rainfallExplanation" = "Это тот же ряд, который читает проверка полива. Она смотрит на сумму за всё окно, а не на отдельное измерение: час без дождя ничего не говорит о сухой неделе.";
+"weather.ruleImpactWithWeather" = "Проверки полива и предупреждения о заморозках строятся на этих измерениях.";
+"weather.ruleImpactWithoutWeather" = "Без измерений проверки полива и предупреждения о заморозках не создаются. На остальные рекомендации это не влияет.";
+"weather.offline" = "Для условий нужна связь. Всё остальное на этом экране работает и без неё.";
+"weather.retry" = "Повторить";
+
+/* Уход за одним растением. */
+"care.title" = "Что делать";
+"care.nothingToDo" = "Делать нечего";
+"care.nothingToDoDetail" = "Сейчас это растение не названо ни в одной задаче или подсказке.";
+"care.proposalsUnknown" = "Для подсказок нужна связь. Запланированные задачи показаны из того, что хранится на телефоне.";
+"care.originTask" = "Запланировано";
+"care.originRecommendation" = "Подсказка";
+"care.dueBy" = "До {time}";
+"care.gardenRainfallNote" = "Измерено над садом, а не у этого растения. Это тот же ряд, который читает проверка полива.";
+"care.openAction" = "Открыть";

@@ -135,6 +135,10 @@ public final class PlantDetailViewModel {
     /// `ObservationSuggestionController`'s own doc comment for why this is a
     /// shared controller rather than a method here.
     public let observationSuggestion: ObservationSuggestionController?
+    /// What to do with this plant, and the conditions behind it. Optional for
+    /// the same reason every other controller here is: a screen assembled
+    /// without one shows the plant, just not the care block.
+    public let care: PlantCareController?
 
     /// A still-pending `AddPlantFromPhoto` suggestion for this plant (ADR-0015),
     /// when one exists — `nil` both when there is none and when
@@ -172,7 +176,8 @@ public final class PlantDetailViewModel {
         confirmPlantIdentification: ConfirmPlantIdentification? = nil,
         listGardenMapObjects: ListGardenMapObjects? = nil,
         photoGallery: PlantPhotoGalleryController? = nil,
-        observationSuggestion: ObservationSuggestionController? = nil
+        observationSuggestion: ObservationSuggestionController? = nil,
+        care: PlantCareController? = nil
     ) {
         self.gardenId = gardenId
         self.plantId = plantId
@@ -190,6 +195,7 @@ public final class PlantDetailViewModel {
         self.confirmPlantIdentification = confirmPlantIdentification
         self.photoGallery = photoGallery
         self.observationSuggestion = observationSuggestion
+        self.care = care
     }
 
     public var photoGalleryTitle: String { strings(.plantsPhotoGalleryTitle) }

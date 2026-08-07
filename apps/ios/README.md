@@ -100,10 +100,10 @@ halves are `scripts/archive-and-upload.sh` and `scripts/capture-screenshots.sh`.
 
 | Module                   | Responsibility                                                              |
 | ------------------------ | ----------------------------------------------------------------------------- |
-| `CoreDomain`              | Platform-neutral meaning: geometry, identity types, UUIDv7, tolerances, validation |
+| `CoreDomain`              | Platform-neutral meaning: geometry, identity types, UUIDv7, tolerances, validation, and `PlantCareDigests` — one plant's outstanding work assembled from tasks, suggestions and conditions |
 | `CoreObservability`       | Correlation identifiers and redacted diagnostics                            |
-| `CoreLocalization`        | The English and Russian catalogue and the accessor over it                  |
-| `CoreNetworking`          | Typed API gateways over URLSession: health, garden lifecycle, web session   |
+| `CoreLocalization`        | The English and Russian catalogue, the accessor over it, and `WeatherPresentation` — the reading/rainfall wording Today and a plant's care card must share |
+| `CoreNetworking`          | Typed API gateways over URLSession: health, garden lifecycle, web session, the garden's stored weather |
 | `CoreAuthentication`      | The only module that imports `FirebaseAuth` and `FirebaseAppCheck`: sign-in, ID token provider, App Check token provider |
 | `CorePersistence`         | The per-profile GRDB/SQLite database: migrator, and a repository per local table |
 | `CoreSynchronization`     | `SyncEngine`, the seam a future push/pull engine implements; no network code yet |

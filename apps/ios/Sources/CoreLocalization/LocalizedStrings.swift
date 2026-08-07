@@ -163,6 +163,18 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue)
     }
 
+    /// The same resolution for the conditions panel and a plant's care card.
+    /// See ``WeatherLocalizationKey`` for why this is yet another key set.
+    public func callAsFunction(_ key: WeatherLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
+    /// The same parameterized resolution for ``WeatherLocalizationKey``'s
+    /// templated entries (a measurement value, a rainfall day, a window).
+    public func string(_ key: WeatherLocalizationKey, parameters: [String: String]) -> String {
+        string(forKey: key.rawValue, parameters: parameters)
+    }
+
     /// Every key any of the application's key sets declares.
     ///
     /// Exposed so catalogue completeness stays one check over one list rather
@@ -188,6 +200,7 @@ public struct LocalizedStrings: Sendable {
         + PlantLabelLocalizationKey.allCases.map(\.rawValue)
         + DeleteAccountLocalizationKey.allCases.map(\.rawValue)
         + ExportLocalizationKey.allCases.map(\.rawValue)
+        + WeatherLocalizationKey.allCases.map(\.rawValue)
 
     /// Resolves an arbitrary key, used for codes that originate in Core.
     ///

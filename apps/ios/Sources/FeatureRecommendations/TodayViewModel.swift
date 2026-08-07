@@ -64,6 +64,10 @@ public final class TodayViewModel {
     let markRecommendationIrrelevant: MarkRecommendationIrrelevant
     let convertRecommendationToTask: ConvertRecommendationToTask
     let strings: LocalizedStrings
+    /// The garden's conditions. Optional so a composition that wires no
+    /// weather gateway simply omits the panel, and separate from this model's
+    /// own state so a weather failure cannot take the list down with it.
+    public let conditions: ConditionsController?
 
     /// Module-internal, not `private`: read by
     /// `TodayViewModelActions.swift`'s `performItemAction` for the revision
@@ -80,7 +84,8 @@ public final class TodayViewModel {
         dismissRecommendation: DismissRecommendation,
         markRecommendationIrrelevant: MarkRecommendationIrrelevant,
         convertRecommendationToTask: ConvertRecommendationToTask,
-        strings: LocalizedStrings
+        strings: LocalizedStrings,
+        conditions: ConditionsController? = nil
     ) {
         self.gardenId = gardenId
         self.loadToday = loadToday
@@ -90,6 +95,7 @@ public final class TodayViewModel {
         self.markRecommendationIrrelevant = markRecommendationIrrelevant
         self.convertRecommendationToTask = convertRecommendationToTask
         self.strings = strings
+        self.conditions = conditions
     }
 
     /// The Seasonal plan card's title/subtitle (P9D-UX-01) — resolved from

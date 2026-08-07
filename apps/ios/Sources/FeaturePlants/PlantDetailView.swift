@@ -57,6 +57,9 @@ public struct PlantDetailView: View {
                 .presentationDetents([.large])
             }
             .task { await model.load() }
+            // Its own task: care is enrichment over three independently
+            // failing reads, and the plant must render without waiting on it.
+            .task { await model.care?.load(gardenId: model.gardenId, plantId: model.plantId) }
             .onChange(of: pickedPhotoItem) { _, newItem in
                 guard let newItem else { return }
                 Task { await loadAndAttach(newItem) }
@@ -92,6 +95,7 @@ public struct PlantDetailView: View {
                     summaryCard(summary)
                     PlantIdentificationBannerView(model: model)
                     stageSection(summary)
+                    careSection
                     photoGallerySection
                     photoSection
                     editSection(summary)
@@ -269,6 +273,16 @@ public struct PlantDetailView: View {
                 ForEach(data, id: id, content: content)
             }
             .padding(.vertical, Metrics.space1)
+        }
+    }
+
+    /// Directly under the plant's own state, above its photographs: the first
+    /// question somebody has on opening a plant is what to do with it, and an
+    /// answer below the gallery is an answer they scroll past.
+    @ViewBuilder
+    private var careSection: some View {
+        if let care = model.care {
+            PlantCareCardView(controller: care, open: nil)
         }
     }
 

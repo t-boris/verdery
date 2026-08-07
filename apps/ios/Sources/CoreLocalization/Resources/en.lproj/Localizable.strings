@@ -1052,3 +1052,48 @@
 "export.failed" = "The package could not be built. Nothing was sent anywhere.";
 "export.alreadyRunning" = "One package is already being built. It has to finish before another can start.";
 "export.reauthenticate" = "For your safety this needs a recent sign-in. Sign out, sign in again, and come back.";
+
+/* Conditions over the garden. Three unavailable reasons stay three different
+   sentences: only one of them is something the reader can act on. */
+"weather.title" = "Conditions";
+"weather.observationLabel" = "Now";
+"weather.forecastLabel" = "Forecast";
+"weather.measuredAt" = "Measured {time}";
+"weather.forecastFor" = "For {time}";
+"weather.temperature" = "Temperature";
+"weather.precipitation" = "Precipitation";
+"weather.wind" = "Wind";
+"weather.humidity" = "Humidity";
+"weather.temperatureValue" = "{value} °C";
+"weather.precipitationValue" = "{value} mm";
+"weather.windValue" = "{value} m/s";
+"weather.humidityValue" = "{value}%";
+"weather.measurementMissing" = "Not reported";
+"weather.stale" = "Out of date";
+"weather.staleExplanation" = "This is the most recent reading for this garden, but it is older than the refresh window. Watering checks treat it with lower confidence, and frost warnings are withheld entirely.";
+"weather.unavailableTitle" = "No weather for this garden yet";
+"weather.reasonNoProvider" = "This deployment has no weather provider switched on, so no garden receives readings. Nothing here needs your attention.";
+"weather.reasonNotGeoreferenced" = "This garden has no location yet, and coordinates are what a weather request is made of. Set the location and readings begin at the next refresh.";
+"weather.reasonNotYetFetched" = "The scheduled refresh has not reached this garden yet. Readings appear on their own shortly.";
+"weather.setLocation" = "Set the location";
+"weather.rainfallTitle" = "Rain over the last {days} days";
+"weather.rainfallTotal" = "{total} mm";
+"weather.rainfallDayValue" = "{day}: {value} mm";
+"weather.rainfallNone" = "No rainfall has been measured for this garden yet. That is not the same as no rain having fallen.";
+"weather.rainfallDry" = "No rain has been measured over this window.";
+"weather.rainfallExplanation" = "This is the series the watering check reads. It looks at the total across the window, not at any single reading, because an hour without rain says nothing about a dry week.";
+"weather.ruleImpactWithWeather" = "Watering checks and frost warnings are generated from these readings.";
+"weather.ruleImpactWithoutWeather" = "Without readings, watering checks and frost warnings cannot be generated. Every other recommendation is unaffected.";
+"weather.offline" = "Conditions need a connection. Everything else on this screen works without one.";
+"weather.retry" = "Try again";
+
+/* One plant's care. */
+"care.title" = "What to do";
+"care.nothingToDo" = "Nothing to do";
+"care.nothingToDoDetail" = "No task or suggestion names this plant right now.";
+"care.proposalsUnknown" = "Suggestions need a connection. Planned tasks are shown from what is stored on this phone.";
+"care.originTask" = "Planned";
+"care.originRecommendation" = "Suggested";
+"care.dueBy" = "By {time}";
+"care.gardenRainfallNote" = "Measured over the garden, not at this plant. It is the same series the watering check reads.";
+"care.openAction" = "Open";
