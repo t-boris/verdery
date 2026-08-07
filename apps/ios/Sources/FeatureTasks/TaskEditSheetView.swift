@@ -1,3 +1,4 @@
+import CoreDesignSystem
 import CoreDomain
 import Foundation
 import SwiftUI
@@ -89,55 +90,113 @@ struct TaskEditSheetView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                TextField(titleLabel, text: $title)
+            ScrollView {
+                VStack(alignment: .leading, spacing: Metrics.space4) {
+                    ComposerField(
+                        symbol: "checklist",
+                        accessibilityName: titleLabel,
+                        placeholder: titleLabel,
+                        commitLabel: submitTitle,
+                        text: $title,
+                        commit: submit
+                    )
                     .accessibilityIdentifier("tasks.edit.titleField")
-                TextField(notesLabel, text: $notes, axis: .vertical)
+
+                    NoteCanvas(
+                        accessibilityName: notesLabel,
+                        placeholder: notesLabel,
+                        text: $notes
+                    )
                     .accessibilityIdentifier("tasks.edit.notesField")
 
-                Toggle(dueDateToggleLabel, isOn: $hasDueDate)
-                    .accessibilityIdentifier("tasks.edit.dueDateToggle")
-                if hasDueDate {
-                    DatePicker(dueDateLabel, selection: $dueDate, displayedComponents: .date)
-                        .accessibilityIdentifier("tasks.edit.dueDatePicker")
-                }
-
-                Toggle(timeWindowToggleLabel, isOn: $hasTimeWindow)
-                    .accessibilityIdentifier("tasks.edit.timeWindowToggle")
-                if hasTimeWindow {
-                    DatePicker(timeWindowStartLabel, selection: $timeWindowStart)
-                        .accessibilityIdentifier("tasks.edit.timeWindowStartPicker")
-                    DatePicker(timeWindowEndLabel, selection: $timeWindowEnd)
-                        .accessibilityIdentifier("tasks.edit.timeWindowEndPicker")
-                }
-
-                Picker(urgencyLabel, selection: $urgency) {
-                    ForEach(TaskUrgency.allCases, id: \.self) { value in
-                        Text(urgencyName(value)).tag(value)
+                    OptionalValueCard(
+                        fieldName: dueDateLabel,
+                        addPrompt: dueDateToggleLabel,
+                        clearLabel: closeTitle,
+                        symbol: "calendar",
+                        displayValue: hasDueDate ? TaskDateText.day(dueDate) : nil,
+                        clear: { hasDueDate = false }
+                    ) {
+                        DateDial(
+                            fieldName: dueDateLabel,
+                            selection: $dueDate,
+                            now: .now,
+                            calendar: .current,
+                            chipTitle: TaskDateText.relativeTitle,
+                            dayNumber: TaskDateText.dayNumber,
+                            weekdayName: TaskDateText.weekday,
+                            longDate: TaskDateText.day
+                        )
+                        .onAppear { hasDueDate = true }
                     }
-                }
-                .accessibilityIdentifier("tasks.edit.urgencyPicker")
+                    .accessibilityIdentifier("tasks.edit.dueDate")
 
-                if let errorMessage {
-                    Text(errorMessage).foregroundStyle(.red)
-                        .accessibilityIdentifier("tasks.edit.failure")
-                }
-
-                Button(submitTitle) {
-                    Task {
-                        await onSubmit(title, notes, hasDueDate, dueDate, hasTimeWindow, timeWindowStart, timeWindowEnd, urgency)
+                    OptionalValueCard(
+                        fieldName: timeWindowStartLabel,
+                        addPrompt: timeWindowToggleLabel,
+                        clearLabel: closeTitle,
+                        symbol: "clock",
+                        displayValue: hasTimeWindow
+                            ? TaskDateText.window(timeWindowStart, timeWindowEnd) : nil,
+                        clear: { hasTimeWindow = false }
+                    ) {
+                        TimeWindowBar(
+                            fieldName: timeWindowStartLabel,
+                            start: $timeWindowStart,
+                            end: $timeWindowEnd,
+                            calendar: .current,
+                            timeText: TaskDateText.time
+                        )
+                        .onAppear { hasTimeWindow = true }
                     }
+                    .accessibilityIdentifier("tasks.edit.timeWindow")
+
+                    // Urgency is an ordered scale, so it reads as a rail
+                    // rather than as a menu: four values laid flat show the
+                    // range and this task's place in it at once.
+                    SegmentedRail(
+                        fieldName: urgencyLabel,
+                        options: TaskUrgency.allCases.map {
+                            SegmentedRail.Option(
+                                value: $0,
+                                label: urgencyName($0),
+                                symbol: TaskSymbols.urgency($0)
+                            )
+                        },
+                        selection: $urgency
+                    )
+                    .accessibilityIdentifier("tasks.edit.urgency")
+
+                    if let errorMessage {
+                        InlineMessage(errorMessage, tone: .negative)
+                            .accessibilityIdentifier("tasks.edit.failure")
+                    }
+
+                    Button(submitTitle, action: submit)
+                        .buttonStyle(PrimaryButtonStyle())
+                        .disabled(isSubmitting)
+                        .accessibilityIdentifier("tasks.edit.submit")
                 }
-                .disabled(isSubmitting)
-                .accessibilityIdentifier("tasks.edit.submit")
+                .padding(Metrics.space4)
             }
             .navigationTitle(titleLabel)
+            .inlineNavigationTitle()
+            .screenBackground()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(closeTitle, action: onClose)
                         .accessibilityIdentifier("tasks.edit.close")
                 }
             }
+        }
+    }
+
+    private func submit() {
+        Task {
+            await onSubmit(
+                title, notes, hasDueDate, dueDate, hasTimeWindow,
+                timeWindowStart, timeWindowEnd, urgency
+            )
         }
     }
 }
