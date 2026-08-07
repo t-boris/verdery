@@ -51,5 +51,20 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         composition.handleBackgroundURLSessionEvents(
             identifier: identifier, completionHandler: completionHandler)
     }
+
+    /// The only hook iOS offers for a per-screen orientation answer; SwiftUI
+    /// has no equivalent. The application is portrait apart from the map
+    /// editor — see `AppComposition.OrientationPolicy`, which owns the
+    /// decision and asks UIKit to re-read it whenever it changes.
+    ///
+    /// Portrait when the composition root does not exist yet: that window is
+    /// before the first screen appears, and portrait is what every screen but
+    /// one wants anyway.
+    func application(
+        _: UIApplication,
+        supportedInterfaceOrientationsFor _: UIWindow?
+    ) -> UIInterfaceOrientationMask {
+        composition?.orientationPolicy.supportedOrientations ?? .portrait
+    }
 }
 #endif

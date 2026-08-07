@@ -180,6 +180,11 @@ struct GardenTabView: View {
             Tab(strings(.shellTabMap), systemImage: "map.fill", value: 4) {
                 stack {
                     MapEditorView(model: composition.makeMapEditorViewModel(gardenId: gardenId))
+                        // The one screen allowed to rotate: a garden canvas is
+                        // wider than it is tall, and tracing a lot benefits
+                        // from the whole screen. Every other screen stays
+                        // portrait — see `OrientationPolicy`.
+                        .allowsLandscape(composition.orientationPolicy)
                 }
             }
         }

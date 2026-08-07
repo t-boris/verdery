@@ -39,13 +39,12 @@ fail() {
   exit 1
 }
 
-# The two sets App Store Connect requires; every smaller size is derived from
-# these by Apple. The iPad set is required only while the app declares iPad
-# support (TARGETED_DEVICE_FAMILY "1,2" in project.yml).
+# The set App Store Connect requires; every smaller size is derived from it by
+# Apple. The iPad set went with iPad support itself — the app declares
+# TARGETED_DEVICE_FAMILY "1".
 #   key | simulator device type | expected portrait pixels
 DEVICE_SETS=(
   "iphone|iPhone 16 Pro Max|1320x2868"
-  "ipad|iPad Pro 13-inch (M4)|2064x2752"
 )
 
 # The screens worth shipping, in the order they should appear on the listing.

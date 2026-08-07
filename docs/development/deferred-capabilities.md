@@ -917,9 +917,13 @@ from this line of work:
   view remains exactly the unbuilt reconciliation the bullet above already names for every other
   feature's session-scoped status label. The web client has an equivalent real flow
   (`P6-WEB-01`, `apps/web/features/media`).
-- Connectivity-change (`NWPathMonitor`) and background-processing-opportunity (`BGTaskScheduler`) sync
-  triggers remain unbuilt; only app-foreground (`scenePhase`) and explicit calls trigger a push/pull cycle
-  today.
+- ~~Connectivity-change and background-processing-opportunity sync triggers.~~ Built: all three of
+  section 8's triggers now exist. `AppComposition.ConnectivityTrigger` watches `NWPathMonitor` and
+  syncs on the transition back into reachability (only the transition — reachability is a hint, not
+  proof, so one nudge and the engine's own backoff owns the rest), and
+  `AppComposition.BackgroundSyncScheduler` registers a `BGProcessingTask` declared in `project.yml`.
+  The background half is best-effort by construction: iOS decides whether it ever runs, and every
+  state it would advance is still advanced by foregrounding or reconnection.
 - If a conflict's own resolution operation later conflicts or is rejected in turn, the original conflict
   record is never re-opened or otherwise unwound — it stays resolved-but-not-removed indefinitely, while
   the resolution operation's own new conflict (if any) is recorded separately, unlinked to the first. No

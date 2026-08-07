@@ -6,11 +6,11 @@
 
 ## 1. Purpose
 
-This document defines the detailed architecture of the native Grow Garden application for iPhone and iPad. The application uses Swift, SwiftUI, GRDB, SQLite, Swift concurrency, and platform frameworks for camera, AR, location, media, and notifications.
+This document defines the detailed architecture of the native Grow Garden application for iPhone. The application uses Swift, SwiftUI, GRDB, SQLite, Swift concurrency, and platform frameworks for camera, AR, location, media, and notifications.
 
 ## 2. Goals
 
-- Provide a responsive native experience on iPhone and iPad.
+- Provide a responsive native experience on iPhone. iPad is deliberately out of scope; see `docs/development/ios-distribution.md`, section 5.
 - Preserve essential garden work without connectivity.
 - Support device-specific capture and measurement capabilities.
 - Keep presentation, application behavior, persistence, synchronization, and platform integrations independently testable.

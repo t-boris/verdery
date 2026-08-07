@@ -101,18 +101,35 @@ targets:
         # points (add-plant-from-photo, plant-detail attach-photo,
         # observation-record photo).
         NSCameraUsageDescription: "Verdery uses the camera so you can photograph a plant to identify it or add it to your garden records."
+        # Occasional system-granted time to drain the offline outbox while the
+        # app is closed — the third synchronization trigger
+        # architecture/ios-application-design.md section 8 names. iOS refuses
+        # to register a task identifier that is not declared here, and the
+        # refusal is a trap at launch rather than an error a caller can read,
+        # so this list and `AppComposition.BackgroundSyncScheduler
+        # .taskIdentifier` must stay in step.
+        #
+        # `processing`, not `fetch`: a bounded push and pull can outlast the
+        # few seconds background refresh allows, and this work has no deadline.
+        BGTaskSchedulerPermittedIdentifiers:
+          - com.verdery.app.sync
+        UIBackgroundModes:
+          - processing
+        # Landscape is DECLARED here but allowed at runtime on one screen
+        # only. An orientation absent from this list can never be entered, so
+        # the map — where a wide canvas is worth real estate — needs it
+        # declared app-wide; `AppComposition.OrientationPolicy`, read by
+        # `AppDelegate.application(_:supportedInterfaceOrientationsFor:)`, is
+        # what keeps every other screen portrait.
+        #
+        # Upside-down is deliberately absent: a phone held inverted puts the
+        # camera at the bottom, and this application's central gesture is
+        # photographing a plant.
+        #
+        # The iPad-specific list this replaced is gone with iPad itself; see
+        # TARGETED_DEVICE_FAMILY below.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
-        # All four, including upside-down. An iPad app that does not set
-        # UIRequiresFullScreen must support every orientation or the archive
-        # validation step warns ("All interface orientations must be supported
-        # unless the app requires full screen") — it is a prerequisite of
-        # Split View / Slide Over, which iPadOS offers for any app that does
-        # not opt out. The iPhone list above stays portrait-only, which is
-        # allowed and is what the map editor is designed for.
-        UISupportedInterfaceOrientations~ipad:
-          - UIInterfaceOrientationPortrait
-          - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         # Required by Google Sign-In's iOS SDK so it can hand the OAuth
@@ -177,7 +194,15 @@ targets:
         # already seen, so this literal is only the local-build default.
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "6.2"
-        TARGETED_DEVICE_FAMILY: "1,2"
+        # iPhone only. The redesign is drawn for one hand outdoors — thumb-
+        # reachable actions, a bottom chassis, a camera-first capture loop —
+        # and none of that is an iPad layout scaled up. Declaring a device we
+        # neither design for nor test on buys an audience an unfinished
+        # experience, and costs an iPad screenshot set at submission.
+        #
+        # An iPhone-only binary still installs on iPad in compatibility mode,
+        # which App Review does not treat as a defect.
+        TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
       # Which API each configuration talks to. Per configuration, not one
       # shared value: `localhost` is correct for a Simulator build talking to

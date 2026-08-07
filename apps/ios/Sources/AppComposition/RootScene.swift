@@ -65,18 +65,16 @@ public struct RootView: View {
     /// synchronization engine "reacts to: ... App foreground/background
     /// transitions." (P5-IOS-03, Stage 5b.)
     ///
-    /// The only real scene-phase/foreground trigger this codebase wires,
-    /// shared by two independent reactions on the same transition to
-    /// `.active` (``triggerSyncOnForeground``, and
-    /// ``triggerIncomingOwnershipTransfersRefresh`` added for P9A-OWNER-02):
-    /// connectivity-change (`NWPathMonitor`) and background-processing-
-    /// opportunity (`BGTaskScheduler`) triggers remain a real, separate gap
-    /// — confirmed by inspection, not assumed, that nothing in this
-    /// codebase observes either today. Both would need genuinely new
-    /// subsystems (a path monitor actor; `BGTaskSchedulerPermittedIdentifiers`
-    /// in `Info.plist` plus a registered background task handler) well beyond
-    /// "a small, clearly-scoped addition," so they are left as a documented
-    /// gap for a future stage rather than built here.
+    /// One of the three triggers section 8 names, shared here by two
+    /// independent reactions to the same transition to `.active`
+    /// (``triggerSyncOnForeground``, and
+    /// ``triggerIncomingOwnershipTransfersRefresh`` added for P9A-OWNER-02).
+    ///
+    /// The other two are no longer the gap this comment used to describe:
+    /// ``ConnectivityTrigger`` watches `NWPathMonitor` and syncs on the
+    /// transition back into reachability, and ``BackgroundSyncScheduler``
+    /// registers a `BGProcessingTask` — both started once per process by
+    /// `startSynchronizationTriggers()` below.
     @Environment(\.scenePhase) private var scenePhase
 
     public init(composition: AppCompositionRoot) {
@@ -92,6 +90,12 @@ public struct RootView: View {
             }
         }
         .tint(Palette.interaction)
+        .task {
+            // Outside the view tree, and once per process: a background task
+            // must be registered before launch completes, and a path monitor
+            // that restarted per screen would fire on every appearance.
+            composition.startSynchronizationTriggers()
+        }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else { return }
             Self.triggerSyncOnForeground(composition: composition)

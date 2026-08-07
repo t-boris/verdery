@@ -25,7 +25,7 @@ enumerated once in [1. Owner action checklist](#1-owner-action-checklist).
 | Screenshots                                           | **Not captured** — [11](#11-screenshots)                                   |
 
 Bundle identifier `com.verdery.app`. Apple Developer team `3M68DG8S7N`. Deployment target iOS 18.0,
-iPhone and iPad.
+iPhone only (`TARGETED_DEVICE_FAMILY = "1"`).
 
 ## 1. Owner action checklist
 
@@ -178,10 +178,13 @@ Neither blocks TestFlight; both block App Store submission.
 - **Privacy policy URL** (required, and required for TestFlight _external_ testing too). Blocked on
   `P8-PRIV-01`, which is itself blocked on provider contracts (`P0-PROV-01`). Internal TestFlight
   testing does not need it.
-- **iPad support.** The app is built for iPhone _and_ iPad (`TARGETED_DEVICE_FAMILY = "1,2"`), which
-  makes a full set of iPad screenshots mandatory at submission and puts iPad layout in scope for
-  review. If iPad is not genuinely supported, set the family to `"1"` in `project.yml` now — it is a
-  one-line change, and dropping a declared device family after release is not.
+- ~~**iPad support.**~~ Resolved: the family is `"1"`, iPhone only. The redesign is drawn for one
+  hand outdoors — thumb-reachable actions, a bottom chassis, a camera-first capture loop — and none
+  of that is an iPad layout scaled up. Declaring a device nobody designs for or tests on buys an
+  audience an unfinished experience. Done before release deliberately: dropping a declared device
+  family after release is not a one-line change. An iPhone-only binary still installs on iPad in
+  compatibility mode, which App Review does not treat as a defect, and the iPad screenshot set is no
+  longer required.
 
 ## 6. Store listing (English)
 

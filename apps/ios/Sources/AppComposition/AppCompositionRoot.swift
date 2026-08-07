@@ -94,6 +94,32 @@ public final class AppCompositionRoot {
     /// present the accept-invitation screen or an ownership-transfer banner.
     public let collaborationSessionState = CollaborationSessionState()
 
+    /// Which orientations are acceptable right now — see
+    /// ``OrientationPolicy``. Read by `AppDelegate`, written by the map.
+    public let orientationPolicy = OrientationPolicy()
+
+    /// The two synchronization triggers `RootScene` used to document as
+    /// missing: reconnection, and an occasional background opportunity.
+    /// `lazy` because both need `syncStatusCenter`.
+    @ObservationIgnored private lazy var connectivityTrigger = ConnectivityTrigger()
+    @ObservationIgnored public private(set) lazy var backgroundSyncScheduler =
+        BackgroundSyncScheduler { [unowned self] in
+            await self.syncStatusCenter.synchronize()
+        }
+
+    /// Starts the triggers that live outside the view tree.
+    ///
+    /// Registration of the background task must happen before the application
+    /// finishes launching, which is why this is called from the entry point's
+    /// composition rather than from a screen's `.task`.
+    public func startSynchronizationTriggers() {
+        backgroundSyncScheduler.register()
+        backgroundSyncScheduler.scheduleNext()
+        connectivityTrigger.start { [unowned self] in
+            Task { await self.syncStatusCenter.synchronize() }
+        }
+    }
+
     /// The application-lifetime owner of synchronization status.
     ///
     /// `lazy` because its three closures need `self`, and app-lifetime rather
