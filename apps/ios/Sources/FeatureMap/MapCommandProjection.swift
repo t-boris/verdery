@@ -156,7 +156,19 @@ enum MapCommandProjection {
                 categoryDetails: payload.categoryDetails,
                 lifecycleState: object.lifecycleState
             )
-            return [object.replacingSnapshot(snapshot, revision: object.revision, updatedAt: now)]
+            // Visibility and lock are applied on top rather than through the
+            // snapshot: `ObjectSnapshot` is the shape `command-inverse.json`
+            // pins across Swift and TypeScript, and that fixture carries
+            // neither field. One consequence, stated rather than hidden —
+            // undoing a properties change restores the label and the details
+            // but not these two, because the inverse command has nowhere to
+            // carry them. Fixing that is a contract change to a shared
+            // fixture, not an iOS parity fix.
+            return [
+                object
+                    .replacingSnapshot(snapshot, revision: object.revision, updatedAt: now)
+                    .settingVisibility(isHidden: payload.isHidden, isLocked: payload.isLocked)
+            ]
 
         case let .assignPlant(payload):
             let object = try requireObject(payload.plantObjectId, in: objectsById)

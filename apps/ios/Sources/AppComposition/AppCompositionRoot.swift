@@ -521,6 +521,11 @@ public final class AppCompositionRoot {
         )
     }
 
+    /// One store for the whole application, not one per editor: a map editor is
+    /// built fresh every time its tab is entered, and a per-editor store would
+    /// only ever read what the previous one had already written to disk.
+    private let mapViewPreferences = UserDefaultsMapViewPreferenceStore()
+
     public func makeMapEditorViewModel(gardenId: String) -> MapEditorViewModel {
         let store = localMapStore()
         let profileId = currentProfileIdentifier()
@@ -535,7 +540,12 @@ public final class AppCompositionRoot {
             // one shared media gateway.
             listGardenPlanMedia: ListGardenPlanMedia(gateway: mediaGateway),
             loadPlanBackgroundImage: LoadPlanBackgroundImage(gateway: mediaGateway),
-            strings: strings
+            strings: strings,
+            // The persistent one. The view model defaults to an in-memory
+            // store so its tests do not share this process's `UserDefaults`;
+            // only the shipped app wants a hidden layer to still be hidden
+            // tomorrow.
+            viewPreferences: mapViewPreferences
         )
     }
 

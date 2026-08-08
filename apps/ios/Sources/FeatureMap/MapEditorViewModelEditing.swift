@@ -136,10 +136,12 @@ extension MapEditorViewModel {
     public func handleObjectDragEnded(objectId: String, translationScreen: CGSize) async {
         guard let object = objectsById[objectId], !isObjectLocked(object) else { return }
 
-        let dxMetres = transform.localDistance(forScreenDistance: Double(translationScreen.width))
-        // Screen y grows downward, garden-local y grows north — see
-        // `MapViewportTransform`'s doc comment.
-        let dyMetres = -transform.localDistance(forScreenDistance: Double(translationScreen.height))
+        // Through the transform, not by hand: screen y grows downward where
+        // garden-local y grows north, AND the view may be turned — see
+        // `MapViewportTransform.localOffset(forScreenTranslation:)`.
+        let moved = transform.localOffset(forScreenTranslation: translationScreen)
+        let dxMetres = moved.dx
+        let dyMetres = moved.dy
 
         // A drag of the calibration session's target adjusts the live
         // preview, not the stored object.
@@ -193,7 +195,13 @@ extension MapEditorViewModel {
     /// Submits one `changeProperties` command carrying both the label and
     /// the category details together — a single Save commits a single
     /// coherent edit, not one command per field.
-    public func saveProperties(objectId: String, label: String, details: GardenObjectDetails?) async {
+    public func saveProperties(
+        objectId: String,
+        label: String,
+        details: GardenObjectDetails?,
+        isHidden: Bool? = nil,
+        isLocked: Bool? = nil
+    ) async {
         guard let object = objectsById[objectId] else { return }
 
         let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -202,13 +210,36 @@ extension MapEditorViewModel {
                 objectId: objectId,
                 expectedRevision: object.revision,
                 label: trimmed.isEmpty ? nil : trimmed,
-                categoryDetails: details
+                categoryDetails: details,
+                // Default to what the object already is, never to `false`.
+                // `changeProperties` states the whole property set, so a save
+                // that left these out would quietly unhide and unlock the
+                // object every time somebody corrected its label.
+                isHidden: isHidden ?? object.isHidden,
+                isLocked: isLocked ?? object.isLocked
             )
         )
 
         await submit(command, undoBeforeSnapshot: object.snapshot) { _ in
             self.propertySheetObjectId = nil
         }
+    }
+
+    /// Hides or locks one object, without touching its label or details.
+    ///
+    /// Server-persisted and shared, unlike the layer toggles beside it in the
+    /// editor: hiding an object is a fact about the garden, and the web has
+    /// always been able to state it. This client could not, and could not even
+    /// see it — the two fields were dropped on decode.
+    public func setObjectVisibility(objectId: String, isHidden: Bool, isLocked: Bool) async {
+        guard let object = objectsById[objectId] else { return }
+        await saveProperties(
+            objectId: objectId,
+            label: object.label ?? "",
+            details: object.categoryDetails,
+            isHidden: isHidden,
+            isLocked: isLocked
+        )
     }
 
     public func deleteSelected() async {

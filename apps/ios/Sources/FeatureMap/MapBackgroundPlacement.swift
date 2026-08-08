@@ -48,15 +48,21 @@ public enum MapBackgroundPlacement {
             maxY = max(maxY, position.y)
         }
 
-        // Local Y increases up, screen Y increases down — the box's top-left
-        // on screen is (minX, maxY) in local space.
-        let topLeft = transform.screenPoint(for: Position(x: minX, y: maxY))
-        return CGRect(
-            x: topLeft.x,
-            y: topLeft.y,
-            width: (maxX - minX) * transform.scale,
-            height: (maxY - minY) * transform.scale
-        )
+        // Measured from the four corners AS DRAWN rather than from the local
+        // box's own width and height. Those two agree only while the view is
+        // unrotated: turn the canvas and the local box's top-left corner stops
+        // being the drawn box's top-left, so the rectangle would be the right
+        // size in the wrong place and, at 45°, too small for what it contains.
+        let drawn = [
+            Position(x: minX, y: minY), Position(x: maxX, y: minY),
+            Position(x: maxX, y: maxY), Position(x: minX, y: maxY),
+        ].map(transform.screenPoint(for:))
+
+        let left = drawn.map(\.x).min() ?? 0
+        let right = drawn.map(\.x).max() ?? 0
+        let top = drawn.map(\.y).min() ?? 0
+        let bottom = drawn.map(\.y).max() ?? 0
+        return CGRect(x: left, y: top, width: right - left, height: bottom - top)
     }
 
     /// The largest rectangle of `imageAspect` (width / height) that fits
@@ -104,7 +110,11 @@ public enum MapBackgroundPlacement {
             topLeft: topLeft,
             width: widthPoints,
             height: pageAspectRatio * widthPoints,
-            rotationRadians: -planTransform.rotationRadians
+            // The plan's own rotation plus the view's. A calibrated plan is
+            // pinned to the garden, so turning the canvas has to turn it too —
+            // leaving the view's term out would nail the plan to the screen
+            // while everything drawn over it rotated away.
+            rotationRadians: -planTransform.rotationRadians + transform.rotationDegrees * .pi / 180
         )
     }
 

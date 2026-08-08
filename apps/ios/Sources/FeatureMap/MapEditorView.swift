@@ -115,6 +115,9 @@ public struct MapEditorView: View {
                         onRestore: { await model.restore(objectId: object.id) },
                         onDuplicate: { await model.duplicate(objectId: object.id) },
                         onAssignPlant: { target in await model.assignPlant(objectId: object.id, targetObjectId: target) },
+                        onSetVisibility: { hidden, locked in
+                            await model.setObjectVisibility(objectId: object.id, isHidden: hidden, isLocked: locked)
+                        },
                         onEditShape: {
                             model.beginVertexEdit(objectId: object.id)
                             selectedTab = .canvas
@@ -321,6 +324,11 @@ public struct MapEditorView: View {
             canvasSurface
             scaleIndicator
                 .padding(8)
+            // Trailing, so it never sits under the scale pill, and top so a
+            // thumb reaching it does not cross the drawing.
+            MapRotationControl(model: model)
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
     }
 
@@ -355,6 +363,7 @@ public struct MapEditorView: View {
                         Task { await model.handleObjectDragEnded(objectId: objectId, translationScreen: translation) }
                     },
                     onZoom: { factor, anchor in model.zoom(by: factor, around: anchor) },
+                    onRotate: { degrees, anchor in model.rotate(by: degrees, around: anchor) },
                     onVertexTap: { objectId, index in model.selectVertex(objectId: objectId, index: index) },
                     onVertexDragEnded: { objectId, index, translation in
                         Task { await model.commitVertexMove(objectId: objectId, vertexIndex: index, translationScreen: translation) }

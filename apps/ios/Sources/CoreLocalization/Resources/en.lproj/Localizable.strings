@@ -1286,3 +1286,15 @@
 
 /* A plan that has uploaded and is still being rendered. */
 "media.plan.previewProcessing" = "The drawing is being prepared. It appears here on its own in a few seconds — nothing is wrong and nothing needs re-uploading.";
+
+"map.rotation.northUp" = "Point north up";
+"map.rotation.clockwise" = "Turn the view 15 degrees clockwise";
+"map.rotation.counterclockwise" = "Turn the view 15 degrees anticlockwise";
+"map.rotation.exact" = "Exact angle";
+"map.rotation.apply" = "Apply";
+"map.rotation.value" = "Turned {degrees} degrees clockwise";
+
+"map.property.hide" = "Hide on the map";
+"map.property.show" = "Show on the map";
+"map.property.lock" = "Lock";
+"map.property.unlock" = "Unlock";

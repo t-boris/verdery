@@ -52,6 +52,9 @@ struct MapCanvasView: View {
     let onPan: (CGSize) -> Void
     let onObjectDragEnded: (String, CGSize) -> Void
     let onZoom: (Double, CGPoint) -> Void
+    /// A finished two-finger turn: degrees clockwise, and the screen point to
+    /// hold still while applying them.
+    var onRotate: (Double, CGPoint) -> Void = { _, _ in }
     let onVertexTap: (String, Int) -> Void
     let onVertexDragEnded: (String, Int, CGSize) -> Void
     let onMidpointTap: (String, Int) -> Void
@@ -104,6 +107,10 @@ struct MapCanvasView: View {
     @State private var activeSnapResult: MapSnapResult?
     @State private var liveZoomFactor: Double = 1
     @State private var zoomAnchor: CGPoint = .zero
+    /// The turn of the rotate gesture in progress, previewed the same way
+    /// `liveZoomFactor` previews a pinch and committed once at `.onEnded`.
+    @State private var liveRotationDegrees: Double = 0
+    @State private var rotationAnchor: CGPoint = .zero
     @State private var tracedScreenPoints: [CGPoint] = []
 
     var body: some View {
@@ -114,6 +121,7 @@ struct MapCanvasView: View {
             .contentShape(Rectangle())
             .gesture(dragGesture)
             .simultaneousGesture(magnificationGesture(in: proxy.size))
+            .simultaneousGesture(rotationGesture(in: proxy.size))
             .onAppear { onViewportSizeChange(proxy.size) }
             .onChange(of: proxy.size) { _, newSize in onViewportSizeChange(newSize) }
         }
@@ -191,15 +199,57 @@ struct MapCanvasView: View {
             }
     }
 
+    /// Pinch, anchored where the fingers are.
+    ///
+    /// `MapViewportTransform.zoomed(by:around:)` has always taken an anchor and
+    /// kept the garden position under it fixed. This gesture never gave it one:
+    /// it passed the middle of the canvas, so the ground under the fingers slid
+    /// away while something else grew — which reads, correctly, as the map
+    /// fighting the hand.
+    ///
+    /// The cause was the gesture type. `MagnificationGesture` reports only a
+    /// magnitude, so the centre was the only anchor available to it;
+    /// `MagnifyGesture` (iOS 17) adds `startAnchor`, in this view's own
+    /// coordinate space as a unit point. Multiplying it back out by `size` is
+    /// the whole conversion.
     func magnificationGesture(in size: CGSize) -> some Gesture {
-        MagnificationGesture()
+        MagnifyGesture()
             .onChanged { value in
-                liveZoomFactor = value
-                zoomAnchor = CGPoint(x: size.width / 2, y: size.height / 2)
+                liveZoomFactor = value.magnification
+                zoomAnchor = CGPoint(
+                    x: value.startAnchor.x * size.width,
+                    y: value.startAnchor.y * size.height
+                )
             }
             .onEnded { value in
-                onZoom(value, zoomAnchor)
+                onZoom(value.magnification, zoomAnchor)
                 liveZoomFactor = 1
+            }
+    }
+
+    /// Two fingers turning the view, about the point they are holding.
+    ///
+    /// Simultaneous with the pinch on purpose: turning and zooming a map are
+    /// one motion of the hand, and forcing a choice between them is what makes
+    /// a map feel like it is resisting. Both are previewed continuously and
+    /// committed once, so a turn is one entry in the transform's history
+    /// rather than a hundred.
+    ///
+    /// This changes the camera and nothing else. Rotating an OBJECT is a
+    /// separate, deliberate act behind a handle in vertex-edit mode — a
+    /// two-finger twist over the canvas must never reshape the garden.
+    func rotationGesture(in size: CGSize) -> some Gesture {
+        RotateGesture()
+            .onChanged { value in
+                liveRotationDegrees = value.rotation.degrees
+                rotationAnchor = CGPoint(
+                    x: value.startAnchor.x * size.width,
+                    y: value.startAnchor.y * size.height
+                )
+            }
+            .onEnded { value in
+                onRotate(value.rotation.degrees, rotationAnchor)
+                liveRotationDegrees = 0
             }
     }
 
@@ -277,9 +327,8 @@ struct MapCanvasView: View {
         switch handle {
         case let .vertex(objectId, index):
             guard let original = MapVertexEditCommands.vertexPosition(of: object.geometry, index: index) else { return }
-            let dxMetres = transform.localDistance(forScreenDistance: Double(translation.width))
-            let dyMetres = -transform.localDistance(forScreenDistance: Double(translation.height))
-            let rawPosition = Position(x: original.x + dxMetres, y: original.y + dyMetres)
+            let moved = transform.localOffset(forScreenTranslation: translation)
+            let rawPosition = Position(x: original.x + moved.dx, y: original.y + moved.dy)
 
             let result = isVertexDragSnapSuppressed
                 ? MapSnapResult.unsnapped(rawPosition)
@@ -357,6 +406,9 @@ struct MapCanvasView: View {
     func draw(context: GraphicsContext, size: CGSize) {
         var effectiveTransform = transform
 
+        if liveRotationDegrees != 0 {
+            effectiveTransform = effectiveTransform.rotated(by: liveRotationDegrees, around: rotationAnchor)
+        }
         if liveZoomFactor != 1 {
             effectiveTransform = effectiveTransform.zoomed(by: liveZoomFactor, around: zoomAnchor)
         } else if dragStartScreen != nil, dragObjectId == nil, activeHandle == nil {

@@ -36,6 +36,19 @@ struct MapBackgroundView: View {
             MapReader { map in
                 Map(position: $position)
                     .mapStyle(style.mapKitStyle)
+                    // No compass, and no other MapKit control either. MapKit
+                    // draws a compass of its own whenever the map is rotated,
+                    // and a georeferenced garden rotates it on every visit —
+                    // but `allowsHitTesting(false)` below hands every gesture
+                    // to the `Canvas` on top, so tapping that compass does
+                    // nothing at all. A control that looks like a control and
+                    // is not one is worse than no control: the owner reported
+                    // it as "the compass does not turn the map", which was an
+                    // accurate description of a button this application never
+                    // meant to offer. View rotation is a real gap and belongs
+                    // to the canvas, not to the backdrop; when the canvas has
+                    // it, the compass it draws will be its own and will work.
+                    .mapControls {}
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
                     .onAppear { apply(camera, framedBy: map, in: geometry.size) }

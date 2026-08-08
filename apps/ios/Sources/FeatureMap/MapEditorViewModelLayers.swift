@@ -1,12 +1,13 @@
 import CoreDomain
 import CoreLocalization
 
-/// Layer visibility and locking — client-only session preferences
+/// Layer visibility and locking — client-only preferences
 /// (architecture/map-rendering-and-editing.md, section "12. Layer Model":
 /// "Layer visibility and opacity are user preferences. Domain objects do not
-/// store arbitrary visual stacking..."), never submitted as a command and
-/// never persisted past this session — see `MapEditorViewModel.hiddenLayers`'s
-/// and `.lockedLayers`'s doc comments.
+/// store arbitrary visual stacking..."), never submitted as a command, and kept
+/// per garden on this device only — see ``MapViewPreferences``. They do not
+/// travel to the web client, which keeps its own in `localStorage`, and that is
+/// the owner's decision rather than an omission.
 ///
 /// Locking blocks every mutating/selecting interaction this editor offers
 /// for objects in that layer:
@@ -45,6 +46,7 @@ extension MapEditorViewModel {
         } else {
             hiddenLayers.insert(layer)
         }
+        rememberLayerPreferences()
         if case .loaded = state {
             refreshRenderState()
         }
@@ -59,13 +61,32 @@ extension MapEditorViewModel {
         } else {
             lockedLayers.insert(layer)
         }
+        rememberLayerPreferences()
+    }
+
+    /// Writes both sets after every toggle rather than on the way out.
+    ///
+    /// There is no "on the way out" to rely on: this editor is a tab, and a tab
+    /// is left by switching to another one, by backgrounding the app, or by the
+    /// system ending the process — none of which this view model is told about.
+    /// Two small `UserDefaults` writes per tap cost nothing next to a tap.
+    private func rememberLayerPreferences() {
+        viewPreferences.save(
+            MapViewPreferences(hiddenLayers: hiddenLayers, lockedLayers: lockedLayers),
+            gardenId: gardenId
+        )
     }
 
     /// The shared "is this object off-limits to interaction right now"
     /// predicate every gated entry point (see this file's doc comment)
     /// checks before doing anything.
     func isObjectLocked(_ object: GardenMapObject) -> Bool {
-        lockedLayers.contains(MapLayer(category: object.category))
+        // Either lock is enough. The layer's is this device's own, the
+        // object's is the server's and shared; asking for both would let a
+        // deliberate per-object lock be undone by whoever last unlocked the
+        // group. Every gated entry point listed above checks this one
+        // predicate, so honouring the object's flag needed no other change.
+        object.isLocked || lockedLayers.contains(MapLayer(category: object.category))
     }
 
     /// A button/accessibility label phrased as the action tapping it would

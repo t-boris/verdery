@@ -23,9 +23,10 @@ import CoreDomain
 ///   editor chrome, not user content, and is never user-toggleable.
 public enum MapLayer: String, Sendable, CaseIterable, Identifiable {
     /// Layer 2: imported plan/image backgrounds. This client-local toggle
-    /// hides every background at once — session-only, distinct from the
-    /// per-background PERSISTED `isBackgroundVisible` flag the background
-    /// panel manages (P6-PLAN iOS parity); both apply.
+    /// hides every background at once — kept on the device per garden
+    /// (``MapViewPreferences``), and distinct from the per-background
+    /// SERVER-persisted `isBackgroundVisible` flag the background panel manages
+    /// (P6-PLAN iOS parity); both apply.
     case importedBackgrounds
     /// Layer 3: lot and fixed structures.
     case lotAndStructures

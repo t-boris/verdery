@@ -66,16 +66,19 @@ public final class MapEditorViewModel {
     /// `MapObjectListView`'s accessible rows — a client-only session
     /// preference (architecture/map-rendering-and-editing.md, section
     /// "12. Layer Model": "Layer visibility and opacity are user
-    /// preferences"), never submitted as a command. Reset at the start of
-    /// every `load()`, the same as `selectedObjectId`/`propertySheetObjectId`
-    /// just above — there is no persistence requirement this pass. See
-    /// `MapEditorViewModelLayers.swift` for the toggle/query API.
+    /// preferences"), never submitted as a command.
+    ///
+    /// Kept per garden on the device — see ``MapViewPreferences``. It used to
+    /// be reset at the start of every `load()`, alongside
+    /// `selectedObjectId`/`propertySheetObjectId` just above, on the reasoning
+    /// that there was no persistence requirement. Using the map disagrees: a
+    /// hidden layer that returns the next time the document is read is a
+    /// control that appears not to work.
     public internal(set) var hiddenLayers: Set<MapLayer> = []
     /// Layers whose objects cannot be selected, dragged, vertex-edited,
-    /// resized/rotated, deleted, or duplicated right now — the same
-    /// session-only status as ``hiddenLayers``. See
-    /// `MapEditorViewModelLayers.swift`'s doc comment for the full list of
-    /// gated entry points.
+    /// resized/rotated, deleted, or duplicated right now — kept on the device
+    /// exactly like ``hiddenLayers``. See `MapEditorViewModelLayers.swift`'s
+    /// doc comment for the full list of gated entry points.
     public internal(set) var lockedLayers: Set<MapLayer> = []
     /// The map document's server-reported cross-object validation summary,
     /// set fresh on every `load()`. See `MapValidationPresentation`'s doc
@@ -128,6 +131,14 @@ public final class MapEditorViewModel {
     /// alongside `transform`, in `MapEditorViewModel+Basemap.swift`.
     var viewportSize = CGSize.zero
 
+    /// Where this garden's hidden and locked layers are remembered — see
+    /// ``MapViewPreferences``.
+    let viewPreferences: MapViewPreferenceStore
+
+    /// `viewPreferences` defaults to the in-memory store on purpose: a test
+    /// that says nothing about preferences then gets a fresh one rather than
+    /// whatever another test left in this process's `UserDefaults`. The
+    /// composition root passes the persistent one.
     public init(
         gardenId: String,
         loadGardenMap: LoadGardenMap,
@@ -135,7 +146,8 @@ public final class MapEditorViewModel {
         applyMapCommandOffline: ApplyMapCommandOffline,
         listGardenPlanMedia: ListGardenPlanMedia,
         loadPlanBackgroundImage: LoadPlanBackgroundImage,
-        strings: LocalizedStrings
+        strings: LocalizedStrings,
+        viewPreferences: MapViewPreferenceStore = InMemoryMapViewPreferenceStore()
     ) {
         self.gardenId = gardenId
         self.loadGardenMap = loadGardenMap
@@ -144,6 +156,11 @@ public final class MapEditorViewModel {
         self.listGardenPlanMedia = listGardenPlanMedia
         self.loadPlanBackgroundImage = loadPlanBackgroundImage
         self.strings = strings
+        self.viewPreferences = viewPreferences
+
+        let stored = viewPreferences.preferences(gardenId: gardenId)
+        hiddenLayers = stored.hiddenLayers
+        lockedLayers = stored.lockedLayers
     }
 
     public var title: String { strings(.mapEditorTitle) }
@@ -294,11 +311,13 @@ public final class MapEditorViewModel {
         errorMessage = nil
         selectedObjectId = nil
         propertySheetObjectId = nil
-        // Layer visibility/locking is session-only UI preference, not
-        // server-persisted domain state — it resets on every load, the same
-        // as the selection/sheet state just above.
-        hiddenLayers = []
-        lockedLayers = []
+        // Layer visibility and locking deliberately survive this, unlike the
+        // selection and sheet state just above. They are a preference about
+        // how to look at the garden, not a fact about the document being
+        // re-read, and clearing them here made hiding a layer look broken:
+        // anything that reloads the map — opening the tab, saving a
+        // georeference, accepting a plat — brought every hidden layer back.
+        // They are read once in `init` and written on every toggle.
 
         // A calibration session cannot meaningfully survive a full reload —
         // its target object's revision may have changed under it.
@@ -335,6 +354,16 @@ public final class MapEditorViewModel {
             .compactMap { objectsById[$0] }
             .filter { $0.lifecycleState == .active }
             .filter { !hiddenLayers.contains(MapLayer(category: $0.category)) }
+            // The object's own server-persisted flag, alongside its layer's
+            // client-side one. Both hide, for different reasons and from
+            // different places: hiding a layer is how this device is looking
+            // at the garden right now, while hiding an object is a fact about
+            // the garden that every client shares. Only the canvas honours
+            // this — `accessibleRows` deliberately does not, because that list
+            // is the alternative to the canvas rather than a second copy of
+            // it, and a reader who cannot see the drawing still has to be able
+            // to reach the object and unhide it.
+            .filter { !$0.isHidden }
             .map { object in
                 // During a calibration session the target background's
                 // selectable outline IS the live preview footprint, so hit

@@ -3720,7 +3720,34 @@ superseded`, with exactly two deliberately-added undrawn edges, documented in th
    vocabulary, so an unknown state tripped the wrong constraint (caught by this stage's own
    migration test) — rewritten as two implications with the reasoning in the migration comment.
 
-### Verification evidence
+### Per-object hide and lock — done, and a correction
+
+**I got this wrong first and the owner corrected me.** I wrote that neither
+client can hide or lock an individual object, on the strength of a grep for two
+guessed names. It is false. `map-commands.yaml` and `map-objects.yaml` both
+carry `isHidden` and `isLocked` per object — "Persisted per-object canvas
+visibility. Hidden objects remain in the object index" — the web decodes them
+(`apps/web/features/map/types.ts`), and `changeProperties` already carries
+them. This is server-persisted, contracted behaviour.
+
+What is actually true is narrower and worse: **iOS drops the two fields
+entirely.** `GardenMapObject` does not decode them, so the app can neither
+honour a flag set on the web nor set one itself. An object hidden on the laptop
+is drawn on the phone.
+
+- [x] `GardenMapObject` decodes and carries `isHidden` and `isLocked`.
+- [x] The render snapshot skips hidden objects, the same way a hidden layer's
+      objects are skipped — and the accessible object list keeps them, because
+      that list is the alternative to the canvas rather than a second copy of
+      it. State that decision where it is made.
+- [x] `isObjectLocked` considers the object's own flag as well as its layer's,
+      so every gated interaction already listed in
+      `MapEditorViewModelLayers.swift` honours it with no further changes.
+- [x] The property sheet gets the two toggles, submitting `changeProperties`.
+- [x] Tests, including one that a flag arriving from the server is honoured —
+      the case that is invisible today.
+
+## Verification evidence
 
 - Full API suite: 120 files / 794 tests before → **128 files / 856 tests** after (+62: six domain
   test files and two Testcontainers migration suites), all green, real Docker.
@@ -9690,3 +9717,98 @@ pass. Tests: **379 files / 3045 tests** (API, every testcontainer suite
 included), **1280** web, **34** contract, **152** workers. The API suite was run
 as `pnpm --filter @verdery/api test` — the script CI runs — not a `src/`-scoped
 approximation of it, per this session's own lesson.
+
+---
+
+# Plan — the iOS map camera
+
+Four complaints from using the app on a phone. Each was verified in code before
+anything was planned, and they have four different causes — only one of which is
+a bug in the ordinary sense.
+
+## What was found, and how
+
+- **Layer visibility does not travel.** The web keeps `hiddenLayers` and
+  `lockedLayers` in `localStorage` under `verdery.map.view.v2.<gardenId>`. That
+  is a browser-local preference: it never reaches another browser, let alone a
+  phone. iOS has the same four layers behind the toolbar's layers button, but
+  `load()` sets `hiddenLayers = []` on every load, so it forgets them within the
+  session too. Neither client hides individual objects; only layers.
+- **There is no view rotation on iOS at all.** `MapViewportTransform` carries
+  `scale` and `origin` and no angle, and no rotate gesture exists.
+  `map-rendering-and-editing.md` specifies view rotation — 15° steps, an exact
+  degree input, and North up — and the web implements it. Unbuilt
+  specification, not a defect.
+- **The compass is MapKit's own, and it is inert.** `MapBackgroundView` sets
+  `.allowsHitTesting(false)` so the `Canvas` above owns every gesture, which
+  also kills the compass MapKit draws whenever the map is rotated. It looks like
+  a control and is not one, which is worse than not drawing it.
+- **Pinch zooms the middle of the screen, not the fingers.**
+  `MapCanvasView.magnificationGesture` hardcodes
+  `zoomAnchor = (size.width / 2, size.height / 2)`.
+  `MapViewportTransform.zoomed(by:around:)` already accepts any anchor; the
+  gesture never supplies one, because the deprecated `MagnificationGesture`
+  carries no location. `MagnifyGesture` does. Pinch never resizes an object —
+  that is a handle in vertex-edit mode — so no garden geometry was at risk.
+
+One more, not reported but adjacent: **nothing stops the camera outrunning the
+backdrop.** The web clamps camera scale to what its tile provider can still
+draw, because MapLibre clamps its own zoom while the local camera keeps going
+and the two drift apart. MapKit is not MapLibre and its floor is its own, so
+that limit has to be measured here rather than ported.
+
+## Part 1 — the camera stops fighting the finger
+
+- [x] Pinch zooms about the fingers: `MagnifyGesture` and its anchor, converted
+      into the canvas's own coordinate space.
+- [x] Layer visibility and locking survive a reload, per garden, on the device —
+      the same standing the web's `localStorage` gives them, per the owner's
+      decision that this stays a client preference rather than becoming shared
+      garden state.
+- [x] Measure MapKit's own zoom floor. **Measured, and there is nothing to
+      clamp**: `MapProxy.camera(framing:)` returns `distance = 1.8660 × span`
+      at 200 m, 100, 50, 20, 10, 5, 2, 1, 0.5, 0.25 and 0.1 — four orders of
+      magnitude, one constant, no floor. The web's clamp exists because
+      MapLibre stops zooming while the local camera keeps going and the two
+      drift apart by up to eleven times; MapKit does not do that, and porting
+      the rule would have added a restriction and a constant for a failure this
+      provider does not have. The canvas's own maximum of 400 px/m shows about
+      one metre across a phone, which is well inside the measured range.
+- [x] Stop drawing MapKit's compass while it does nothing. It returns in part 2,
+      connected.
+
+## Part 2 — view rotation
+
+- [x] `MapViewportTransform` gains `rotationDegrees`, and `screenPoint` /
+      `localPosition` rotate through it.
+- [x] A screen translation becomes a local vector through the transform rather
+      than by taking `width` and `height` as `dx` and `dy` — four call sites
+      decompose drags that way today, and all four are wrong under rotation.
+- [x] `fitting(bounds:viewportSize:)` fits the ROTATED bounds.
+- [x] `MapBackgroundPlacement` adds the viewport rotation to the plan
+      transform's own.
+- [x] A two-finger rotate gesture, 15° steps, an exact degree input, and North
+      up — which is the inverse of the accepted georeference rotation, per the
+      architecture document.
+- [x] The backdrop's heading becomes the negated sum of the georeference and
+      camera rotations — `bearing: -(georeference.rotationDegrees + camera.rotationDegrees)`,
+      which is what the web already computes.
+- [x] A live compass that turns the view, replacing the one hidden in part 1.
+
+## Verification
+
+Each part is looked at on a real garden in the Simulator before it is called
+done, because every defect in this list was invisible to 1199 passing tests.
+Part 1's four items are each visible on one screen. Part 2 is checked against a
+garden with a non-zero georeference rotation, where a sign error shows — the
+same garden that caught the heading sign.
+
+### One limitation, stated rather than hidden
+
+Undo does not restore these two flags. `ObjectSnapshot` is the shape
+`packages/test-fixtures/fixtures/geometry/command-inverse.json` pins across
+Swift and TypeScript, and that fixture carries neither field; adding them in
+Swift alone would break the equivalence the fixture exists to guarantee, and
+adding them to the fixture is a contract change to both runtimes rather than an
+iOS parity fix. Undoing a properties change restores the label and the details
+and leaves hide and lock as they are.

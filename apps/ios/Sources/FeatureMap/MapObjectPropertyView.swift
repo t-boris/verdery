@@ -51,6 +51,9 @@ struct MapObjectPropertyView: View {
     let onRestore: () async -> Void
     let onDuplicate: () async -> Void
     let onAssignPlant: (String?) async -> Void
+    /// Hiding and locking this one object — server-persisted, and distinct
+    /// from the layer toggles in the editor's own layers sheet.
+    let onSetVisibility: (Bool, Bool) async -> Void
     let onEditShape: () -> Void
     let onBeginJoin: () -> Void
     let onClose: () -> Void
@@ -70,6 +73,7 @@ struct MapObjectPropertyView: View {
         onRestore: @escaping () async -> Void,
         onDuplicate: @escaping () async -> Void,
         onAssignPlant: @escaping (String?) async -> Void,
+        onSetVisibility: @escaping (Bool, Bool) async -> Void,
         onEditShape: @escaping () -> Void,
         onBeginJoin: @escaping () -> Void,
         onClose: @escaping () -> Void
@@ -85,6 +89,7 @@ struct MapObjectPropertyView: View {
         self.onRestore = onRestore
         self.onDuplicate = onDuplicate
         self.onAssignPlant = onAssignPlant
+        self.onSetVisibility = onSetVisibility
         self.onEditShape = onEditShape
         self.onBeginJoin = onBeginJoin
         self.onClose = onClose
@@ -126,6 +131,8 @@ struct MapObjectPropertyView: View {
                     if object.category == .plant {
                         assignedToSection
                     }
+
+                    visibilityActions
 
                     // Shape, duplicate and join are things done TO the object,
                     // so they read as a row of icon actions rather than as
@@ -202,6 +209,35 @@ struct MapObjectPropertyView: View {
     /// The plant-only "Assigned to" picker — a distinct command
     /// (`assignPlant`) from the label/details Save flow, so it submits on
     /// change rather than waiting for Save.
+    /// Hide and lock, as two toggles on this object rather than rows in a
+    /// settings list — the same "things done TO the object" language the
+    /// action row below already uses.
+    ///
+    /// Both are the object's OWN flags. A layer may hide or lock this object
+    /// as well, from the editor's layers sheet, and that is a different and
+    /// client-only thing; these two are the garden's and travel to every
+    /// client, which is why they belong on the object rather than in a view
+    /// preference.
+    private var visibilityActions: some View {
+        FlowRow(spacing: Metrics.space3) {
+            CompactActionButton(
+                symbol: object.isHidden ? "eye.slash" : "eye",
+                title: strings(object.isHidden ? MapObjectVisibilityLocalizationKey.show : .hide)
+            ) {
+                Task { await onSetVisibility(!object.isHidden, object.isLocked) }
+            }
+            .accessibilityIdentifier("map.property.visibility")
+
+            CompactActionButton(
+                symbol: object.isLocked ? "lock.fill" : "lock.open",
+                title: strings(object.isLocked ? MapObjectVisibilityLocalizationKey.unlock : .lock)
+            ) {
+                Task { await onSetVisibility(object.isHidden, !object.isLocked) }
+            }
+            .accessibilityIdentifier("map.property.lock")
+        }
+    }
+
     private var assignedToSection: some View {
         Section(strings(.mapPlantAssignedToLabel)) {
             ChoiceChipGrid(
