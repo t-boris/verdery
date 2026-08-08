@@ -238,7 +238,24 @@ Ruby in this repository to wrap three commands Apple now supports first-party.
 Build 192 used the equivalent authenticated-Xcode fallback: the same archive was exported with
 `destination=upload` and App Store Connect reported `Upload succeeded`. This path is appropriate for
 an attended developer machine; the API-key script remains the reproducible CI path once the Issuer ID
-is stored securely.
+is stored securely. Build 467 used it again, for the same reason — the Issuer ID is still the one
+value nobody has recorded.
+
+**The scheme archives two targets now, and that broke the first attempt at build 467.** A build
+setting passed on the `xcodebuild` command line applies to _every_ target in the build, and the
+script passed `PRODUCT_BUNDLE_IDENTIFIER=com.verdery.app`. `VerderyControls` therefore shipped with
+the app's own identifier instead of `com.verdery.app.controls`, and App Store Connect refused the
+upload: _"There is more than one bundle with the CFBundleIdentifier value `com.verdery.app`"_. It
+was harmless while the scheme had one target, which is why it survived to build 192 — the Control
+Center control landed afterwards. The flag is gone; `project.yml` owns each target's identifier.
+`DEVELOPMENT_TEAM` and `CURRENT_PROJECT_VERSION` stay global on purpose, because the team is one
+team and an extension's build number must match its host app's.
+
+The same change of shape cost one archive attempt before that: `com.verdery.app.controls` had never
+been provisioned for distribution, so the first `xcodebuild archive` failed on a missing
+`.mobileprovision`. `-allowProvisioningUpdates` registered it, and the immediate retry succeeded — no
+action was needed beyond running the script twice, but expect it the first time any new extension is
+archived.
 
 The build number defaults to `git rev-list --count HEAD`, which is monotonic and needs no state
 file. Override with `VERDERY_BUILD_NUMBER` when re-uploading the same commit — App Store Connect

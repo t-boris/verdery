@@ -69,6 +69,8 @@ done
 # variables have no working default — they are exactly the credentials the
 # owner must create, and the script names them precisely when they are absent.
 TEAM_ID="${VERDERY_TEAM_ID:-3M68DG8S7N}"
+# Reported, not imposed — see the archive step for why this is no longer passed
+# to xcodebuild. `project.yml` owns the identifier of each target.
 BUNDLE_ID="${VERDERY_BUNDLE_ID:-com.verdery.app}"
 SCHEME="Verdery"
 CONFIGURATION="Release"
@@ -171,13 +173,26 @@ if [[ -f "${ENTITLEMENTS_PATH}" ]]; then
     || /usr/libexec/PlistBuddy -c "Add :aps-environment string production" "${ENTITLEMENTS_PATH}"
 fi
 
+# PRODUCT_BUNDLE_IDENTIFIER is deliberately NOT passed here. A build setting
+# given on the xcodebuild command line applies to EVERY target in the build,
+# and this scheme now archives two: the app and the `VerderyControls`
+# extension, whose identifier `project.yml` sets to `com.verdery.app.controls`.
+# Overriding it globally gave the extension the app's own identifier, and App
+# Store Connect rejected the upload — "There is more than one bundle with the
+# CFBundleIdentifier value 'com.verdery.app'". It was harmless while the scheme
+# had one target, which is why it survived to build 192.
+#
+# `project.yml` is the source of truth for both identifiers; a build that needs
+# a different one changes it there rather than here, where "the bundle id"
+# cannot mean two things at once. `DEVELOPMENT_TEAM` and
+# `CURRENT_PROJECT_VERSION` below stay global on purpose: the team is one team,
+# and an extension's build number must match its host app's.
 xcodebuild archive \
   -project "${IOS_ROOT}/Verdery.xcodeproj" \
   -scheme "${SCHEME}" \
   -configuration "${CONFIGURATION}" \
   -destination 'generic/platform=iOS' \
   -archivePath "${ARCHIVE_PATH}" \
-  PRODUCT_BUNDLE_IDENTIFIER="${BUNDLE_ID}" \
   DEVELOPMENT_TEAM="${TEAM_ID}" \
   CURRENT_PROJECT_VERSION="${BUILD_NUMBER}" \
   "${API_ORIGIN_ARGUMENTS[@]}" \
