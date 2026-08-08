@@ -137,3 +137,45 @@ public struct ConsoleStatusStrip: View {
         status.level == .attention ? Palette.consoleAccent : Palette.consoleMuted
     }
 }
+
+extension View {
+    /// Puts a strip in the slot immediately above a `TabView`'s tab bar.
+    ///
+    /// A bottom safe-area inset on the `TabView` is the pre-iOS 26 way to do
+    /// this, and it used to be right: the tab bar was opaque, part of the
+    /// `TabView`'s own safe area, and an inset landed above it. iOS 26's tab
+    /// bar floats over the content instead, so the same inset lands at the
+    /// bottom of the screen — **on top of the tab bar**, hiding its lower half.
+    /// That is what shipped, and only running the app could have found it: the
+    /// code reads correctly and compiles either way.
+    ///
+    /// `tabViewBottomAccessory` is the slot iOS 26 introduced for exactly this
+    /// content, so the strip goes there when it exists and stays on the inset
+    /// before it. Deliberately not a hand-computed bottom padding: the floating
+    /// bar's height is Apple's to change.
+    ///
+    /// The accessory draws the strip inside the system's own glass tray rather
+    /// than edge to edge. Sizing the content to fill the tray was tried and
+    /// does not take — the tray proposes an unspecified height, against which
+    /// both `maxHeight: .infinity` and `containerRelativeFrame` resolve back to
+    /// the content's ideal size. Accepted rather than fought: the strip in its
+    /// tray above the tab bar in its own reads as the pair it is, and the
+    /// alternative — insetting each tab instead of the `TabView` — was tried
+    /// too and is worse, because the strip's charcoal then fills the whole
+    /// bottom of the screen and the glass tab bar over it loses its labels.
+    ///
+    /// Applies to the `TabView` itself, not to each tab — the strip belongs to
+    /// the shell, and one placement cannot drift from another.
+    @ViewBuilder
+    public func tabBarAccessory<Content: View>(@ViewBuilder _ content: @escaping () -> Content) -> some View {
+        #if os(iOS)
+            if #available(iOS 26.0, *) {
+                tabViewBottomAccessory(content: content)
+            } else {
+                safeAreaInset(edge: .bottom, content: content)
+            }
+        #else
+            safeAreaInset(edge: .bottom, content: content)
+        #endif
+    }
+}

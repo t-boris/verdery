@@ -422,6 +422,30 @@ trip across several rotations so a sign error cannot survive. `MapBackgroundView
 remains the only file in the application outside the Xcode glue that imports
 MapKit.
 
+**A ground span is not a camera distance.** `BasemapCamera.spanMetres` is how
+much ground the viewport covers; `MapCamera.distance` is how far the camera sits
+above it, and what separates them is a field of view MapKit does not publish —
+measured at 1.866 on an iPhone 17, so passing one as the other drew the garden
+over 54% of the ground it belonged on, at nearly twice the scale. The span is
+stated as an `MKCoordinateRegion` carrying the viewport's own aspect, and the
+distance is asked of `MapProxy.camera(framing:)`, so the unpublished quantity
+stays inside MapKit rather than becoming a constant nobody here could derive.
+Not `MapCameraPosition.region`, which states the span exactly but cannot carry a
+heading; the heading is set on the camera the framing returns.
+
+**The heading is the INVERSE of the georeference rotation.** `rotationDegrees`
+is what `GeographicProjection.localPosition` rotates a compass-aligned offset by,
+negated, to reach local axes — so the garden's local `+Y` points θ degrees
+_anticlockwise_ of north, and since the canvas draws `+Y` upward, `-θ` is the
+bearing the backdrop must put at the top. The web editor has always said so
+(`bearing: -(georeference.rotationDegrees + camera.rotationDegrees)` in
+`basemap-provider.ts`); the iOS port dropped the minus and shipped, because the
+error is `2θ` and vanishes completely in an unrotated garden — which is what
+every test fixture and every screenshot happened to use. `BasemapCameraTests`
+now pins the heading against the projection rather than against itself: the
+bearing from the anchor to a point one metre up the canvas must equal the
+heading the camera asks for.
+
 **Two basemaps, not a provider list.** Aerial imagery for tracing what is
 actually there, and MapKit's standard styling for recognising where the plot
 sits among streets. Standard styling beats a raster street tile set here and

@@ -1,4 +1,5 @@
 import CoreDomain
+import CoreLocation
 import MapKit
 import SwiftUI
 
@@ -31,33 +32,58 @@ struct MapBackgroundView: View {
     @State private var position: MapCameraPosition = .automatic
 
     var body: some View {
-        Map(position: $position)
-            .mapStyle(style.mapKitStyle)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-            .onAppear { apply(camera) }
-            // `onChange` rather than a computed `initialPosition`: the camera
-            // changes on every pan and zoom, and `initialPosition` is read once.
-            // That single word is the whole of the defect this replaced.
-            .onChange(of: camera) { _, updated in apply(updated) }
+        GeometryReader { geometry in
+            MapReader { map in
+                Map(position: $position)
+                    .mapStyle(style.mapKitStyle)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                    .onAppear { apply(camera, framedBy: map, in: geometry.size) }
+                    // `onChange` rather than a computed `initialPosition`: the
+                    // camera changes on every pan and zoom, and
+                    // `initialPosition` is read once. That single word is the
+                    // whole of the defect this replaced.
+                    .onChange(of: camera) { _, updated in apply(updated, framedBy: map, in: geometry.size) }
+                    // A rotation or a split view changes how much ground the
+                    // same span has to cover, and the framing below is stated
+                    // in terms of that shape.
+                    .onChange(of: geometry.size) { _, resized in apply(camera, framedBy: map, in: resized) }
+            }
+        }
     }
 
-    private func apply(_ camera: BasemapCamera) {
-        position = .camera(
-            MapCamera(
-                centerCoordinate: CLLocationCoordinate2D(
-                    latitude: camera.centre.y,
-                    longitude: camera.centre.x
-                ),
-                // MapKit measures distance from the camera to the ground, and
-                // the derivation produces a ground span. They differ by the
-                // field of view; at a garden's scale, taking one for the other
-                // is close enough to keep the picture aligned and far simpler
-                // than a projection nobody can check.
-                distance: camera.spanMetres,
-                heading: camera.headingDegrees
-            )
+    /// Points the backdrop at the ground the canvas is showing.
+    ///
+    /// The span is stated as a region and the distance is asked of MapKit,
+    /// rather than the two being taken for each other. They are different
+    /// quantities: a ``BasemapCamera`` carries how much ground the viewport
+    /// covers, while `MapCamera.distance` is how far the camera sits above it,
+    /// and what separates them is a field of view MapKit does not publish.
+    /// Passing one as the other drew the garden over a photograph at the wrong
+    /// scale — plausible enough to trace a bed onto, and wrong.
+    ///
+    /// ``MapProxy/camera(framing:)`` is the published bridge: MapKit converts
+    /// the region into the camera it would itself use to frame it, so the
+    /// unpublished quantity stays inside MapKit instead of becoming a constant
+    /// nobody here could derive or check. The region is given the viewport's
+    /// own aspect so that framing it binds on both axes at once — a square
+    /// region in a portrait canvas would fit to the narrow side and show more
+    /// ground vertically than was asked for.
+    ///
+    /// The heading is then set on the returned camera, because a region is
+    /// north-up and cannot carry one. That is the whole reason this goes
+    /// through a camera at all rather than `MapCameraPosition.region`.
+    private func apply(_ camera: BasemapCamera, framedBy map: MapProxy, in size: CGSize) {
+        guard size.width > 0, size.height > 0 else { return }
+
+        let region = MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: camera.centre.y, longitude: camera.centre.x),
+            latitudinalMeters: camera.spanMetres,
+            longitudinalMeters: camera.spanMetres * (size.width / size.height)
         )
+        var framed = map.camera(framing: region)
+        framed.heading = camera.headingDegrees
+        position = .camera(framed)
     }
 }
 

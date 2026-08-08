@@ -281,6 +281,26 @@ no fixed order are tabs, each with its own `NavigationStack` so each keeps its
 own history: **Today**, **Tasks**, **Plants**, **Journal** (observations), and
 **Map**. Five, not six — iPhone collapses a sixth into a "More" list.
 
+Directly above the tab bar sits the **console status strip**, the Field Console
+chassis: which garden this is, and whether the work on this device is safe. Both
+were toolbar buttons repeated on all five tabs before it; moving them here
+leaves every screen's navigation bar to that screen's own title and actions.
+
+It is attached to the `TabView`, not to each tab, so one placement cannot drift
+from another — but _how_ it attaches is version-dependent, and that is not a
+detail. A bottom safe-area inset on the `TabView` was right while the tab bar
+was opaque and part of that view's own safe area. From iOS 26 the tab bar floats
+over the content, so the same inset lands at the bottom of the **screen**, on
+top of the tab bar, hiding its lower half — which shipped, because the code
+reads correctly and compiles either way. The strip therefore goes in
+`tabViewBottomAccessory`, the slot iOS 26 introduced for exactly this content,
+and stays on the inset before it. Never a hand-computed bottom padding: the
+floating bar's height is Apple's to change. The accessory draws the strip inside
+the system's own glass tray rather than edge to edge; that is accepted rather
+than fought, because the alternative — insetting each tab instead — fills the
+whole bottom of the screen with the chassis charcoal and costs the tab bar its
+labels.
+
 Garden settings are behind one button present on every tab, presented as a
 sheet, and hold only what configures a garden: its name, its lifecycle, the
 property plan behind its map, the synchronization conflicts awaiting
@@ -288,9 +308,9 @@ resolution, and service status. They are deliberately not the app's front door;
 they were until work package P8-UX-01, when the primary surfaces were
 `NavigationLink`s inside the settings form.
 
-The account screen is reached from the leading toolbar slot of both signed-in
-shells — the garden picker, and every tab of one garden, beside the garden
-button — and is presented as a sheet. It is deliberately not a sixth tab, and
+The account screen is reached from the garden picker's leading toolbar slot and,
+inside a garden, from the console status strip's avatar — and is presented as a
+sheet. It is deliberately not a sixth tab, and
 deliberately not inside garden settings: an account belongs to no garden. It
 shows only what the client genuinely holds about the signed-in profile (display
 name or address, sign-in method, whether the address is confirmed) plus this
