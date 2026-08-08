@@ -4,6 +4,24 @@ name: Deploy to development
 # separate "deploy" trigger a human uses that CI does not also use — the same
 # `deploy-api.sh` script runs the deployment either way.
 #
+# THIS DEPLOYS THE COMMIT CI VALIDATED, NOT THE BRANCH TIP. On a `workflow_run`
+# trigger `github.sha` resolves to the tip of the default branch at the moment
+# the event fires, which is a DIFFERENT commit from the one CI just checked
+# whenever anything landed while CI was running. Left alone, `actions/checkout`
+# takes that tip and every image is tagged with it, so a green run for commit A
+# shipped unverified commit B under B's own name. Observed twice on
+# 2026-08-07: two deploys of `3ea93c1` completed before `3ea93c1`'s own CI had
+# finished, triggered by the CI runs of the commits before it.
+#
+# The `guard` job below resolves the validated SHA once, and the deploy job
+# checks out and tags exclusively from it — so the image tag, the running code,
+# and the `SERVICE_VERSION` reported by `/v1/health/ready` are provably the same
+# commit.
+#
+# It also declines to deploy a commit master has already moved past. A CI run
+# that finishes late would otherwise roll development BACKWARDS to its own older
+# commit; the newer commit's own CI is what deploys the newer commit.
+#
 # Source: implementation-plan.md work package P1-PLAT-03
 # ("Keyless development deployment" completion evidence);
 # architecture/environments-and-delivery.md.
@@ -23,9 +41,51 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  guard:
+    name: Resolve the commit to deploy
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      # Only to read the branch tip through the API. No checkout happens here.
+      contents: read
+    outputs:
+      sha: ${{ steps.decide.outputs.sha }}
+      deploy: ${{ steps.decide.outputs.deploy }}
+    steps:
+      - name: Decide
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TRIGGER: ${{ github.event_name }}
+          # Empty on a manual dispatch; the SHA CI validated on a workflow_run.
+          VALIDATED_SHA: ${{ github.event.workflow_run.head_sha }}
+          DISPATCH_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          sha="${VALIDATED_SHA:-${DISPATCH_SHA}}"
+          echo "sha=${sha}" >> "${GITHUB_OUTPUT}"
+
+          if [[ "${TRIGGER}" != 'workflow_run' ]]; then
+            echo "Manual dispatch: deploying ${sha} as asked, without a CI check."
+            echo "deploy=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          tip="$(gh api "repos/${GITHUB_REPOSITORY}/commits/master" --jq .sha)"
+          if [[ "${tip}" == "${sha}" ]]; then
+            echo "CI validated ${sha}, which is still master's tip. Deploying it."
+            echo "deploy=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "CI validated ${sha}, but master is now at ${tip}."
+            echo "Skipping: deploying ${sha} would roll development backwards."
+            echo "The CI run for ${tip} deploys ${tip}."
+            echo "deploy=false" >> "${GITHUB_OUTPUT}"
+          fi
+
   deploy:
     name: Build, migrate, and deploy
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    needs: guard
+    if: needs.guard.outputs.deploy == 'true'
     runs-on: ubuntu-24.04
 
     # Binds this job to the GitHub Environment the workload identity provider
@@ -48,10 +108,16 @@ jobs:
       REPOSITORY: verdery
       SERVICE_ACCOUNT: verdery-dev-deployer@verdery-dev.iam.gserviceaccount.com
       WORKLOAD_IDENTITY_PROVIDER: projects/417008876420/locations/global/workloadIdentityPools/github-actions/providers/github-actions-oidc
+      # The one commit this run deploys — see this file's own header for why
+      # `github.sha` is the wrong answer on a `workflow_run` trigger. Every
+      # image tag below reads this, never `GITHUB_SHA`.
+      DEPLOY_SHA: ${{ needs.guard.outputs.sha }}
 
     steps:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.guard.outputs.sha }}
 
       - name: Authenticate to Google Cloud
         id: auth
@@ -88,7 +154,7 @@ jobs:
       - name: Build and push the API image
         id: image
         run: |
-          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/api:${GITHUB_SHA}"
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/api:${DEPLOY_SHA}"
           docker build -f services/api/Dockerfile -t "${IMAGE}" .
           docker push "${IMAGE}"
           echo "image=${IMAGE}" >> "${GITHUB_OUTPUT}"
@@ -127,7 +193,7 @@ jobs:
       - name: Build and push the workers image
         id: workers_image
         run: |
-          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/workers:${GITHUB_SHA}"
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/workers:${DEPLOY_SHA}"
           docker build -f services/workers/Dockerfile -t "${IMAGE}" .
           docker push "${IMAGE}"
           echo "image=${IMAGE}" >> "${GITHUB_OUTPUT}"
@@ -145,10 +211,10 @@ jobs:
         run: |
           API_ORIGIN=$(gcloud run services describe verdery-api-dev \
             --project="${PROJECT_ID}" --region="${REGION}" --format="value(status.url)")
-          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/web:${GITHUB_SHA}"
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/web:${DEPLOY_SHA}"
           docker build -f apps/web/Dockerfile -t "${IMAGE}" \
             --build-arg NEXT_PUBLIC_API_ORIGIN=same-origin \
-            --build-arg VERDERY_DEPLOYMENT_ID="${GITHUB_SHA}" \
+            --build-arg VERDERY_DEPLOYMENT_ID="${DEPLOY_SHA}" \
             --build-arg API_PROXY_ORIGIN="${API_ORIGIN}" \
             --build-arg NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyCpCHmqYIRCBHChWqEYsLSZwz7EKjnWBoU \
             --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=verdery-dev.firebaseapp.com \

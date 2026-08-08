@@ -648,3 +648,33 @@ them that nobody had named.
   build command, the exact defect a previous session had fixed in
   `project.yml`. Build the simulator app signed ("Sign to Run Locally") whenever
   the run needs to be signed in.
+
+## 2026-08-07 — the deploy gate that was not one
+
+**What happened**: `deploy-dev.yml`'s header said it "runs after CI succeeds on
+master". It did run after CI succeeded — but it deployed a different commit than
+the one CI had checked. On a `workflow_run` trigger `github.sha` is the tip of
+the default branch at trigger time, and `actions/checkout` with no `ref` takes
+that tip; all four image tags read `${GITHUB_SHA}` as well. So a green run for
+commit A checked out and shipped commit B, tagged as B. Two deploys of `3ea93c1`
+completed before `3ea93c1`'s own CI had finished, each triggered by an earlier
+commit's CI.
+
+**Rules for next time**:
+
+- **A gate that names its input is not the same as a gate that uses it.** The
+  workflow read the CI _conclusion_ and ignored the CI _subject_. Whenever a job
+  reacts to another job, ask which artifact it is reacting about, not just
+  whether that job was green.
+- **`github.sha` means different things per event.** On `workflow_run` it is the
+  branch tip, not the triggering commit — `github.event.workflow_run.head_sha`
+  is. Resolve the intended commit once, into a named variable, and let every
+  later step read that.
+- **Tag the image with the commit you checked out.** Once `SERVICE_VERSION`
+  comes from the image tag, a mismatch between tag and code turns a deployment
+  question into a lie a live endpoint tells you confidently.
+- **A late CI run must not deploy its own older commit.** Success is not
+  permission to ship — it is permission to ship _that_ commit, and only while it
+  is still the tip.
+- This was found by watching a deploy, not by reading the workflow. The comment
+  in the file was wrong for months and read as reassuring.

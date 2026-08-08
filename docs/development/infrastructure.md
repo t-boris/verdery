@@ -137,6 +137,22 @@ triggered after `CI` succeeds on `master` or by `workflow_dispatch`. No step exi
 that a person cannot also run from a laptop with `gcloud` access — the architecture's requirement
 that "development deployment is reproducible from an empty workstation with approved access."
 
+**Which commit gets deployed, and why it is not `github.sha`.** On a `workflow_run` trigger
+`github.sha` resolves to the tip of the default branch when the event fires, not to the commit the
+finishing CI run actually validated. Those differ whenever anything lands while CI is running, and
+the two were conflated until 2026-08-07: `actions/checkout` took the tip and every image was tagged
+with it, so a green run for one commit shipped a newer, unverified commit under that newer commit's
+name. Two deploys of `3ea93c1` completed before its own CI finished, triggered by the CI runs of the
+commits before it.
+
+A `guard` job now resolves `github.event.workflow_run.head_sha` once and the deploy job checks out
+and tags exclusively from it, so the image tag, the running code, and the `SERVICE_VERSION` on
+`/v1/health/ready` are provably one commit. The same job also declines when master has already moved
+past the validated commit — deploying it then would roll development backwards, and the newer
+commit's own CI is what deploys the newer commit. A `workflow_dispatch` still deploys the ref it was
+given, with no CI check, which is what makes it useful in an incident and what makes it a deliberate
+choice rather than the normal path.
+
 Migrations run as a Cloud Run Job rather than directly from the invoking machine, whether that
 machine is a laptop or a GitHub-hosted runner: Cloud SQL has no public IP, so only Direct VPC egress
 — which only a Cloud Run workload can use — can reach it.
