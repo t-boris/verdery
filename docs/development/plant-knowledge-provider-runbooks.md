@@ -160,6 +160,16 @@ Knowledge classes and their ADR-0013/ADR-0016-selected source, per
   is a federal provider query, not a county data source or fallback. Rows cached before this
   scope was introduced are retained for audit as rejected and refreshed from GBIF on the next
   taxon-profile read.
+- **Occurrence counts are stored, never shown in the taxon profile.** The adapter writes one
+  `occurrence_evidence_count` assertion nationwide plus one per `stateProvince` facet, and
+  `RebuildPlantProfileVersion` excludes that fact key from every profile it assembles
+  (`NON_PROFILE_FACT_KEYS`). Three reasons, all of which held the moment a real taxon was
+  opened: ADR-0016 §4 forbids reading the count as a native/introduced/invasive/regulated
+  status, which is the only reading that would have helped a gardener; the facet is one row
+  per region, so a common taxon rendered as fifty identically-titled rows ahead of hardiness
+  and water needs; and `stateProvince` is free text, so those rows carried "Ca", "Dallas" and
+  "New mexico" beside "New Mexico". The assertions remain on record as evidence — this is a
+  projection rule, not a deletion.
 
 ### 3.2 USA-NPN (phenology)
 
@@ -217,6 +227,28 @@ Knowledge classes and their ADR-0013/ADR-0016-selected source, per
 
 Photo-based species identification reuses the real, tested, kill-switched Vertex AI adapter
 `identify-plant-species.ts` (P10/ADR-0015) — no new provider decision or verification needed.
+
+## 4a. Three provenance fields, and which one a reader sees
+
+Every plant-assertion provider registration carries three pieces of text that
+are easy to confuse and were confused once, visibly:
+
+| Field             | Audience                          | Where it goes                                                                                                                                                                   |
+| ----------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `licenseNote`     | Whoever re-checks the terms       | Nowhere user-facing. Cites repository paths and ADR sections, records when the licence was last verified, and says things like "reconfirm before enabling outside development". |
+| `citationText`    | The reader                        | Snapshotted onto every assertion as `sourceCitation`. One sentence: the citation the source asks to be cited by.                                                                |
+| `attributionText` | The reader, as a legal obligation | Rendered when the licence requires attribution; `null` when it does not. USDA is public domain (17 U.S.C. §105) and carries `null` here while still carrying a `citationText`.  |
+
+`refresh-taxon-assertions.ts` used to stamp `licenseNote` as every assertion's
+`sourceCitation`, and the catalog page rendered `sourceCitation` under every
+fact. On a taxon with a per-state occurrence breakdown that printed the same
+six-hundred-character compliance memo about fifty times, and the memo was most
+of the page. Two rules follow from it:
+
+- A citation belongs to a **source**, not to each fact. The catalog page lists
+  them once, deduplicated by text.
+- Compliance notes are not citations. Keep the note — it is genuinely useful to
+  whoever inherits the licence question — and keep it out of the product.
 
 ## 5. Legal/privacy inventory
 

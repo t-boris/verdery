@@ -29,6 +29,7 @@ function metadata(
     providerKey: PROVIDER_KEY,
     displayName: 'USDA PLANTS Database',
     licenseNote: 'Public domain test license.',
+    citationText: 'USDA NRCS PLANTS Database. https://plants.usda.gov.',
     attributionText: null,
     fetchTimeoutMs: 1_000,
     quotaLimits: { maxCallsPerHour: null, maxCallsPerDay: null },

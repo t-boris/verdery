@@ -520,3 +520,42 @@ any client, and no test said so.
 - A UUID's version is a property of who minted it. Requiring v7 is right for an
   id a client supplies or `generateUuidV7()` produces; it is wrong for a shared
   catalog id the server handed out and the client is only handing back.
+
+## 2026-08-07 — "Бред какой-то!!! Ничего не значащая информация" (catalog taxon profile)
+
+**What happened**: the owner opened a plant's catalog page and found it was
+almost entirely one paragraph repeated about fifty times, wrapped around numbers
+that meant nothing. Three separate decisions had to line up to produce that, and
+each looked defensible alone:
+
+- `refresh-taxon-assertions.ts` stamped the provider's `licenseNote` — an
+  internal compliance memo citing repository paths and ADR sections — as every
+  assertion's `sourceCitation`. Each registration already had a proper
+  one-sentence citation sitting unused beside it.
+- `taxon-profile.tsx` rendered `sourceCitation` under **every** fact, so a
+  provider contributing many facts printed its text many times.
+- The GBIF adapter writes one `occurrence_evidence_count` per `stateProvince`
+  facet, and ADR-0016 §4 forbids the only interpretation that would have made
+  those numbers useful. So the page led with fifty rows of uninterpretable
+  counts — including "Ca", "Dallas" and "New mexico" — ahead of hardiness and
+  water needs.
+
+**Rules for next time**:
+
+- **Look at the rendered page, not the passing test.** Every one of those three
+  behaviours was covered by a green test. No test asks "is this page worth
+  reading", and the suite cannot notice that 95% of the output is one repeated
+  string. When a surface ships, open it with realistic data before calling it
+  done.
+- **A citation belongs to a source; an attribution belongs to a licence; a
+  compliance note belongs to whoever re-checks the terms.** Three audiences,
+  three fields. Collapsing them into one field is how internal prose reaches a
+  gardener.
+- **Repetition is a design signal, not a data volume problem.** The same string
+  under every row means it was attached at the wrong level. Move it up, do not
+  shorten it.
+- **Storing a fact and showing a fact are different decisions.** Evidence can be
+  worth keeping and still have no place in a projection that answers "what is
+  this plant like". `NON_PROFILE_FACT_KEYS` exists to say so explicitly.
+- Ask what question the reader arrived with. "How many times has this been seen
+  in Utah" was not it, and no amount of formatting would have made it so.

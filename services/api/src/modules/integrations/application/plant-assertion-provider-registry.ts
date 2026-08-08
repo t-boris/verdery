@@ -32,9 +32,37 @@ export interface PlantAssertionProviderMetadata {
   /** Application-owned stable key — stamped onto every assertion this adapter produces and the quota-accounting key in `provider_quota_usage`. */
   readonly providerKey: string;
   readonly displayName: string;
-  /** License and citation-form text, snapshotted onto every assertion's own provenance (`sourceCitation`, where the authoring method carries one). */
+  /**
+   * The compliance record for this provider's terms: what the licence is,
+   * where it was verified, what this adapter does and does not fetch.
+   *
+   * INTERNAL. Never rendered to a reader and never snapshotted onto an
+   * assertion. It is written for whoever has to re-check the terms, so it
+   * cites repository paths and ADR sections, and it says things like
+   * "reconfirm before enabling outside development" — none of which means
+   * anything to a gardener looking at a plant. It used to be stored as every
+   * assertion's `sourceCitation` and printed under every fact on the catalog
+   * page, which buried the page in the same six hundred characters repeated
+   * once per row.
+   */
   readonly licenseNote: string;
-  /** Attribution text a client must render, when the provider's terms require one; `null` when none is required. */
+  /**
+   * The citation the SOURCE asks to be cited by — one sentence, snapshotted
+   * onto every assertion's provenance as `sourceCitation`.
+   *
+   * Required, because `authoringMethod: 'ai_extracted_from_source'` cannot
+   * exist without a citation (`validatePlantAssertionAuthoring`, and the
+   * migration's own linkage check). Distinct from `attributionText` below:
+   * a public-domain source still has a recommended citation while requiring
+   * no attribution at all.
+   */
+  readonly citationText: string;
+  /**
+   * Attribution text a client MUST render, when the provider's terms require
+   * one; `null` when none is required. A legal obligation, not a courtesy —
+   * which is why USDA (17 U.S.C. §105, public domain) carries `null` here
+   * while still carrying a `citationText`.
+   */
   readonly attributionText: string | null;
   readonly fetchTimeoutMs: number;
   readonly quotaLimits: ProviderQuotaLimits;
@@ -56,6 +84,16 @@ function requireValidMetadata(metadata: PlantAssertionProviderMetadata): void {
     throw new InternalError(
       'integrations.plant_assertion_provider_registry.license_note_blank',
       `Plant-assertion provider '${metadata.providerKey}' must declare its license note.`,
+    );
+  }
+  // Checked at construction for the same reason the licence note is: every
+  // assertion this adapter produces snapshots it as `sourceCitation`, which
+  // the domain refuses to leave empty. A blank one here would fail later,
+  // one row at a time, in the middle of a refresh.
+  if (metadata.citationText.trim().length === 0) {
+    throw new InternalError(
+      'integrations.plant_assertion_provider_registry.citation_text_blank',
+      `Plant-assertion provider '${metadata.providerKey}' must declare its citation text.`,
     );
   }
   if (!Number.isInteger(metadata.fetchTimeoutMs) || metadata.fetchTimeoutMs <= 0) {

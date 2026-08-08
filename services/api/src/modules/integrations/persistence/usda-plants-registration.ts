@@ -61,6 +61,7 @@ export function createUsdaPlantsRegistration(
       providerKey: USDA_PLANTS_PROVIDER_KEY,
       displayName: USDA_PLANTS_DISPLAY_NAME,
       licenseNote: LICENSE_NOTE,
+      citationText: USDA_PLANTS_CITATION,
       attributionText: null,
       fetchTimeoutMs: options.fetchTimeoutMs,
       quotaLimits: options.quotaLimits,

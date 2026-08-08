@@ -12,23 +12,23 @@ vi.mock('./queries', () => ({ useTaxonProfile: vi.fn() }));
 
 const mockedUseTaxonProfile = vi.mocked(useTaxonProfile);
 
+const BASE_FACT: NonNullable<PlantTaxonProfileResult['profile']>['resolvedFacts'][number] = {
+  factKey: 'hardiness_zone_min',
+  value: '5a',
+  unit: null,
+  geographicScope: 'US',
+  providerKey: 'usda_plants',
+  confidence: 0.9,
+  sourceCitation: 'USDA PLANTS Database',
+  evidenceStatus: 'source_backed',
+};
+
 const PROFILE: NonNullable<PlantTaxonProfileResult['profile']> = {
   id: 'profile-1',
   taxonomyReferenceId: 'taxon-1',
   isPartial: false,
   createdAt: '2026-05-02T08:00:00Z',
-  resolvedFacts: [
-    {
-      factKey: 'hardiness_zone_min',
-      value: '5a',
-      unit: null,
-      geographicScope: 'US',
-      providerKey: 'usda_plants',
-      confidence: 0.9,
-      sourceCitation: 'USDA PLANTS Database',
-      evidenceStatus: 'source_backed',
-    },
-  ],
+  resolvedFacts: [BASE_FACT],
 };
 
 const TAXONOMY_REFERENCE: PlantTaxonProfileResult['taxonomyReference'] = {
@@ -92,6 +92,41 @@ describe('TaxonProfile', () => {
     expect(screen.getByText('Source: usda_plants')).toBeTruthy();
     expect(screen.getByText('USDA PLANTS Database')).toBeTruthy();
     expect(screen.getByText('Source-backed · not horticulturist-reviewed')).toBeTruthy();
+  });
+
+  it('cites each source once, however many facts came from it', () => {
+    mockedUseTaxonProfile.mockReturnValue({
+      isPending: false,
+      isError: false,
+      data: {
+        taxonomyReference: TAXONOMY_REFERENCE,
+        images: [],
+        profile: {
+          ...PROFILE,
+          // Three facts, two sources — the shape that used to print the same
+          // citation under every row and bury the page in it.
+          resolvedFacts: [
+            BASE_FACT,
+            { ...BASE_FACT, factKey: 'sun_exposure', value: 'Full sun' },
+            {
+              ...BASE_FACT,
+              factKey: 'growth_habit',
+              value: 'Tree',
+              sourceCitation: 'GBIF.org. Free and open access to biodiversity data.',
+            },
+          ],
+        },
+      },
+    } as never);
+
+    renderProfile();
+
+    expect(screen.getByRole('heading', { name: 'Sources' })).toBeTruthy();
+    // Two facts share a citation; it appears once, not twice.
+    expect(screen.getAllByText('USDA PLANTS Database')).toHaveLength(1);
+    expect(
+      screen.getAllByText('GBIF.org. Free and open access to biodiversity data.'),
+    ).toHaveLength(1);
   });
 
   it('treats a null fact profile as ordinary missing knowledge', () => {

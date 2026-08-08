@@ -60,6 +60,7 @@ export function createGbifRegistration(
       providerKey: GBIF_PROVIDER_KEY,
       displayName: GBIF_DISPLAY_NAME,
       licenseNote: LICENSE_NOTE,
+      citationText: GBIF_CITATION,
       attributionText: GBIF_CITATION,
       fetchTimeoutMs: options.fetchTimeoutMs,
       quotaLimits: options.quotaLimits,

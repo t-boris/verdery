@@ -181,7 +181,14 @@ export class RefreshTaxonAssertions {
     const authoring = {
       authoringMethod: 'ai_extracted_from_source' as const,
       providerKey: registration.metadata.providerKey,
-      sourceCitation: registration.metadata.licenseNote,
+      // `citationText`, NOT `licenseNote`. This field is read by a person
+      // looking at a plant, and it is stamped onto every assertion, so the
+      // long-form compliance memo that used to be stored here appeared once
+      // per fact on the catalog page — six hundred characters of repository
+      // paths and ADR references, repeated fifty times under a taxon with a
+      // per-state occurrence breakdown. The licence note still exists and is
+      // still the compliance record; it is simply not a citation.
+      sourceCitation: registration.metadata.citationText,
     };
     const review = { reviewStatus: 'awaiting_horticultural_review' as const };
 

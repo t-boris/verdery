@@ -29,6 +29,7 @@ export const russianCatalogMessages = {
   'catalog.profilePartial':
     'Профиль неполон: хотя бы одно свойство, которое описывают источники, не удалось подтвердить проверенным утверждением.',
   'catalog.factProvider': 'Источник: {provider}',
+  'catalog.sourcesTitle': 'Источники',
   'catalog.factSourceBacked': 'Подтверждено источником · не проверено садоводом',
   'catalog.factReviewed': 'Проверено садоводом',
   'catalog.factScope': 'Относится к: {scope}',

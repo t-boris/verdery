@@ -67,6 +67,7 @@ export function createWorldFloraOnlineRegistration(
       providerKey: WORLD_FLORA_ONLINE_PROVIDER_KEY,
       displayName: WORLD_FLORA_ONLINE_DISPLAY_NAME,
       licenseNote: LICENSE_NOTE,
+      citationText: WORLD_FLORA_ONLINE_CITATION,
       attributionText: ATTRIBUTION_TEXT,
       fetchTimeoutMs: options.fetchTimeoutMs,
       quotaLimits: options.quotaLimits,
