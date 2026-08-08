@@ -61,6 +61,7 @@ import type { WeatherLocation } from '../domain/weather-record.js';
 import {
   OPEN_METEO_CURRENT_VARIABLES,
   OPEN_METEO_DAILY_VARIABLES,
+  OPEN_METEO_HOURLY_VARIABLES,
   OPEN_METEO_PINNED_MODELS,
   parseOpenMeteoPayload,
 } from './open-meteo-payload.js';
@@ -118,6 +119,10 @@ export function buildOpenMeteoRequestUrl(
   parameters.set('models', OPEN_METEO_PINNED_MODELS.join(','));
   parameters.set('current', OPEN_METEO_CURRENT_VARIABLES.join(','));
   parameters.set('daily', OPEN_METEO_DAILY_VARIABLES.join(','));
+  // The forecast half. The daily block carries rain and nothing else, so a
+  // forecast built from it could only ever report rain — see
+  // `OPEN_METEO_HOURLY_VARIABLES`. Same call, same quota.
+  parameters.set('hourly', OPEN_METEO_HOURLY_VARIABLES.join(','));
   parameters.set('past_days', String(configuration.pastDays));
   parameters.set('forecast_days', String(configuration.forecastDays));
   // Explicit SI, explicitly requested — `open-meteo-payload.ts` then accepts

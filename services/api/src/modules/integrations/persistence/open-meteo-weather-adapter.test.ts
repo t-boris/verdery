@@ -22,7 +22,7 @@ import {
 import { RefreshGardenWeather } from '../application/refresh-garden-weather.js';
 import { WeatherProviderRegistry } from '../application/weather-provider-registry.js';
 import type { WeatherLocation } from '../domain/weather-record.js';
-import { OPEN_METEO_PINNED_MODELS } from './open-meteo-payload.js';
+import { OPEN_METEO_PINNED_MODELS, parseOpenMeteoPayload } from './open-meteo-payload.js';
 import type {
   OpenMeteoHttpFetch,
   OpenMeteoHttpResponse,
@@ -186,6 +186,11 @@ describe('buildOpenMeteoRequestUrl', () => {
       'temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m',
     );
     expect(parameters.get('daily')).toBe('precipitation_sum');
+    // The forecast half. Without it a forecast could only ever report rain,
+    // because the daily block carries nothing else.
+    expect(parameters.get('hourly')).toBe(
+      'temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m',
+    );
     expect(parameters.get('latitude')).toBe('38.9072');
     expect(parameters.get('longitude')).toBe('-77.0369');
   });
@@ -380,6 +385,49 @@ describe('OpenMeteoWeatherAdapter.fetchWeather normalization', () => {
 
 describe('OpenMeteoWeatherAdapter failure handling', () => {
   const signal = new AbortController().signal;
+
+  it('takes the nearest hour that has not begun as a full point forecast', () => {
+    const body = {
+      hourly_units: {
+        time: 'iso8601',
+        temperature_2m: '\u00b0C',
+        relative_humidity_2m: '%',
+        precipitation: 'mm',
+        wind_speed_10m: 'm/s',
+      },
+      hourly: {
+        // Two hours already elapsed, then the next three.
+        time: [
+          '2026-07-26T10:00',
+          '2026-07-26T11:00',
+          '2026-07-26T13:00',
+          '2026-07-26T14:00',
+          '2026-07-26T15:00',
+        ],
+        temperature_2m: [20.1, 21.2, 24.4, 25.9, 26.3],
+        relative_humidity_2m: [70, 66, 58, 55, 54],
+        precipitation: [0, 0.2, 1.5, 0, 0],
+        wind_speed_10m: [1.1, 1.4, 2.6, 2.9, 3.1],
+      },
+    };
+
+    const readings = parseOpenMeteoPayload(body, new Date('2026-07-26T12:15:00Z'));
+
+    // Exactly one forecast, and it is 13:00 — not 11:00 (already gone) and not
+    // 15:00 (the furthest, which is what the deployed panel used to show).
+    expect(readings).toHaveLength(1);
+    expect(readings[0]?.kind).toBe('forecast');
+    expect(readings[0]?.effectiveAt.toISOString()).toBe('2026-07-26T13:00:00.000Z');
+    expect(readings[0]?.measurements).toEqual({
+      temperatureCelsius: 24.4,
+      precipitationMm: 1.5,
+      windSpeedMps: 2.6,
+      humidityPercent: 58,
+    });
+    // An hourly precipitation figure accumulates over its own hour, never the
+    // day that contains it.
+    expect(readings[0]?.precipitationIntervalSeconds).toBe(3600);
+  });
 
   it('rejects a malformed payload rather than repairing it', async () => {
     const { adapter } = adapterOver({ kind: 'json', body: { current: 'sunny-ish' } });

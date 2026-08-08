@@ -112,6 +112,42 @@ export class InMemoryWeatherRecordRepository implements WeatherRecordRepository 
     return Promise.resolve(matching[0] ?? null);
   }
 
+  /** Nearest upcoming first, most recent past as fallback — mirrors the Kysely adapter. */
+  findNextForecast(gardenId: Uuid, now: Date): Promise<WeatherRecord | null> {
+    const forecasts = this.records.filter(
+      (record) => record.gardenId === gardenId && record.kind === 'forecast',
+    );
+    const upcoming = forecasts
+      .filter((record) => record.effectiveAt.getTime() > now.getTime())
+      .sort((a, b) => a.effectiveAt.getTime() - b.effectiveAt.getTime());
+    if (upcoming[0] !== undefined) {
+      return Promise.resolve(upcoming[0]);
+    }
+    const overtaken = [...forecasts].sort(
+      (a, b) => b.effectiveAt.getTime() - a.effectiveAt.getTime(),
+    );
+    return Promise.resolve(overtaken[0] ?? null);
+  }
+
+  /** Effective order, mirroring the Kysely adapter — a double that ordered by retrieval would hide exactly the defect this read exists to fix. */
+  findLatestObservation(gardenId: Uuid): Promise<WeatherRecord | null> {
+    const matching = this.records
+      .filter((record) => record.gardenId === gardenId && record.kind === 'observation')
+      .sort((a, b) => {
+        const byEffective = b.effectiveAt.getTime() - a.effectiveAt.getTime();
+        if (byEffective !== 0) {
+          return byEffective;
+        }
+        const byFetched = b.fetchedAt.getTime() - a.fetchedAt.getTime();
+        if (byFetched !== 0) {
+          return byFetched;
+        }
+        const byCreated = b.createdAt.getTime() - a.createdAt.getTime();
+        return byCreated !== 0 ? byCreated : b.id.localeCompare(a.id);
+      });
+    return Promise.resolve(matching[0] ?? null);
+  }
+
   /**
    * Mirrors the Kysely adapter's semantics, INCLUDING its collapse to one
    * row per period: the table is append-only and stores the same elapsed day

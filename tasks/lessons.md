@@ -520,3 +520,92 @@ any client, and no test said so.
 - A UUID's version is a property of who minted it. Requiring v7 is right for an
   id a client supplies or `generateUuidV7()` produces; it is wrong for a shared
   catalog id the server handed out and the client is only handing back.
+
+## 2026-08-07 — "почему температура не доступна" (weather panel)
+
+**What happened**: the panel showed rainfall and "no measurement" for temperature,
+humidity and wind. The provider was fine — a direct call returned all four. The
+defect was that one method answered two different questions.
+
+`WeatherRecordRepository.findLatest` was written for the CACHE decision, and its
+own doc comment said so: "Retrieval order, not effective order". The display path
+reused it. But one provider response stores a point reading and one rain-only
+total per elapsed day, all in one batch with identical `fetched_at` and
+`created_at` — so the ordering fell through to `id DESC`, UUIDv7 ids ascend in
+build order, and the largest id was always the last daily total. The panel was
+handed a rainfall row and rendered its nulls honestly.
+
+**Rules for next time**:
+
+- **When a method's doc says what it is FOR, check that every caller wants that.**
+  The comment was accurate and had been accurate for months; the second caller
+  simply wanted a different thing and took the nearest method.
+- **A tie-break is a decision, not a fallback.** `id DESC` looked like an
+  arbitrary tiebreaker for an unlikely collision. It was in fact the deciding
+  key for every read, because the rows it compared were always written together.
+  If ties are the normal case, the ordering above them is not doing any work.
+- **Two shapes in one table need two reads or a column that tells them apart.**
+  `record_kind` has two values and cannot express "instant" versus "period";
+  rather than widen it, the read that needs the distinction orders by the
+  property that already encodes it (`effective_at`).
+- **The same confusion usually has a second instance.** The forecast read had it
+  too, mirrored: retrieval order handed back the FURTHEST day, so the panel
+  announced a forecast six days out. Having found the pattern once, the honest
+  next step was to look for it again rather than declare the bug fixed.
+- **An ordering fix cannot conjure data that was never requested.** No forecast
+  row carried temperature at all, because only `precipitation_sum` was ever
+  asked for. Diagnosing the ordering and stopping there would have shipped a
+  panel that still said "Not reported" under three fields out of four — right
+  row, same emptiness. Check that the fix reaches the symptom the person
+  reported, not just the defect you found on the way.
+
+## 2026-08-07 — "map and diagram не синхронизированны" (iOS basemap, two defects)
+
+**What happened**: a handoff (`tasks/ios-next-session.md`) named two defects
+found by running the app. Running it again found that one diagnosis was wrong,
+one was right for a reason it did not give, and a third defect sat between
+them that nobody had named.
+
+- **The span was passed as a camera distance.** `BasemapCamera.spanMetres` is
+  how much ground the viewport covers; `MapCamera.distance` is how far the
+  camera sits above it. A comment said taking one for the other was "close
+  enough at a garden's scale". Measured through `MapProxy.camera(framing:)`, the
+  factor is **1.866** — the photograph showed 54% of the ground it should, so
+  everything drawn on it was nearly twice its true size.
+- **The heading had the wrong sign.** `localPosition` puts local `+Y` at bearing
+  `-θ`, and the camera was handed `+θ`. The error is `2θ`, which is exactly zero
+  in an unrotated garden — the only kind any test or screenshot used. The web
+  editor had the correct line, with a comment saying so, the whole time.
+- **The clipped control row was a flexible `ScrollView`**, not the stack
+  overflowing as the handoff guessed. `ScrollView(.horizontal)` is still
+  flexible VERTICALLY, so it competed with the canvas for leftover height.
+
+**Rules for next time**:
+
+- **Ask the framework instead of assuming the framework agrees with you.** Both
+  camera defects were a local quantity handed to an API that wanted a different
+  one. MapKit publishes the conversion (`camera(framing:)`); the code guessed
+  and left a comment excusing the guess. A comment admitting an approximation is
+  a defect report nobody filed.
+- **A property that vanishes at zero needs a fixture that is not zero.** Every
+  basemap fixture and every screenshot used `rotationDegrees: 0`, where a sign
+  error in the heading is invisible. The suite was not weak — it was blind in
+  exactly one direction, and the round-trip test that "pins the projection"
+  covered the centre and said nothing about which way up.
+- **When two platforms implement one projection, read the other one.** The
+  answer to the heading sign was one line of `basemap-provider.ts`, with a
+  comment explaining it. Deriving it from first principles took far longer than
+  looking.
+- **A test's prose can contradict its own assertion.** `rotatedAxes` asserted
+  west and its comment said east, and the wrong half was the half that was
+  copied into the heading. Read the assertions, not the sentences above them.
+- **Inherit a diagnosis, not a conclusion.** The handoff's second defect was
+  real and its stated cause was not. Reproducing it first cost one screenshot;
+  implementing the proposed fix would have cost a day and moved the rotation
+  onto the canvas for nothing.
+- **`CODE_SIGNING_ALLOWED=NO` strips entitlements.** The simulator build then
+  has no `keychain-access-groups`, Firebase Auth cannot reach the keychain
+  (`-34018`), and sign-in silently fails to persist — re-breaking, from the
+  build command, the exact defect a previous session had fixed in
+  `project.yml`. Build the simulator app signed ("Sign to Run Locally") whenever
+  the run needs to be signed in.

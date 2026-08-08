@@ -89,6 +89,31 @@ export const OPEN_METEO_CURRENT_VARIABLES = [
 export const OPEN_METEO_DAILY_VARIABLES = ['precipitation_sum'] as const;
 
 /**
+ * Hourly variables requested, for the FORECAST half.
+ *
+ * The daily block carries `precipitation_sum` and nothing else, so a forecast
+ * built from it can only ever report rain — which is exactly what the weather
+ * panel showed: a date six days out with "Not reported" under temperature,
+ * wind and humidity. A daily block cannot fix that on its own either, because
+ * a day has a maximum and a minimum temperature and this domain records ONE
+ * `temperatureCelsius`; picking either and calling it "the" temperature would
+ * be a fabricated reading.
+ *
+ * An hourly forecast is a point reading about a future instant, which is the
+ * shape `WeatherMeasurements` already describes exactly. Same request, same
+ * quota — one call still.
+ */
+export const OPEN_METEO_HOURLY_VARIABLES = [
+  'temperature_2m',
+  'relative_humidity_2m',
+  'precipitation',
+  'wind_speed_10m',
+] as const;
+
+/** One hour: the period an hourly `precipitation` figure accumulates over. */
+export const OPEN_METEO_HOURLY_PRECIPITATION_INTERVAL_SECONDS = 60 * 60;
+
+/**
  * The SI unit labels the API echoes for the units the request asks for.
  * A measurement whose echoed label differs is dropped, never converted.
  */
@@ -142,6 +167,8 @@ const payloadSchema = z.object({
   current_units: z.record(z.string(), z.string()).optional(),
   daily: z.record(z.string(), z.union([z.array(scalar), z.string()])).optional(),
   daily_units: z.record(z.string(), z.string()).optional(),
+  hourly: z.record(z.string(), z.union([z.array(scalar), z.string()])).optional(),
+  hourly_units: z.record(z.string(), z.string()).optional(),
 });
 
 type ScalarContainer = Record<string, number | string | null>;
@@ -211,7 +238,7 @@ function pickCurrent(
   return null;
 }
 
-function pickDaily(
+function pickSeries(
   daily: SeriesContainer,
   units: UnitContainer,
   variable: string,
@@ -367,7 +394,7 @@ function readDaily(
       kind,
       effectiveAt,
       {
-        precipitation: pickDaily(
+        precipitation: pickSeries(
           daily,
           units,
           'precipitation_sum',
@@ -382,6 +409,73 @@ function readDaily(
     }
   }
   return readings;
+}
+
+/**
+ * The nearest hour that has NOT yet begun, as a single point forecast.
+ *
+ * One reading, not the whole series, and deliberately: the surface that reads
+ * this shows "the forecast", and an hourly block spans `past_days` behind and
+ * `forecast_days` ahead — storing all of it would write hundreds of rows per
+ * sweep into an append-only table to answer a question about one moment. A
+ * later hourly chart is free to widen this; it would be a change with its own
+ * consumer, not speculative storage.
+ *
+ * Strictly `> now`: an hour already under way is not a forecast, and the
+ * `current` block already covers the present.
+ */
+function readNextHourlyForecast(
+  hourly: SeriesContainer,
+  units: UnitContainer,
+  now: Date,
+): NormalizedWeatherReading | null {
+  const times = hourly['time'];
+  if (times === undefined || typeof times === 'string') {
+    throw malformed('the hourly block carries no time series');
+  }
+
+  for (const [index, rawTime] of times.entries()) {
+    const effectiveAt = parseOpenMeteoUtcTimestamp(rawTime);
+    if (effectiveAt === null || effectiveAt.getTime() <= now.getTime()) {
+      continue;
+    }
+    return toReading(
+      'forecast',
+      effectiveAt,
+      {
+        temperature: pickSeries(
+          hourly,
+          units,
+          'temperature_2m',
+          EXPECTED_UNIT_LABELS.temperature,
+          index,
+        ),
+        precipitation: pickSeries(
+          hourly,
+          units,
+          'precipitation',
+          EXPECTED_UNIT_LABELS.precipitation,
+          index,
+        ),
+        windSpeed: pickSeries(
+          hourly,
+          units,
+          'wind_speed_10m',
+          EXPECTED_UNIT_LABELS.windSpeed,
+          index,
+        ),
+        humidity: pickSeries(
+          hourly,
+          units,
+          'relative_humidity_2m',
+          EXPECTED_UNIT_LABELS.humidity,
+          index,
+        ),
+      },
+      OPEN_METEO_HOURLY_PRECIPITATION_INTERVAL_SECONDS,
+    );
+  }
+  return null;
 }
 
 /**
@@ -404,7 +498,14 @@ export function parseOpenMeteoPayload(
   }
 
   const readings: NormalizedWeatherReading[] = [];
-  const { current, current_units: currentUnits, daily, daily_units: dailyUnits } = parsed.data;
+  const {
+    current,
+    current_units: currentUnits,
+    daily,
+    daily_units: dailyUnits,
+    hourly,
+    hourly_units: hourlyUnits,
+  } = parsed.data;
 
   if (current !== undefined) {
     const reading = readCurrent(current, currentUnits ?? {}, now);
@@ -414,6 +515,12 @@ export function parseOpenMeteoPayload(
   }
   if (daily !== undefined) {
     readings.push(...readDaily(daily, dailyUnits ?? {}, now));
+  }
+  if (hourly !== undefined) {
+    const forecast = readNextHourlyForecast(hourly, hourlyUnits ?? {}, now);
+    if (forecast !== null) {
+      readings.push(forecast);
+    }
   }
 
   return readings;

@@ -146,6 +146,65 @@ export class KyselyWeatherRecordRepository implements WeatherRecordRepository {
     return row === undefined ? null : toWeatherRecord(row);
   }
 
+  /** Effective order, not retrieval order — see the port's own note on why both reads exist. */
+  async findLatestObservation(gardenId: Uuid): Promise<WeatherRecord | null> {
+    const row = await this.db
+      .selectFrom('integrations.weather_record')
+      .selectAll()
+      .where('garden_id', '=', gardenId)
+      .where('record_kind', '=', 'observation')
+      // The moment the reading is ABOUT decides first. A point reading is
+      // dated at the current period; every daily total is dated at a
+      // midnight that has already passed, so the point reading wins without
+      // needing a column that distinguishes them.
+      .orderBy('effective_at', 'desc')
+      // Then the same retrieval precedence `findLatest` uses, so two fetches
+      // of the same moment resolve to the most recently fetched one rather
+      // than flapping.
+      .orderBy('fetched_at', 'desc')
+      .orderBy('created_at', 'desc')
+      .orderBy('id', 'desc')
+      .limit(1)
+      .executeTakeFirst();
+
+    return row === undefined ? null : toWeatherRecord(row);
+  }
+
+  /** Nearest upcoming first, most recent past as the fallback — see the port's own note. */
+  async findNextForecast(gardenId: Uuid, now: Date): Promise<WeatherRecord | null> {
+    const upcoming = await this.db
+      .selectFrom('integrations.weather_record')
+      .selectAll()
+      .where('garden_id', '=', gardenId)
+      .where('record_kind', '=', 'forecast')
+      .where('effective_at', '>', now)
+      .orderBy('effective_at', 'asc')
+      .orderBy('fetched_at', 'desc')
+      .orderBy('created_at', 'desc')
+      .orderBy('id', 'desc')
+      .limit(1)
+      .executeTakeFirst();
+    if (upcoming !== undefined) {
+      return toWeatherRecord(upcoming);
+    }
+
+    // Every stored forecast has been overtaken. Serve the most recent one so
+    // the caller can label it stale, rather than reporting no forecast at all.
+    const overtaken = await this.db
+      .selectFrom('integrations.weather_record')
+      .selectAll()
+      .where('garden_id', '=', gardenId)
+      .where('record_kind', '=', 'forecast')
+      .orderBy('effective_at', 'desc')
+      .orderBy('fetched_at', 'desc')
+      .orderBy('created_at', 'desc')
+      .orderBy('id', 'desc')
+      .limit(1)
+      .executeTakeFirst();
+
+    return overtaken === undefined ? null : toWeatherRecord(overtaken);
+  }
+
   async listElapsedPrecipitation(
     gardenId: Uuid,
     intervalSeconds: number,

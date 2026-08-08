@@ -28,6 +28,56 @@ export interface WeatherRecordRepository {
   findLatest(gardenId: Uuid, kind: WeatherRecordKind): Promise<WeatherRecord | null>;
 
   /**
+   * The observation describing the most recent ELAPSED MOMENT, or `null`
+   * when none exists. Effective order, not retrieval order — the opposite of
+   * `findLatest` above, and the reason both exist.
+   *
+   * WHY THIS IS A SEPARATE READ. One provider response contains two shapes
+   * of observation: a point reading (temperature, humidity, wind, and the
+   * last hour's rain) and one total per elapsed day (rain only). Both are
+   * stored with `record_kind = 'observation'` — the domain's two-value kind
+   * cannot express "point reading" versus "daily accumulation", as
+   * `open-meteo-payload.ts`'s own header notes.
+   *
+   * They also arrive in ONE batch, so they share `fetched_at` and
+   * `created_at` exactly. `findLatest`'s retrieval ordering therefore fell
+   * through to its last tie-break, `id DESC`, and UUIDv7 ids increase in the
+   * order the readings were built — point reading first, daily totals after.
+   * The largest id was always the last daily row, so "the latest
+   * observation" resolved to a rainfall total, and a person was shown
+   * `temperature: null`, `humidity: null`, `windSpeed: null` while the point
+   * reading sat in the same batch, unread.
+   *
+   * Ordering by effective time fixes it without a new column: every stored
+   * observation is elapsed by construction (`readCurrent` drops a reading
+   * dated after `now`), the point reading's effective time is the current
+   * period, and every daily total is dated at a midnight already past. The
+   * retrieval-order tie-breaks are kept after it, so two fetches of the SAME
+   * moment still resolve to the most recently fetched one.
+   */
+  findLatestObservation(gardenId: Uuid): Promise<WeatherRecord | null>;
+
+  /**
+   * The forecast about the NEAREST UPCOMING moment, or the most recent past
+   * one when every stored forecast has been overtaken — `null` only when none
+   * exists at all.
+   *
+   * The mirror of `findLatestObservation`, for the same reason and with the
+   * direction reversed: a forecast batch holds an hourly point reading for the
+   * next hour and one rain-only total per remaining day, so retrieval order
+   * resolved to whichever row happened to hold the largest id — the FURTHEST
+   * day. The deployed panel showed a date six days out, labelled "Forecast",
+   * with temperature, wind and humidity all "not reported".
+   *
+   * The past-forecast fallback is deliberate rather than returning `null`:
+   * "stale data is labeled and used only when product rules permit it"
+   * (external-integrations.md section 11), and `GetGardenWeather` classifies
+   * freshness on whatever this returns. Hiding an overtaken forecast would
+   * turn a visibly stale reading into an indistinguishable absence.
+   */
+  findNextForecast(gardenId: Uuid, now: Date): Promise<WeatherRecord | null>;
+
+  /**
    * Elapsed precipitation totals for one garden, one accumulation interval,
    * effective at or after `since` — oldest first.
    *
