@@ -277,7 +277,8 @@ export const englishMessages = {
     'No address matched. Check the spelling, or place the point yourself.',
   'gardenLocation.addressProviderUnavailable':
     'The address service did not answer. Enter the coordinates instead, or try again.',
-  'gardenLocation.addressUsOnly': 'Address search covers United States addresses.',
+  'gardenLocation.addressUsOnly':
+    'Address search covers the whole world. Address data © OpenStreetMap contributors.',
   'gardenLocation.precisionStreetAddress': 'House number',
   'gardenLocation.precisionStreet': 'Street only',
   'gardenLocation.precisionArea': 'Area only',

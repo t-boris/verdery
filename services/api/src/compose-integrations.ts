@@ -53,7 +53,7 @@ import {
   ResendTransactionalEmailAdapter,
   RunTaxonEnrichmentSweep,
   RunWeatherRefreshSweep,
-  UsCensusGeocodingAdapter,
+  NominatimGeocodingAdapter,
   USA_NPN_PROVIDER_KEY,
   USDA_PLANTS_PROVIDER_KEY,
   WeatherProviderRegistry,
@@ -269,14 +269,27 @@ export function composeIntegrations(
     ),
   };
 
-  // P12-GEO-01: the US Census geocoder needs no key and no configuration, so
-  // unlike every other adapter here it is always present — there is no
-  // "provider not configured" state to represent. `globalThis.fetch` is the
-  // platform's own, per ADR-0009.
+  // P12-GEO-01: the geocoder needs no key and no configuration, so unlike
+  // every other adapter here it is always present — there is no "provider not
+  // configured" state to represent. `globalThis.fetch` is the platform's own,
+  // per ADR-0009.
+  //
+  // Nominatim replaced the US Census geocoder on 2026-08-08 for one reason: a
+  // European address could not be found at all, because the service it
+  // replaced is a US federal one and US addresses are all it has. See
+  // `nominatim-geocoding-adapter.ts` for the usage policy this obliges and how
+  // it is met.
+  //
+  // The `User-Agent` is required by that policy and carries a contact, which
+  // is what the operator asks for so they can reach whoever is making the
+  // requests before blocking them.
   const geocodingRoutesDependencies: GeocodingRoutesDependencies = {
     findAddressCandidates: new FindAddressCandidates(
       addressGeocoder ??
-        new UsCensusGeocodingAdapter({ fetch: (input, init) => globalThis.fetch(input, init) }),
+        new NominatimGeocodingAdapter({
+          fetch: (input, init) => globalThis.fetch(input, init),
+          userAgent: 'Verdery/1.0 (+https://github.com/t-boris/verdery)',
+        }),
     ),
   };
 

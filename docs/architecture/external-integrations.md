@@ -143,13 +143,32 @@ credit.
 
 ### 5.2 Geocoding and Aerial Imagery
 
-Two United States federal services, decided together on August 4, 2026 because they answer the same
-question — where a garden is, and what it looks like from above — and because both are public domain.
+Two providers answering the same question — where a garden is, and what it looks like from above.
+They were decided together on August 4, 2026 as two United States federal services, both public
+domain; the first of them was replaced on August 8, 2026, and they no longer share a coverage.
 
-- **Address geocoding**: the Census Bureau geocoder (`geocoding.geo.census.gov`). Free, no key, no
-  account, public-domain data. A LOOKUP only: nothing it returns is stored. A candidate is shown, a
-  person accepts one, and what persists is the georeference anchor they accepted. That is what keeps
-  this provider free of the retention question every commercial geocoder raises.
+- **Address geocoding**: Nominatim (`nominatim.openstreetmap.org`), **worldwide**. Free, no key, no
+  account. A LOOKUP only: nothing it returns is stored. A candidate is shown, a person accepts one,
+  and what persists is the georeference anchor they accepted — which is also why ODbL's share-alike
+  does not reach this product, since nothing of the provider's database is kept or redistributed.
+  Attribution IS owed and is displayed wherever candidates are shown, in both clients.
+
+  It replaced the Census Bureau geocoder (`geocoding.geo.census.gov`) because that service is a US
+  federal one and US addresses are all it has: a European address could not be found at all. The
+  Census adapter remains in the tree, tested, as the reference implementation of this port and as
+  the fallback if Nominatim's usage policy ever becomes binding.
+
+  **That policy is an obligation, not a courtesy**: at most one request per second, an identifying
+  `User-Agent`, no bulk geocoding. It is enforced in the adapter — requests serialised through one
+  chain with a minimum interval, and construction refused without a `User-Agent` — so breaking it
+  requires changing code that says why it exists. Outgrowing it means a paid provider or a
+  self-hosted instance, which the port makes a one-file change. See
+  [ADR-0020](decisions/ADR-0020-european-addresses-and-eu-data-residency.md).
+
+  **Finding a European address is not permission to serve European users.** Where the personal data
+  of EU residents may live is a separate, undecided question that ADR-0007 already reserved for its
+  own decision; ADR-0020 states the options and does not choose between them.
+
 - **Aerial imagery**: the USGS National Map's NAIP Plus service (`imagery.nationalmap.gov`).
   Public-domain federal imagery, rendered on demand by `exportImage` — the National Map's own cached
   tiles stop at zoom 16, which is far too coarse for a garden. **0.30 m per pixel**, which is the
