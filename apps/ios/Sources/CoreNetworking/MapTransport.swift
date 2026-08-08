@@ -35,13 +35,19 @@ struct GardenObjectTransport: Codable {
     let label: String?
     let details: GardenObjectDetails?
     let lifecycleState: ObjectLifecycleState
+    /// Per-object visibility and edit lock, both server-persisted. Decoded
+    /// leniently: the contract requires them, but a server older than this
+    /// client's expectations should leave the map readable rather than fail
+    /// the whole document over two booleans whose absence means "neither".
+    let isHidden: Bool
+    let isLocked: Bool
     let revision: Int
     let createdAt: Date
     let updatedAt: Date
 
     private enum CodingKeys: String, CodingKey {
         case id, gardenId, category, geometryEnvelope, label, details
-        case lifecycleState, revision, createdAt, updatedAt
+        case lifecycleState, isHidden, isLocked, revision, createdAt, updatedAt
     }
 
     init(from decoder: any Decoder) throws {
@@ -60,6 +66,8 @@ struct GardenObjectTransport: Codable {
             )
             : nil
         lifecycleState = try container.decode(ObjectLifecycleState.self, forKey: .lifecycleState)
+        isHidden = try container.decodeIfPresent(Bool.self, forKey: .isHidden) ?? false
+        isLocked = try container.decodeIfPresent(Bool.self, forKey: .isLocked) ?? false
         revision = try container.decode(Int.self, forKey: .revision)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
@@ -78,6 +86,8 @@ struct GardenObjectTransport: Codable {
             )
         }
         try container.encode(lifecycleState, forKey: .lifecycleState)
+        try container.encode(isHidden, forKey: .isHidden)
+        try container.encode(isLocked, forKey: .isLocked)
         try container.encode(revision, forKey: .revision)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(updatedAt, forKey: .updatedAt)
@@ -153,6 +163,8 @@ extension GardenObjectTransport {
             label: label,
             categoryDetails: details,
             lifecycleState: lifecycleState,
+            isHidden: isHidden,
+            isLocked: isLocked,
             revision: revision,
             createdAt: createdAt,
             updatedAt: updatedAt

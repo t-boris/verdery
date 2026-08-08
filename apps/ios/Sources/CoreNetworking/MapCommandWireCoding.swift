@@ -41,6 +41,8 @@ public enum MapCommandWireCoding {
         case geometry
         case label
         case categoryDetails
+        case isHidden
+        case isLocked
         case expectedRevision
         case translationMetres
         case operation
@@ -125,6 +127,8 @@ public enum MapCommandWireCoding {
                     categoryDetails, to: container.superEncoder(forKey: .categoryDetails)
                 )
             }
+            try container.encode(command.isHidden, forKey: .isHidden)
+            try container.encode(command.isLocked, forKey: .isLocked)
 
         case let .assignPlant(command):
             try container.encode(command.plantObjectId, forKey: .plantObjectId)

@@ -27,7 +27,11 @@ extension MapEditorViewModel {
             viewportCentreLocal: transform.localPosition(for: centreScreen),
             viewportHeightMetres: transform.localDistance(
                 forScreenDistance: Double(viewportSize.height)
-            )
+            ),
+            // The canvas and the photograph turn together or they lie about
+            // each other — the same requirement that makes the camera follow a
+            // pan, applied to the one gesture the canvas gained last.
+            viewRotationDegrees: transform.rotationDegrees
         )
     }
 }

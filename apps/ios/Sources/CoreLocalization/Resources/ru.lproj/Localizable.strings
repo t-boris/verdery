@@ -1285,3 +1285,15 @@
 
 /* Чертёж загружен и ещё обрабатывается. */
 "media.plan.previewProcessing" = "Чертёж готовится. Он появится здесь сам через несколько секунд — ничего не сломалось и перезагружать файл не нужно.";
+
+"map.rotation.northUp" = "Повернуть севером вверх";
+"map.rotation.clockwise" = "Повернуть вид на 15 градусов по часовой стрелке";
+"map.rotation.counterclockwise" = "Повернуть вид на 15 градусов против часовой стрелки";
+"map.rotation.exact" = "Точный угол";
+"map.rotation.apply" = "Применить";
+"map.rotation.value" = "Повёрнуто на {degrees} градусов по часовой стрелке";
+
+"map.property.hide" = "Скрыть на карте";
+"map.property.show" = "Показать на карте";
+"map.property.lock" = "Заблокировать";
+"map.property.unlock" = "Разблокировать";

@@ -44,6 +44,9 @@ public enum BasemapCameras {
     ///     middle.
     ///   - viewportHeightMetres: How many garden-local metres the viewport's
     ///     height covers at the current zoom.
+    ///   - viewRotationDegrees: How far the canvas has turned the DRAWING,
+    ///     clockwise — the camera's own rotation, which moves no accepted
+    ///     coordinate. Zero for a canvas that draws the garden's `+Y` upward.
     ///
     /// Scale correction multiplies the span rather than the anchor: a survey
     /// correction says the garden's metres are slightly different from the
@@ -52,7 +55,8 @@ public enum BasemapCameras {
     public static func derive(
         georeference: GardenGeoreference,
         viewportCentreLocal: Position,
-        viewportHeightMetres: Double
+        viewportHeightMetres: Double,
+        viewRotationDegrees: Double = 0
     ) -> BasemapCamera {
         // The local offset from the anchor, rotated into true-north-relative
         // metres. The garden's `+Y` is `rotationDegrees` clockwise from north,
@@ -97,7 +101,13 @@ public enum BasemapCameras {
             // be the inverse of the georeference rotation". This port dropped
             // the minus. The error is 2θ, so it hides completely in the
             // unrotated garden every test and every screenshot used.
-            headingDegrees: -georeference.rotationDegrees
+            //
+            // The camera's own rotation joins it in the same sum, and for the
+            // same reason: turning the drawing clockwise by θ puts a bearing θ
+            // further anticlockwise at the top of the screen. One term, not
+            // two, so the two rotations cannot be applied in different places
+            // and drift.
+            headingDegrees: -(georeference.rotationDegrees + viewRotationDegrees)
         )
     }
 }

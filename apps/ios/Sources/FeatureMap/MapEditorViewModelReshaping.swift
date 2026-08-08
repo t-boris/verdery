@@ -101,9 +101,8 @@ extension MapEditorViewModel {
             let originalPosition = MapVertexEditCommands.vertexPosition(of: object.geometry, index: vertexIndex)
         else { return }
 
-        let dxMetres = transform.localDistance(forScreenDistance: Double(translationScreen.width))
-        let dyMetres = -transform.localDistance(forScreenDistance: Double(translationScreen.height))
-        let rawPosition = Position(x: originalPosition.x + dxMetres, y: originalPosition.y + dyMetres)
+        let moved = transform.localOffset(forScreenTranslation: translationScreen)
+        let rawPosition = Position(x: originalPosition.x + moved.dx, y: originalPosition.y + moved.dy)
         let newPosition = resolvedVertexDragPosition(
             rawPosition,
             object: object,

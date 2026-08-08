@@ -25,6 +25,21 @@ public struct GardenMapObject: Equatable, Sendable, Identifiable {
     public let label: String?
     public let categoryDetails: GardenObjectDetails?
     public let lifecycleState: ObjectLifecycleState
+    /// Whether this one object is hidden from the canvas.
+    ///
+    /// Per-object and SERVER-persisted, distinct from `MapLayer` visibility,
+    /// which is a client preference over a whole group. The contract has
+    /// carried both since the command set was written — "Persisted per-object
+    /// canvas visibility. Hidden objects remain in the object index" — and the
+    /// web has always honoured them. This client decoded neither, so an object
+    /// hidden on a laptop was drawn on the phone, which is what the owner
+    /// reported as "I see all the parts, though many of them are marked not to
+    /// show on the web".
+    public let isHidden: Bool
+    /// Whether this one object refuses editing. Same standing as
+    /// ``isHidden``: per object, on the server, and independent of the layer
+    /// lock that may also apply.
+    public let isLocked: Bool
     public let revision: Int
     public let createdAt: Date
     public let updatedAt: Date
@@ -38,6 +53,8 @@ public struct GardenMapObject: Equatable, Sendable, Identifiable {
         label: String? = nil,
         categoryDetails: GardenObjectDetails? = nil,
         lifecycleState: ObjectLifecycleState,
+        isHidden: Bool = false,
+        isLocked: Bool = false,
         revision: Int,
         createdAt: Date,
         updatedAt: Date
@@ -50,6 +67,8 @@ public struct GardenMapObject: Equatable, Sendable, Identifiable {
         self.label = label
         self.categoryDetails = categoryDetails
         self.lifecycleState = lifecycleState
+        self.isHidden = isHidden
+        self.isLocked = isLocked
         self.revision = revision
         self.createdAt = createdAt
         self.updatedAt = updatedAt
@@ -69,6 +88,29 @@ public struct GardenMapObject: Equatable, Sendable, Identifiable {
         )
     }
 
+    /// A copy with this object's own visibility and edit lock replaced.
+    ///
+    /// Separate from ``replacingSnapshot(_:revision:updatedAt:)`` because
+    /// ``ObjectSnapshot`` cannot carry these two — see that method's own
+    /// comment for why the cross-runtime fixture decides that.
+    public func settingVisibility(isHidden: Bool, isLocked: Bool) -> GardenMapObject {
+        GardenMapObject(
+            id: id,
+            gardenId: gardenId,
+            category: category,
+            geometry: geometry,
+            coordinateSpaceId: coordinateSpaceId,
+            label: label,
+            categoryDetails: categoryDetails,
+            lifecycleState: lifecycleState,
+            isHidden: isHidden,
+            isLocked: isLocked,
+            revision: revision,
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
+    }
+
     /// Returns a copy with every field ``ObjectSnapshot`` can carry replaced
     /// by that snapshot's values, keeping identity, revision, and timestamps.
     ///
@@ -85,6 +127,15 @@ public struct GardenMapObject: Equatable, Sendable, Identifiable {
             label: snapshot.label,
             categoryDetails: snapshot.categoryDetails,
             lifecycleState: snapshot.lifecycleState,
+            // `isHidden`/`isLocked` deliberately survive a snapshot replacement
+            // rather than being restored from it: `ObjectSnapshot` is the
+            // cross-runtime shape `command-inverse.json` pins, and that fixture
+            // — shared with the TypeScript suite — does not carry them. Adding
+            // them here in Swift alone would break the equivalence the fixture
+            // exists to guarantee. See `MapCommandProjection`'s
+            // `changeProperties` case, which applies them directly.
+            isHidden: isHidden,
+            isLocked: isLocked,
             revision: revision,
             createdAt: createdAt,
             updatedAt: updatedAt

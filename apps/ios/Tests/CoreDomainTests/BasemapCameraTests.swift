@@ -175,4 +175,40 @@ struct BasemapCameraTests {
         )
         #expect(camera.spanMetres == BasemapCameras.minimumSpanMetres)
     }
+
+    /// The camera's own rotation joins the georeference's in one sum. Turning
+    /// the drawing clockwise puts a bearing that much further anticlockwise at
+    /// the top of the screen, so the backdrop has to turn with it — the same
+    /// requirement that makes it follow a pan.
+    @Test("adds the canvas's own rotation to the heading")
+    func viewRotationJoinsTheHeading() {
+        let unrotatedGarden = BasemapCameras.derive(
+            georeference: georeference(),
+            viewportCentreLocal: Position(x: 0, y: 0),
+            viewportHeightMetres: 40,
+            viewRotationDegrees: 30
+        )
+        #expect(abs(unrotatedGarden.headingDegrees - (-30)) < 1e-9)
+
+        let both = BasemapCameras.derive(
+            georeference: georeference(rotationDegrees: 20),
+            viewportCentreLocal: Position(x: 0, y: 0),
+            viewportHeightMetres: 40,
+            viewRotationDegrees: 30
+        )
+        #expect(abs(both.headingDegrees - (-50)) < 1e-9)
+    }
+
+    /// The default keeps every existing caller and fixture meaning what it
+    /// meant: a canvas that draws the garden's `+Y` upward has no rotation of
+    /// its own.
+    @Test("defaults to a canvas that has not been turned")
+    func viewRotationDefaultsToNone() {
+        let camera = BasemapCameras.derive(
+            georeference: georeference(rotationDegrees: 20),
+            viewportCentreLocal: Position(x: 0, y: 0),
+            viewportHeightMetres: 40
+        )
+        #expect(abs(camera.headingDegrees - (-20)) < 1e-9)
+    }
 }

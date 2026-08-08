@@ -29,6 +29,22 @@ public struct LocalizedStrings: Sendable {
         string(forKey: key.rawValue)
     }
 
+    /// The same resolution for one object's own hide/lock controls.
+    public func callAsFunction(_ key: MapObjectVisibilityLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
+    /// The same resolution for the map editor's view-rotation controls. See
+    /// ``MapRotationLocalizationKey`` for why these are not more cases in
+    /// `LocalizationKey`.
+    public func callAsFunction(_ key: MapRotationLocalizationKey) -> String {
+        string(forKey: key.rawValue)
+    }
+
+    public func string(_ key: MapRotationLocalizationKey, parameters: [String: String]) -> String {
+        string(forKey: key.rawValue, parameters: parameters)
+    }
+
     /// The same resolution for the account screen's own key set.
     ///
     /// An overload rather than a generic or an existential parameter, because
@@ -264,6 +280,8 @@ public struct LocalizedStrings: Sendable {
         + NotificationLocalizationKey.allCases.map(\.rawValue)
         + GeoreferenceLocalizationKey.allCases.map(\.rawValue)
         + RelativeDayLocalizationKey.allCases.map(\.rawValue)
+        + MapRotationLocalizationKey.allCases.map(\.rawValue)
+        + MapObjectVisibilityLocalizationKey.allCases.map(\.rawValue)
         + IdentificationReviewLocalizationKey.allCases.map(\.rawValue)
         + MapCalibrationLocalizationKey.allCases.map(\.rawValue)
         + PlatReadingLocalizationKey.allCases.map(\.rawValue)

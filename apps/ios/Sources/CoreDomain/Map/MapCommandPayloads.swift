@@ -169,17 +169,28 @@ public struct ChangePropertiesPayload: Equatable, Sendable {
     public let expectedRevision: Int
     public let label: String?
     public let categoryDetails: GardenObjectDetails?
+    /// Per-object visibility and edit lock. Both are part of this command in
+    /// the contract — "Persisted per-object canvas visibility" — and both are
+    /// carried explicitly rather than as optionals, because a change that
+    /// omits them means "leave them as they are" only if somebody remembers
+    /// to merge, and the property sheet always knows both.
+    public let isHidden: Bool
+    public let isLocked: Bool
 
     public init(
         objectId: String,
         expectedRevision: Int,
         label: String? = nil,
-        categoryDetails: GardenObjectDetails? = nil
+        categoryDetails: GardenObjectDetails? = nil,
+        isHidden: Bool = false,
+        isLocked: Bool = false
     ) {
         self.objectId = objectId
         self.expectedRevision = expectedRevision
         self.label = label
         self.categoryDetails = categoryDetails
+        self.isHidden = isHidden
+        self.isLocked = isLocked
     }
 }
 
