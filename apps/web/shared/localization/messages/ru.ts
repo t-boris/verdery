@@ -271,7 +271,8 @@ export const russianMessages: MessageCatalogue = {
     'Ни один адрес не совпал. Проверьте написание или поставьте точку сами.',
   'gardenLocation.addressProviderUnavailable':
     'Адресная служба не ответила. Введите координаты вручную или повторите попытку.',
-  'gardenLocation.addressUsOnly': 'Поиск по адресу работает для адресов США.',
+  'gardenLocation.addressUsOnly':
+    'Поиск по адресу работает по всему миру. Данные адресов © участники OpenStreetMap.',
   'gardenLocation.precisionStreetAddress': 'Номер дома',
   'gardenLocation.precisionStreet': 'Только улица',
   'gardenLocation.precisionArea': 'Только район',

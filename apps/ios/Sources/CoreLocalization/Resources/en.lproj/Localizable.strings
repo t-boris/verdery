@@ -1158,7 +1158,7 @@
 "georeference.locating" = "Finding you.";
 "georeference.locationDenied" = "Location is switched off for this application in iOS Settings. The address search and the map pin both still work.";
 "georeference.searchAddress" = "Search an address";
-"georeference.searchHint" = "United States addresses only, for now.";
+"georeference.searchHint" = "Worldwide. Address data © OpenStreetMap contributors.";
 "georeference.noCandidates" = "No address matched. Check the spelling — this is an answer, not a failure.";
 "georeference.providerUnavailable" = "The address service could not be reached, so this says nothing about the address. Try again, or place a pin instead.";
 "georeference.dropPin" = "Place a pin";

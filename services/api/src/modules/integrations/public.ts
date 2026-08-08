@@ -136,6 +136,11 @@ export type {
   GeocodedAddressCandidate,
 } from './application/address-geocoding-provider.js';
 export { UsCensusGeocodingAdapter } from './persistence/us-census-geocoding-adapter.js';
+export {
+  NominatimGeocodingAdapter,
+  NOMINATIM_ATTRIBUTION,
+  NOMINATIM_MINIMUM_REQUEST_INTERVAL_MS,
+} from './persistence/nominatim-geocoding-adapter.js';
 export { registerWeatherRefreshSweepRoute } from './transport/weather-refresh-sweep-route.js';
 export type { WeatherRefreshSweepRouteDependencies } from './transport/weather-refresh-sweep-route.js';
 

@@ -13,7 +13,11 @@ public protocol GeographyGateway: Sendable {
     /// A suggestion, never a record. Nothing from the provider is stored —
     /// what persists is the anchor a person accepts.
     ///
-    /// United States addresses only, following the product's first market.
+    /// Worldwide, since 2026-08-08: the US Census geocoder behind this was
+    /// replaced by Nominatim because a European address could not be found at
+    /// all. Address data is © OpenStreetMap contributors and the interface
+    /// says so wherever candidates are shown, which is what ODbL asks of a
+    /// consumer that stores none of it.
     /// An address elsewhere returns no candidates, which is a real answer
     /// rather than a failure.
     func findAddressCandidates(query: String) async throws -> AddressCandidateList

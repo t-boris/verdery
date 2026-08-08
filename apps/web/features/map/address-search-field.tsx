@@ -29,8 +29,11 @@ export interface AddressSearchFieldProps {
  * is also why nothing here is remembered — no provider result reaches this
  * application's database.
  *
- * United States addresses only, which is the geocoder's own coverage and the
- * product's first market (ADR-0007). The empty state says that plainly rather
+ * Worldwide since 2026-08-08, when Nominatim replaced the US Census geocoder
+ * — a European address could not be found at all, because the service it
+ * replaced is a US federal one. Address data is © OpenStreetMap contributors,
+ * and the hint beside this field carries that attribution. The empty state
+ * says what happened plainly rather
  * than leaving someone outside the US to conclude their address is wrong.
  *
  * Source: implementation-plan.md work package P12-GEO-01;

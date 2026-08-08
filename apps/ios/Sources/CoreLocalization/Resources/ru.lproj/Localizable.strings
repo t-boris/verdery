@@ -1157,7 +1157,7 @@
 "georeference.locating" = "Определяем.";
 "georeference.locationDenied" = "Геолокация для приложения выключена в настройках iOS. Поиск по адресу и метка на карте работают.";
 "georeference.searchAddress" = "Найти по адресу";
-"georeference.searchHint" = "Пока только адреса США.";
+"georeference.searchHint" = "По всему миру. Данные адресов © участники OpenStreetMap.";
 "georeference.noCandidates" = "Ни один адрес не подошёл. Проверьте написание — это ответ, а не сбой.";
 "georeference.providerUnavailable" = "До адресной службы не достучались, так что об адресе это ничего не говорит. Повторите или поставьте метку вручную.";
 "georeference.dropPin" = "Поставить метку";
