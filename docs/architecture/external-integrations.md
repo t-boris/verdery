@@ -81,6 +81,34 @@ Normalized weather data records:
 
 Recommendations check freshness and degrade when data is stale.
 
+**One batch holds two shapes of observation, and "latest" means two different things.**
+A single provider response yields a point reading (temperature, humidity, wind, the last hour's
+rain) and one rain-only total per elapsed day. Both are stored as `record_kind = 'observation'` —
+the domain's two-value kind cannot express "point reading" versus "daily accumulation" — and both
+are inserted in one batch, so they share `fetched_at` and `created_at` exactly. Two reads follow,
+and conflating them is what blanked temperature, humidity and wind on the deployed weather panel:
+
+- `findLatest(gardenId, kind)` — RETRIEVAL order, for the cache decision in `RefreshGardenWeather`:
+  what did this system most recently learn. Its last tie-break is `id DESC`, and UUIDv7 ids ascend
+  in build order, so within a batch it resolves to the last daily total.
+- `findLatestObservation(gardenId)` — EFFECTIVE order, for display: which moment is the reading
+  about. Every stored observation is elapsed by construction and every daily total is dated at a
+  past midnight, so the point reading wins without a new column.
+
+- `findNextForecast(gardenId, now)` — EFFECTIVE order reversed, for the forecast: the nearest
+  moment that has not arrived, falling back to the most recent overtaken one so a stale forecast
+  stays visible and labelled rather than becoming an indistinguishable absence.
+
+**The forecast needs an hourly block, not just a better ordering.** The daily block carries
+`precipitation_sum` and nothing else, so a forecast built from it can only ever report rain — the
+deployed panel showed a date six days out with "Not reported" under temperature, wind and humidity.
+Daily maxima and minima cannot fill that gap either: the domain records ONE `temperatureCelsius`,
+and naming either bound "the" temperature would be a fabricated reading. The request therefore also
+asks for `hourly=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m` — same call, same
+quota — and the nearest hour that has not begun is stored as a point forecast, which is exactly the
+shape `WeatherMeasurements` already describes. One row per sweep, not the whole series: a later
+hourly chart can widen it when it has a consumer.
+
 **Reading the stored records.** `GET /gardens/{gardenId}/weather` exposes the latest observation and
 forecast to an authorized garden reader, with the freshness label derived at read time and the
 record's own snapshotted attribution. The read never calls a provider — refreshing is exclusively the

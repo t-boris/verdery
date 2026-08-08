@@ -184,6 +184,39 @@ describe('GetGardenWeatherView', () => {
     expect(result.recentRainfall?.totalMm).toBe(3.3);
   });
 
+  it('shows the point reading, not the rainfall total that shared its batch', async () => {
+    // One provider response yields a point reading (temperature, humidity,
+    // wind, last hour's rain) AND one rain-only total per elapsed day. They
+    // are inserted together, so `fetched_at` and `created_at` are identical
+    // and the id tie-break decided — and UUIDv7 ids ascend in build order,
+    // point reading first, so the LAST daily total always won. A person was
+    // shown a rainfall row with every other measurement null.
+    const pointReading = {
+      ...storedRecord('019827ab-4c1d-7e3f-9a2b-5c6d7e8f9e30', 'observation', NOW),
+      effectiveAt: new Date(NOW.getTime() - 5 * 60 * 1000),
+    };
+    const dailyTotal = {
+      // Deliberately the LARGER id, exactly as the real batch produces.
+      ...storedRecord('019827ab-4c1d-7e3f-9a2b-5c6d7e8f9e99', 'observation', NOW),
+      effectiveAt: new Date('2026-07-24T00:00:00Z'),
+      precipitationIntervalSeconds: 24 * 60 * 60,
+      measurements: {
+        temperatureCelsius: null,
+        precipitationMm: 3.2,
+        windSpeedMps: null,
+        humidityPercent: null,
+      },
+    };
+
+    const view = buildView({ records: [pointReading, dailyTotal], georeferenced: true });
+    const result = await view.execute(GARDEN_ID, PROFILE_ID);
+
+    expect(result.observation?.temperatureCelsius).not.toBeNull();
+    expect(result.observation?.humidityPercent).not.toBeNull();
+    expect(result.observation?.windSpeedMps).not.toBeNull();
+    expect(result.observation?.effectiveAt).toBe(pointReading.effectiveAt.toISOString());
+  });
+
   it('counts a day the sweep re-fetched exactly once, and quotes the most recently fetched figure for it', async () => {
     // The provider is asked for `past_days` of daily totals on every refresh,
     // so an append-only table holds one row per elapsed day PER SWEEP. Before

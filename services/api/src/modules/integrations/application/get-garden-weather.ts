@@ -60,10 +60,27 @@ export class GetGardenWeather {
   }
 
   async execute(input: GetGardenWeatherInput): Promise<GetGardenWeatherResult> {
-    const record = await this.weatherRecords.findLatest(
-      input.gardenId,
-      input.kind ?? 'observation',
-    );
+    const kind = input.kind ?? 'observation';
+    // Observations are read in EFFECTIVE order, not retrieval order. This
+    // read answers "what are the conditions", and one batch contains both a
+    // point reading and one rain-only total per elapsed day — see
+    // `WeatherRecordRepository.findLatestObservation` for why retrieval
+    // order silently returned the rainfall row and blanked temperature,
+    // humidity and wind.
+    //
+    // The forecast is read the same way with the direction reversed: the
+    // NEAREST upcoming moment rather than the most recent past one. Retrieval
+    // order there returned whichever row held the largest id, which was the
+    // furthest day in the batch — a date six days out, labelled "Forecast".
+    //
+    // Neither read is `findLatest`. That one keeps its retrieval-order
+    // meaning for `RefreshGardenWeather`'s cache decision, which asks what
+    // this system most recently LEARNED — a genuinely different question from
+    // the one this use case answers.
+    const record =
+      kind === 'observation'
+        ? await this.weatherRecords.findLatestObservation(input.gardenId)
+        : await this.weatherRecords.findNextForecast(input.gardenId, this.clock.now());
     if (record === null) {
       return { outcome: 'noRecord' };
     }
