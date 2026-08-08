@@ -280,16 +280,16 @@ struct GardenTabView: View {
                 }
             )
         }
-        // The console chassis: a 24-point status strip sitting directly on the
-        // tab bar, so the two questions a person has on every screen — which
-        // garden, and is my work safe — are answered without either one
-        // occupying a toolbar slot on all five tabs.
         .onChange(of: composition.isCaptureRequested) { _, requested in
             // Switch to the tab that owns the camera. Without this the request
             // is honoured behind whichever tab happened to be showing.
             if requested { selection = 2 }
         }
-        .safeAreaInset(edge: .bottom) {
+        // The console chassis: the strip that answers the two questions a
+        // person has on every screen — which garden, and is my work safe —
+        // without either one occupying a toolbar slot on all five tabs. See
+        // `tabBarAccessory` for why its placement is version-dependent.
+        .tabBarAccessory {
             ConsoleStatusStrip(
                 gardenName: gardenName,
                 gardenSymbol: "tree.fill",

@@ -6,10 +6,13 @@ import SwiftUI
 /// object list as two equally real ways to reach the same objects, a create
 /// toolbar, undo/redo, and the property sheet.
 public struct MapEditorView: View {
-    private enum Tab: Hashable { case canvas, list }
+    enum Tab: Hashable { case canvas, list }
 
     @State var model: MapEditorViewModel
-    @State private var selectedTab: Tab = .canvas
+    /// Module-internal for the same reason the sheet flags below are: the
+    /// create rail lives in `MapEditorView+Bands.swift` and arming a tool
+    /// returns the reader to the canvas.
+    @State var selectedTab: Tab = .canvas
     @State var isLayersSheetPresented = false
     /// Module-internal, not `private`: `MapEditorView+Toolbar.swift` raises
     /// these sheets, and `private` is a file scope in Swift.
@@ -247,7 +250,14 @@ public struct MapEditorView: View {
 
             switch selectedTab {
             case .canvas:
+                // The one element in this stack that may give up height —
+                // "the canvas is the workspace", and every band around it is
+                // controls at their own natural size. Said explicitly, so that
+                // a band which is accidentally flexible cannot win the space a
+                // control needs: `createToolbar` was exactly that, and lost
+                // half of itself under the console strip.
                 canvasArea
+                    .layoutPriority(-1)
                 if model.calibrationDraft != nil {
                     MapCalibrationBarView(model: model)
                 } else if model.vertexEditObjectId != nil {
@@ -265,6 +275,7 @@ public struct MapEditorView: View {
                     onDelete: { objectId in Task { await model.delete(objectId: objectId) } },
                     onRestore: { objectId in Task { await model.restore(objectId: objectId) } }
                 )
+                .layoutPriority(-1)
             }
 
             draftControls
@@ -392,150 +403,6 @@ public struct MapEditorView: View {
             )
             .accessibilityIdentifier("map.editor.scaleIndicator")
     }
-
-    /// Shown instead of ``selectionBar`` while ``MapEditorViewModel/vertexEditObjectId``
-    /// is set: the hint banner plus the actions that operate on whichever
-    /// vertex handle is currently selected (`MapCanvasView`'s tap-to-select),
-    /// and a "Done" action that exits vertex-edit mode.
-    private var vertexEditActionBar: some View {
-        VStack(spacing: 0) {
-            if let hint = model.vertexEditHint {
-                Text(hint)
-                    .font(.footnote)
-                    .padding(8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.yellow.opacity(0.2))
-                    .accessibilityIdentifier("map.editor.vertexEditHint")
-            }
-            HStack {
-                Button(model.vertexEditRemoveTitle) {
-                    Task { await model.commitRemoveSelectedVertex() }
-                }
-                .disabled(!model.canRemoveSelectedVertex)
-                .accessibilityIdentifier("map.editor.vertexEdit.remove")
-
-                if model.canSplitAtSelectedVertex {
-                    Button(model.vertexEditSplitTitle) {
-                        Task { await model.splitAtSelectedVertex() }
-                    }
-                    .accessibilityIdentifier("map.editor.vertexEdit.split")
-                }
-
-                // Arms/disarms snapping for the next vertex-handle drag only
-                // — this app's touch-appropriate stand-in for the web
-                // editor's Cmd/Option-click modifier. See
-                // `MapEditorViewModel.isVertexDragSnapSuppressed`'s doc
-                // comment.
-                Button(model.vertexEditSnapToggleTitle) {
-                    model.toggleVertexDragSnapSuppression()
-                }
-                .accessibilityIdentifier("map.editor.vertexEdit.snapToggle")
-
-                Spacer()
-
-                Button(model.vertexEditDoneTitle) { model.endVertexEdit() }
-                    .accessibilityIdentifier("map.editor.vertexEdit.done")
-            }
-            .padding(8)
-        }
-    }
-
-    @ViewBuilder
-    private var selectionBar: some View {
-        if model.selectedObjectId != nil {
-            HStack {
-                Button {
-                    model.openPropertySheetForSelection()
-                } label: {
-                    Label(model.editSelectedTitle, systemImage: "pencil")
-                }
-                .accessibilityIdentifier("map.editor.editSelected")
-
-                // The calibration entry for a selected plan background —
-                // disabled (never hidden) while its display image is not
-                // resolved, since a session needs plan points to tap.
-                if model.selectedObject?.category == .importedBackground {
-                    Button {
-                        if let objectId = model.selectedObjectId {
-                            model.beginCalibration(objectId: objectId)
-                        }
-                    } label: {
-                        Label(model.calibrateSelectionTitle, systemImage: "scope")
-                    }
-                    .disabled(!model.canCalibrateSelection)
-                    .accessibilityIdentifier("map.editor.calibrateSelected")
-                }
-
-                Spacer()
-
-                Button(role: .destructive) {
-                    Task { await model.deleteSelected() }
-                } label: {
-                    Label(model.deleteSelectedTitle, systemImage: "trash")
-                }
-                .accessibilityIdentifier("map.editor.deleteSelected")
-            }
-            .padding(8)
-        }
-    }
-
-    /// Finish, undo a point, cancel — shown only while a shape is being
-    /// drawn, and floating so the canvas keeps its height.
-    @ViewBuilder
-    private var draftControls: some View {
-        if model.isDrafting {
-            HStack(spacing: Metrics.space3) {
-                CompactActionButton(
-                    symbol: "arrow.uturn.backward",
-                    title: model.draftUndoTitle
-                ) {
-                    model.undoDraftPoint()
-                }
-                .accessibilityIdentifier("map.draft.undo")
-
-                CompactActionButton(symbol: "xmark", title: model.draftCancelTitle) {
-                    model.cancelDraft()
-                }
-                .accessibilityIdentifier("map.draft.cancel")
-
-                Button(model.draftFinishTitle) {
-                    Task { await model.finishDraft() }
-                }
-                .buttonStyle(PrimaryButtonStyle())
-                .disabled(!model.canFinishDraft)
-                .accessibilityIdentifier("map.draft.finish")
-            }
-            .padding(Metrics.space3)
-        }
-    }
-
-    private var createToolbar: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                Text(model.createSectionTitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                ForEach(model.creatableCategories) { category in
-                    Button {
-                        model.beginDraft(category)
-                        selectedTab = .canvas
-                    } label: {
-                        Text(model.creatableCategoryName(category))
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(model.armedCreateCategory == category ? .accentColor : .secondary)
-                    // A gate cannot be created without an existing fence to
-                    // attach to (`GateDetails.fenceObjectId` is required) —
-                    // disabled up front rather than only refusing after a tap.
-                    .disabled(category == .gate && !model.hasFence)
-                    .accessibilityIdentifier("map.editor.create.\(category.id)")
-                }
-            }
-            .padding(8)
-        }
-    }
-
 
     /// A small, persistent save-status indicator — distinct from
     /// `model.errorMessage`'s existing one-shot banner (still shown

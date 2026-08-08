@@ -16,8 +16,9 @@ public struct BasemapCamera: Sendable, Equatable {
     public let centre: Position
     /// The north–south extent the viewport covers, in metres.
     public let spanMetres: Double
-    /// Clockwise rotation to apply to the basemap so its north agrees with the
-    /// canvas's own "up".
+    /// The compass bearing the canvas draws upward, clockwise from true north.
+    /// A backdrop told to put this bearing at the top of the screen agrees with
+    /// the garden drawn over it.
     public let headingDegrees: Double
 
     public init(centre: Position, spanMetres: Double, headingDegrees: Double) {
@@ -80,9 +81,23 @@ public enum BasemapCameras {
         return BasemapCamera(
             centre: centre,
             spanMetres: max(viewportHeightMetres * scale, minimumSpanMetres),
-            // The canvas draws the garden's `+Y` upward, so the basemap has to
-            // turn by the garden's own rotation for the two to agree.
-            headingDegrees: georeference.rotationDegrees
+            // The INVERSE of the garden's rotation, which is not the obvious
+            // sign and was wrong here until a rotated garden was looked at.
+            //
+            // `rotationDegrees` is what `GeographicProjection.localPosition`
+            // rotates a compass-aligned offset BY, negated, to reach local
+            // axes. Run local `(0, 1)` back through that and it comes out at
+            // east `-sin θ`, north `cos θ` — bearing `-θ`. So the garden's `+Y`
+            // points θ degrees ANTICLOCKWISE of north, and since the canvas
+            // draws `+Y` upward, `-θ` is the bearing at the top of the screen.
+            //
+            // The web editor says the same thing in one line —
+            // `bearing: -(georeference.rotationDegrees + camera.rotationDegrees)`
+            // in `basemap-provider.ts`, with the comment "the map bearing must
+            // be the inverse of the georeference rotation". This port dropped
+            // the minus. The error is 2θ, so it hides completely in the
+            // unrotated garden every test and every screenshot used.
+            headingDegrees: -georeference.rotationDegrees
         )
     }
 }

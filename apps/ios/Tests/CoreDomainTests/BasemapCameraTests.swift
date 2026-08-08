@@ -65,9 +65,10 @@ struct BasemapCameraTests {
         #expect(abs(east.centre.y - base.geographicAnchor.y) < 1e-9)
     }
 
-    /// The one that actually catches a sign error: rotate the garden 90°
-    /// clockwise from north and its local `+Y` points east, so walking up the
-    /// canvas must move the camera east and not west.
+    /// The one that actually catches a sign error: at `rotationDegrees` 90 the
+    /// garden's local `+Y` points WEST — that is what
+    /// `GeographicProjection.localPosition`'s convention makes it — so walking
+    /// up the canvas must move the camera west.
     @Test("respects the garden's rotation against north")
     func rotatedAxes() {
         let base = georeference(rotationDegrees: 90)
@@ -78,9 +79,50 @@ struct BasemapCameraTests {
         )
         #expect(camera.centre.x < base.geographicAnchor.x)
         #expect(abs(camera.centre.y - base.geographicAnchor.y) < 1e-6)
-        // The backdrop turns with the garden, so the two agree on which way
-        // up is.
-        #expect(camera.headingDegrees == 90)
+        // And the backdrop is told to put that same west at the top, which is
+        // the INVERSE of the garden's rotation. This assertion read `== 90`
+        // while the two above already said "west", and the contradiction
+        // shipped: at 90° it turns the photograph a half-turn under a drawing
+        // that still looks plausible.
+        #expect(camera.headingDegrees == -90)
+    }
+
+    /// The heading, pinned against the projection rather than against itself.
+    ///
+    /// `roundTripsThroughProjection` covers the centre and says nothing about
+    /// which way up the backdrop is told to be, which is how a sign error in
+    /// the heading survived a suite that passed. The property: the bearing
+    /// from the anchor to a point one metre UP the canvas is the bearing the
+    /// camera asks the basemap to put at the top of the screen.
+    @Test("heads the backdrop along the direction the canvas draws upward")
+    func headingMatchesTheCanvasUpDirection() {
+        for rotation in [0.0, 37.0, 90.0, 213.5, 359.0] {
+            let reference = georeference(rotationDegrees: rotation)
+            let origin = BasemapCameras.derive(
+                georeference: reference,
+                viewportCentreLocal: Position(x: 0, y: 0),
+                viewportHeightMetres: 40
+            )
+            let oneMetreUp = BasemapCameras.derive(
+                georeference: reference,
+                viewportCentreLocal: Position(x: 0, y: 1),
+                viewportHeightMetres: 40
+            )
+
+            let metresPerDegreeLatitude = 111_320.0
+            let northMetres = (oneMetreUp.centre.y - origin.centre.y) * metresPerDegreeLatitude
+            let eastMetres =
+                (oneMetreUp.centre.x - origin.centre.x)
+                * metresPerDegreeLatitude * cos(origin.centre.y * .pi / 180)
+            let bearing = atan2(eastMetres, northMetres) * 180 / .pi
+
+            // Both reduced to the same turn before comparing: -90 and 270 name
+            // one direction, and a test that cannot say so would fail on an
+            // implementation that is right.
+            let difference = (bearing - origin.headingDegrees).truncatingRemainder(dividingBy: 360)
+            let wrapped = min(abs(difference), 360 - abs(difference))
+            #expect(wrapped < 0.01, "rotation \(rotation): heading \(origin.headingDegrees), canvas up bears \(bearing)")
+        }
     }
 
     /// A round trip through the projection is the strongest statement
