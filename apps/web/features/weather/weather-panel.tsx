@@ -6,27 +6,30 @@ import type {
   RecentRainfall,
 } from '@verdery/api-contracts';
 import Link from 'next/link';
+import { useState, type ComponentType } from 'react';
 
 import { formatCalendarDay, formatInstant, useLocalization } from '@/shared/localization/public';
 import type { Locale, Translate } from '@/shared/localization/public';
-import { Button, FailureAlert, StatusPill } from '@/shared/ui/public';
+import { Button, FailureAlert, StatusPill, SunIcon } from '@/shared/ui/public';
 
 import styles from './weather-panel.module.css';
 import { useGardenWeather } from './queries';
+import { formatTemperature, temperatureUnitCookie, type TemperatureUnit } from './temperature-unit';
+import { HumidityIcon, RainIcon, TemperatureIcon, WindIcon } from './weather-icons';
 
 export interface WeatherPanelProps {
   readonly gardenId: string;
+  readonly initialTemperatureUnit: TemperatureUnit;
 }
 
 interface MeasurementSpec {
+  readonly kind: 'temperature' | 'precipitation' | 'wind' | 'humidity';
   readonly labelKey:
     'weather.temperature' | 'weather.precipitation' | 'weather.wind' | 'weather.humidity';
   readonly valueKey:
-    | 'weather.temperatureValue'
-    | 'weather.precipitationValue'
-    | 'weather.windValue'
-    | 'weather.humidityValue';
+    'weather.precipitationValue' | 'weather.windValue' | 'weather.humidityValue' | null;
   readonly read: (reading: GardenWeatherReading) => number | null;
+  readonly icon: ComponentType;
 }
 
 /**
@@ -38,24 +41,32 @@ interface MeasurementSpec {
  */
 const MEASUREMENTS: readonly MeasurementSpec[] = [
   {
+    kind: 'temperature',
     labelKey: 'weather.temperature',
-    valueKey: 'weather.temperatureValue',
+    valueKey: null,
     read: (reading) => reading.temperatureCelsius,
+    icon: TemperatureIcon,
   },
   {
+    kind: 'precipitation',
     labelKey: 'weather.precipitation',
     valueKey: 'weather.precipitationValue',
     read: (reading) => reading.precipitationMm,
+    icon: RainIcon,
   },
   {
+    kind: 'wind',
     labelKey: 'weather.wind',
     valueKey: 'weather.windValue',
     read: (reading) => reading.windSpeedMps,
+    icon: WindIcon,
   },
   {
+    kind: 'humidity',
     labelKey: 'weather.humidity',
     valueKey: 'weather.humidityValue',
     read: (reading) => reading.humidityPercent,
+    icon: HumidityIcon,
   },
 ];
 
@@ -65,35 +76,57 @@ function ReadingGroup({
   timestampKey,
   t,
   locale,
+  temperatureUnit,
 }: {
   readonly reading: GardenWeatherReading;
   readonly titleKey: 'weather.observationLabel' | 'weather.forecastLabel';
   readonly timestampKey: 'weather.measuredAt' | 'weather.forecastFor';
   readonly t: Translate;
   readonly locale: Locale;
+  readonly temperatureUnit: TemperatureUnit;
 }) {
   return (
     <div className={styles['group']}>
       <div className={styles['groupHeader']}>
-        <h3 className={styles['groupTitle']}>{t(titleKey)}</h3>
-        <span className={styles['timestamp']}>
-          {t(timestampKey, { time: formatInstant(reading.effectiveAt, locale) })}
-        </span>
+        <div className={styles['groupIdentity']}>
+          {titleKey === 'weather.observationLabel' ? <SunIcon /> : <WindIcon />}
+          <div>
+            <h3 className={styles['groupTitle']}>{t(titleKey)}</h3>
+            <p className={styles['windowLabel']}>
+              {t(
+                titleKey === 'weather.observationLabel'
+                  ? 'weather.observationWindow'
+                  : 'weather.forecastWindow',
+              )}
+            </p>
+          </div>
+        </div>
         {reading.freshness === 'stale' && <StatusPill tone="neutral" label={t('weather.stale')} />}
       </div>
+      <p className={styles['timestamp']}>
+        {t(timestampKey, { time: formatInstant(reading.effectiveAt, locale) })}
+        {' · '}
+        {t('weather.fetchedAt', { time: formatInstant(reading.retrievedAt, locale) })}
+      </p>
       <ul className={styles['readings']}>
         {MEASUREMENTS.map((measurement) => {
           const value = measurement.read(reading);
+          const Icon = measurement.icon;
           return (
             <li className={styles['reading']} key={measurement.labelKey}>
-              <span className={styles['readingLabel']}>{t(measurement.labelKey)}</span>
+              <span className={styles['readingLabel']}>
+                <Icon />
+                {t(measurement.labelKey)}
+              </span>
               {value === null ? (
                 <span className={styles['readingValueMissing']}>
                   {t('weather.measurementMissing')}
                 </span>
               ) : (
                 <span className={styles['readingValue']}>
-                  {t(measurement.valueKey, { value: String(value) })}
+                  {measurement.valueKey === null
+                    ? formatTemperature(value, temperatureUnit, locale)
+                    : t(measurement.valueKey, { value: String(value) })}
                 </span>
               )}
             </li>
@@ -103,6 +136,34 @@ function ReadingGroup({
       {reading.freshness === 'stale' && (
         <p className={styles['note']}>{t('weather.staleExplanation')}</p>
       )}
+    </div>
+  );
+}
+
+function TodayPrecipitation({
+  observation,
+  t,
+}: {
+  readonly observation: GardenWeatherReading | null;
+  readonly t: Translate;
+}) {
+  const latest = observation?.precipitationMm ?? null;
+  return (
+    <div className={styles['todayPrecipitation']}>
+      <div className={styles['groupIdentity']}>
+        <RainIcon />
+        <h3 className={styles['groupTitle']}>{t('weather.todayPrecipitationTitle')}</h3>
+      </div>
+      {latest === null ? (
+        <p className={styles['readingValueMissing']}>
+          {t('weather.todayPrecipitationUnavailable')}
+        </p>
+      ) : (
+        <p className={styles['todayPrecipitationValue']}>
+          {t('weather.latestIntervalPrecipitation', { value: String(latest) })}
+        </p>
+      )}
+      <p className={styles['note']}>{t('weather.todayPrecipitationExplanation')}</p>
     </div>
   );
 }
@@ -138,13 +199,22 @@ function RainfallChart({
   return (
     <figure className={styles['rainfall']}>
       <figcaption className={styles['rainfallHeadline']}>
-        <span className={styles['groupTitle']}>
-          {t('weather.rainfallTitle', { days: String(rainfall.windowDays) })}
+        <span className={styles['groupIdentity']}>
+          <RainIcon />
+          <span className={styles['groupTitle']}>
+            {t('weather.rainfallTitle', { days: String(rainfall.windowDays) })}
+          </span>
         </span>
         <span className={styles['rainfallTotal']}>
           {t('weather.rainfallTotal', { total: String(rainfall.totalMm) })}
         </span>
       </figcaption>
+      <p className={styles['windowLabel']}>
+        {t('weather.rainfallCoverage', {
+          available: String(rainfall.days.length),
+          days: String(rainfall.windowDays),
+        })}
+      </p>
       <ul className={styles['rainfallChart']}>
         {rainfall.days.map((day) => {
           const isDry = day.precipitationMm === 0;
@@ -221,15 +291,42 @@ function UnavailableNotice({
  * Attribution is rendered whenever a reading is — a licence obligation of
  * the provider terms carried on the record itself, not a courtesy.
  */
-export function WeatherPanel({ gardenId }: WeatherPanelProps) {
+export function WeatherPanel({ gardenId, initialTemperatureUnit }: WeatherPanelProps) {
   const { t, locale } = useLocalization();
   const query = useGardenWeather(gardenId);
+  const [temperatureUnit, setTemperatureUnit] = useState<TemperatureUnit>(initialTemperatureUnit);
+
+  const chooseTemperatureUnit = (unit: TemperatureUnit) => {
+    setTemperatureUnit(unit);
+    document.cookie = temperatureUnitCookie(unit);
+  };
 
   return (
     <section className={styles['section']} aria-labelledby="weather-panel-title">
-      <h2 className={styles['title']} id="weather-panel-title">
-        {t('weather.title')}
-      </h2>
+      <div className={styles['sectionHeader']}>
+        <div>
+          <h2 className={styles['title']} id="weather-panel-title">
+            {t('weather.title')}
+          </h2>
+          <p className={styles['sectionDescription']}>{t('weather.description')}</p>
+        </div>
+        <div
+          className={styles['unitSwitch']}
+          role="group"
+          aria-label={t('weather.temperatureUnit')}
+        >
+          {(['celsius', 'fahrenheit'] as const).map((unit) => (
+            <button
+              type="button"
+              key={unit}
+              aria-pressed={temperatureUnit === unit}
+              onClick={() => chooseTemperatureUnit(unit)}
+            >
+              {unit === 'celsius' ? '°C' : '°F'}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {query.isPending && <p role="status">{t('weather.loading')}</p>}
 
@@ -244,37 +341,45 @@ export function WeatherPanel({ gardenId }: WeatherPanelProps) {
 
       {query.data !== undefined && (
         <>
-          {query.data.observation !== null && (
-            <ReadingGroup
-              reading={query.data.observation}
-              titleKey="weather.observationLabel"
-              timestampKey="weather.measuredAt"
-              t={t}
-              locale={locale}
-            />
-          )}
-          {query.data.forecast !== null && (
-            <ReadingGroup
-              reading={query.data.forecast}
-              titleKey="weather.forecastLabel"
-              timestampKey="weather.forecastFor"
-              t={t}
-              locale={locale}
-            />
-          )}
+          <div className={styles['conditionsGrid']}>
+            {query.data.observation !== null && (
+              <ReadingGroup
+                reading={query.data.observation}
+                titleKey="weather.observationLabel"
+                timestampKey="weather.measuredAt"
+                t={t}
+                locale={locale}
+                temperatureUnit={temperatureUnit}
+              />
+            )}
+            {query.data.forecast !== null && (
+              <ReadingGroup
+                reading={query.data.forecast}
+                titleKey="weather.forecastLabel"
+                timestampKey="weather.forecastFor"
+                t={t}
+                locale={locale}
+                temperatureUnit={temperatureUnit}
+              />
+            )}
+          </div>
           {query.data.observation === null && query.data.forecast === null && (
             <UnavailableNotice result={query.data} gardenId={gardenId} t={t} />
           )}
+          <TodayPrecipitation observation={query.data.observation} t={t} />
           {query.data.recentRainfall === null ? (
             <p className={styles['note']}>{t('weather.rainfallNone')}</p>
           ) : (
             <RainfallChart rainfall={query.data.recentRainfall} t={t} locale={locale} />
           )}
-          <p className={styles['note']}>
-            {query.data.observation === null && query.data.forecast === null
-              ? t('weather.ruleImpactWithoutWeather')
-              : t('weather.ruleImpactWithWeather')}
-          </p>
+          <div className={styles['impact']}>
+            <h3 className={styles['groupTitle']}>{t('weather.ruleImpactTitle')}</h3>
+            <p className={styles['note']}>
+              {query.data.observation === null && query.data.forecast === null
+                ? t('weather.ruleImpactWithoutWeather')
+                : t('weather.ruleImpactWithWeather')}
+            </p>
+          </div>
           {query.data.attributionText !== null && (
             <p className={styles['attribution']}>{query.data.attributionText}</p>
           )}

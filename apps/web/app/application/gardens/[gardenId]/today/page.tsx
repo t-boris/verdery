@@ -2,8 +2,10 @@ import { CareRulesPanel } from '@/features/care-rules/public';
 import { TodayList } from '@/features/recommendations/public';
 import { SeasonalAcceptancePanel } from '@/features/seasonal-acceptance/public';
 import { WeatherPanel } from '@/features/weather/public';
+import { parseTemperatureUnit, TEMPERATURE_UNIT_COOKIE_NAME } from '@/features/weather/public';
 import { getRequestTranslator } from '@/shared/localization/server';
 import { RouteBody, RouteHeader, RoutePage, RoutePanel, SunIcon } from '@/shared/ui/public';
+import { cookies } from 'next/headers';
 
 /**
  * The garden's Today view: the small prioritized set of actionable
@@ -20,6 +22,10 @@ export default async function TodayPage({
 }) {
   const { gardenId } = await params;
   const t = await getRequestTranslator();
+  const cookieStore = await cookies();
+  const initialTemperatureUnit = parseTemperatureUnit(
+    cookieStore.get(TEMPERATURE_UNIT_COOKIE_NAME)?.value,
+  );
 
   return (
     <RoutePage>
@@ -35,7 +41,7 @@ export default async function TodayPage({
             checkable — and what makes their ABSENCE legible on a day the
             garden has no weather at all. */}
         <RoutePanel>
-          <WeatherPanel gardenId={gardenId} />
+          <WeatherPanel gardenId={gardenId} initialTemperatureUnit={initialTemperatureUnit} />
         </RoutePanel>
         {/* No band heading: it would repeat the route title verbatim.
 

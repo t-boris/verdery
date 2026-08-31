@@ -16,23 +16,27 @@
  */
 export const englishWeatherMessages = {
   'weather.title': 'Conditions',
+  'weather.description': 'Current conditions, the next forecast point, and completed-day rainfall.',
   'weather.loading': 'Loading weather.',
   'weather.retry': 'Try again',
 
-  'weather.observationLabel': 'Now',
-  'weather.forecastLabel': 'Forecast',
+  'weather.observationLabel': 'Current conditions',
+  'weather.forecastLabel': 'Next forecast',
+  'weather.observationWindow': 'A point reading for the latest stored conditions',
+  'weather.forecastWindow': 'The nearest upcoming hourly point',
   'weather.forecastFor': 'For {time}',
   'weather.measuredAt': 'Measured {time}',
+  'weather.fetchedAt': 'fetched {time}',
 
   'weather.temperature': 'Temperature',
   'weather.precipitation': 'Precipitation',
   'weather.wind': 'Wind',
   'weather.humidity': 'Humidity',
-  'weather.temperatureValue': '{value} °C',
   'weather.precipitationValue': '{value} mm',
   'weather.windValue': '{value} m/s',
   'weather.humidityValue': '{value}%',
-  'weather.measurementMissing': 'Not reported',
+  'weather.measurementMissing': 'Unavailable in this stored reading',
+  'weather.temperatureUnit': 'Temperature unit',
 
   'weather.stale': 'Out of date',
   'weather.staleExplanation':
@@ -47,13 +51,19 @@ export const englishWeatherMessages = {
     'The scheduled refresh has not reached this garden yet. Readings appear on their own shortly.',
   'weather.setLocation': 'Set the location',
 
-  'weather.rainfallTitle': 'Rain over the last {days} days',
+  'weather.todayPrecipitationTitle': "Today's precipitation",
+  'weather.latestIntervalPrecipitation': 'Latest reported interval: {value} mm',
+  'weather.todayPrecipitationUnavailable': 'No interval precipitation value is available.',
+  'weather.todayPrecipitationExplanation':
+    'The latest value is one provider interval, not a whole-day total. A verified daily total appears in the completed-day chart after the day ends; the application does not add partial and forecast periods together.',
+  'weather.rainfallTitle': 'Completed-day precipitation · last {days} days',
   'weather.rainfallTotal': '{total} mm',
+  'weather.rainfallCoverage': '{available} of {days} completed days available',
   'weather.rainfallDayLabel': '{day}',
   'weather.rainfallDayValue': '{day}: {value} mm',
   'weather.rainfallNone': 'No rainfall has been measured for this garden yet.',
   'weather.rainfallExplanation':
-    'This is the series the watering check reads. It looks at the total across the window, not at any single reading, because an hour without rain says nothing about a dry week.',
+    'This is the elapsed daily series the watering check reads. Zero means a measured dry day; a missing day is not treated as zero.',
 
   'weather.ruleImpactTitle': 'What this changes',
   'weather.ruleImpactWithWeather':

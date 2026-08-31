@@ -1,6 +1,6 @@
 import type { GardenWeatherReading, GardenWeatherResult } from '@verdery/api-contracts';
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LocalizationProvider } from '@/shared/localization/public';
 
@@ -55,15 +55,22 @@ function result(overrides: Partial<GardenWeatherResult> = {}): GardenWeatherResu
   };
 }
 
-function renderPanel() {
+function renderPanel(initialTemperatureUnit: 'celsius' | 'fahrenheit' = 'celsius') {
   return render(
     <LocalizationProvider locale="en">
-      <WeatherPanel gardenId="019827ab-4c1d-7e3f-9a2b-5c6d7e8f9e01" />
+      <WeatherPanel
+        gardenId="019827ab-4c1d-7e3f-9a2b-5c6d7e8f9e01"
+        initialTemperatureUnit={initialTemperatureUnit}
+      />
     </LocalizationProvider>,
   );
 }
 
 describe('WeatherPanel', () => {
+  beforeEach(() => {
+    document.cookie = 'verdery_temperature_unit=; Path=/; Max-Age=0';
+  });
+
   it('renders every measurement and the provider attribution the licence requires', () => {
     mockWeather({ data: result(), isPending: false, isLoadingError: false });
 
@@ -86,8 +93,42 @@ describe('WeatherPanel', () => {
 
     // Zero rainfall and unknown rainfall must not render the same, because
     // "it did not rain" and "we do not know" lead to opposite decisions.
-    expect(screen.getByText('Not reported')).toBeTruthy();
+    expect(screen.getByText('No interval precipitation value is available.')).toBeTruthy();
+    expect(screen.getAllByText('Unavailable in this stored reading')).toHaveLength(1);
     expect(screen.queryByText('0 mm')).toBeNull();
+  });
+
+  it('labels zero as a measured interval and never as unavailable', () => {
+    mockWeather({ data: result(), isPending: false, isLoadingError: false });
+
+    renderPanel();
+
+    expect(screen.getByText('Latest reported interval: 0 mm')).toBeTruthy();
+    expect(screen.getAllByText('0 mm')).not.toHaveLength(0);
+  });
+
+  it('renders a complete nearest forecast separately from current conditions', () => {
+    mockWeather({
+      data: result({
+        forecast: reading({
+          effectiveAt: '2026-08-07T10:00:00.000Z',
+          temperatureCelsius: 28,
+          precipitationMm: 1.2,
+          windSpeedMps: 4.5,
+          humidityPercent: 55,
+        }),
+      }),
+      isPending: false,
+      isLoadingError: false,
+    });
+
+    renderPanel();
+
+    expect(screen.getByRole('heading', { name: 'Current conditions' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Next forecast' })).toBeTruthy();
+    expect(screen.getByText('28 °C')).toBeTruthy();
+    expect(screen.getByText('4.5 m/s')).toBeTruthy();
+    expect(screen.getByText('55%')).toBeTruthy();
   });
 
   it('keeps a stale reading visible and labelled rather than hiding it', () => {
@@ -101,6 +142,21 @@ describe('WeatherPanel', () => {
 
     expect(screen.getByText('Out of date')).toBeTruthy();
     expect(screen.getByText('26.4 °C')).toBeTruthy();
+    expect(screen.getByText(/fetched/u)).toBeTruthy();
+  });
+
+  it('switches to Fahrenheit, persists the cookie, and restores a Fahrenheit initial value', () => {
+    mockWeather({ data: result(), isPending: false, isLoadingError: false });
+    const first = renderPanel();
+
+    fireEvent.click(screen.getByRole('button', { name: '°F' }));
+    expect(screen.getByText('79.5 °F')).toBeTruthy();
+    expect(document.cookie).toContain('verdery_temperature_unit=fahrenheit');
+
+    first.unmount();
+    renderPanel('fahrenheit');
+    expect(screen.getByText('79.5 °F')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '°F' }).getAttribute('aria-pressed')).toBe('true');
   });
 
   it('offers a way to fix the one unavailable reason a person can fix', () => {
@@ -148,6 +204,25 @@ describe('WeatherPanel', () => {
     // the drawing.
     expect(screen.getAllByText(/Aug 4.*0 mm/u)).toHaveLength(1);
     expect(screen.getAllByText(/Aug 5.*3\.3 mm/u)).toHaveLength(1);
+    expect(screen.getByText('3 of 7 completed days available')).toBeTruthy();
+  });
+
+  it('keeps bare rainfall calendar days stable at a timezone boundary', () => {
+    mockWeather({
+      data: result({
+        recentRainfall: {
+          windowDays: 7,
+          totalMm: 1,
+          days: [{ date: '2026-01-01', precipitationMm: 1 }],
+        },
+      }),
+      isPending: false,
+      isLoadingError: false,
+    });
+
+    renderPanel();
+
+    expect(screen.getByText(/Jan 1.*1 mm/u)).toBeTruthy();
   });
 
   it('says plainly when no rainfall has been measured, rather than drawing an empty chart', () => {

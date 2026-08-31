@@ -24,7 +24,7 @@
 .body {
   display: grid;
   grid-template-areas: 'canvas inspector';
-  grid-template-columns: minmax(0, 1fr) var(--pane-inspector);
+  grid-template-columns: minmax(0, 1fr) var(--map-inspector-width, var(--pane-inspector));
   gap: var(--border-width);
   flex: 1;
   min-block-size: 0;

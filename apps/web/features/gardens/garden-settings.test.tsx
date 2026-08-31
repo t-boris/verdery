@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { LocalizationProvider } from '@/shared/localization/public';
+import { formatInstant, LocalizationProvider } from '@/shared/localization/public';
 
 import { GardenSettings } from './garden-settings';
 import { useArchiveGarden, useGarden, useRenameGarden, useRequestGardenDeletion } from './queries';
@@ -48,6 +48,8 @@ const GARDEN = {
   lifecycleState: 'active' as const,
   callerRole: 'owner' as const,
   revision: 3,
+  createdAt: '2026-07-21T09:00:00Z',
+  updatedAt: '2026-08-30T16:30:00Z',
 };
 
 const TRANSPORT_FAILURE = {
@@ -119,6 +121,11 @@ describe('GardenSettings — data stays visible when connectivity is lost (P5-WE
     renderSettings();
 
     expect(screen.getByDisplayValue('Backyard')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Garden details' })).toBeTruthy();
+    expect(screen.getByText('Created')).toBeTruthy();
+    expect(screen.getByText(formatInstant(GARDEN.createdAt, 'en'))).toBeTruthy();
+    expect(screen.getByText('Last updated')).toBeTruthy();
+    expect(screen.getByText(formatInstant(GARDEN.updatedAt, 'en'))).toBeTruthy();
     expect(screen.queryByText('You are offline')).toBeNull();
   });
 });

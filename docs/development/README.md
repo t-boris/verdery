@@ -22,6 +22,7 @@ Documentation for working _in_ this repository. Product meaning lives in
 | [service-levels.md](service-levels.md)                                       | What numbers is this service held to, and what do they cost to meet?                                 |
 | [load-testing.md](load-testing.md)                                           | How is capacity measured, and why can it not be measured yet?                                        |
 | [support-operations.md](support-operations.md)                               | Someone reported a problem — how is it classified, diagnosed, and escalated?                         |
+| [issues/](issues/)                                                           | Which collaborative testing observations have been analyzed, consolidated, fixed, or verified?       |
 | [phase-11-qa-matrix.md](phase-11-qa-matrix.md)                               | What was actually tested in Phase 11, what only CI runs, and what no test can close?                 |
 | [ga-checklist.md](ga-checklist.md)                                           | What must pass before a release, and which gates are impossible today?                               |
 
