@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { z } from '@/shared/validation/zod';
 
 import { isConnectivityFailure } from '@/core/api/public';
-import { useLocalization } from '@/shared/localization/public';
+import { formatInstant, useLocalization } from '@/shared/localization/public';
 import { Button, FailureAlert, StaleIndicator, StatusPill } from '@/shared/ui/public';
 
 import { lifecycleLabel, roleLabel } from './labels';
@@ -30,7 +30,7 @@ type RenameValues = z.infer<typeof renameSchema>;
  * Source: implementation-plan.md work package P2-WEB-01, P2-SEC-01.
  */
 export function GardenSettings({ gardenId }: { readonly gardenId: string }) {
-  const { t } = useLocalization();
+  const { t, locale } = useLocalization();
   const router = useRouter();
   const query = useGarden(gardenId);
   const renameMutation = useRenameGarden(gardenId);
@@ -91,6 +91,10 @@ export function GardenSettings({ gardenId }: { readonly gardenId: string }) {
       {query.isError && !isConnectivityFailure(query.error.failure) && (
         <FailureAlert failure={query.error.failure} />
       )}
+      <div>
+        <h2 className={styles['title']}>{t('gardens.detailsTitle')}</h2>
+        <p className={styles['description']}>{t('gardens.detailsDescription')}</p>
+      </div>
       <div className={styles['headingRow']}>
         {isOwner ? (
           <label className={styles['nameEditor']}>
@@ -114,6 +118,17 @@ export function GardenSettings({ gardenId }: { readonly gardenId: string }) {
           <span>{t(roleLabel(garden.callerRole))}</span>
         </div>
       </div>
+
+      <dl className={styles['facts']}>
+        <div className={styles['fact']}>
+          <dt>{t('gardens.createdAt')}</dt>
+          <dd>{formatInstant(garden.createdAt, locale)}</dd>
+        </div>
+        <div className={styles['fact']}>
+          <dt>{t('gardens.updatedAt')}</dt>
+          <dd>{formatInstant(garden.updatedAt, locale)}</dd>
+        </div>
+      </dl>
 
       {formState.errors.name !== undefined && (
         <p className={styles['errorText']}>{t('gardens.nameRequired')}</p>

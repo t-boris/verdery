@@ -337,7 +337,10 @@ all selected objects atomically. Vertex editing remains a separate, single-geome
 - Konva renders garden-local objects and interactive handles.
 - The canvas is the workspace: tools, backdrop choice, zoom, the drawing hint and the draft
   controls float over it, and what were five stacked side panels — properties, object index,
-  layers, imported background and calibration, warnings — share one collapsible drawer of tabs.
+  layers, imported background and calibration, warnings — share one inspector with four explicit
+  tabs. The inspector does not collapse behind a generic chevron; at desktop width it offers
+  accessible narrow, standard and wide presets, persisted per garden, so long object names and
+  property values can be read without turning the section selector into an ambiguous control.
   Plant and tree tools place a circle-derived editable area immediately on one click and select it,
   opening the inventory-link choices without a Finish/Cancel drafting phase. Other polygon and line
   tools retain bottom-center Finish/Cancel controls and the double-click shortcut.

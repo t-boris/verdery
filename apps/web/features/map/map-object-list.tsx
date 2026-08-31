@@ -19,6 +19,7 @@ import {
 
 import { useMapEditorStore } from './editor-store';
 import { categoryLabelKey } from './labels';
+import { MapCategoryIcon } from './map-category-icon';
 import { isCategoryHidden, isCategoryLocked } from './map-layers';
 import { formatOrdinal, mapObjectOrdinals } from './map-object-ordinals';
 import styles from './map-object-list.module.css';
@@ -270,49 +271,66 @@ function ObjectListRow({
         onKeyDown={onKeyDown}
         {...lockedTitleProp}
       >
-        {/* Hidden from assistive technology: the row's `aria-label` already names the object, and the ordinal is a visual handle for matching the canvas chip, not extra content to read out. */}
-        <span className={styles['ordinal']} aria-hidden="true">
-          {formatOrdinal(ordinal)}
+        <span className={styles['categoryIcon']} aria-hidden="true">
+          <MapCategoryIcon category={record.category} />
         </span>
-        <span className={styles['label']}>{label}</span>
-        <span className={styles['category']}>{categoryLabel}</span>
+        <span className={styles['identity']}>
+          <span className={styles['label']}>{label}</span>
+          <span className={styles['meta']}>
+            <span className={styles['category']}>{categoryLabel}</span>
+            {/* The ordinal is a secondary cross-reference to the canvas chip,
+                never the row's primary identity. */}
+            <span className={styles['ordinal']} aria-hidden="true">
+              {formatOrdinal(ordinal)}
+            </span>
+          </span>
+        </span>
       </button>
-      <button
-        type="button"
-        className={styles['stateButton']}
-        aria-label={t(
-          record.isHidden ? 'map.objectList.showAriaLabel' : 'map.objectList.hideAriaLabel',
-          { label },
-        )}
-        aria-pressed={record.isHidden}
-        onClick={onToggleHidden}
+      <div
+        className={styles['rowActions']}
+        role="group"
+        aria-label={t('map.objectList.actionsFor', { label })}
       >
-        {record.isHidden ? <EyeOffIcon /> : <EyeIcon />}
-      </button>
-      <button
-        type="button"
-        className={styles['stateButton']}
-        aria-label={t(
-          record.isLocked ? 'map.objectList.unlockAriaLabel' : 'map.objectList.lockAriaLabel',
-          { label },
-        )}
-        aria-pressed={record.isLocked}
-        disabled={layerLocked}
-        onClick={onToggleLocked}
-        {...(layerLocked ? { title: t('map.objectList.layerLockedTooltip') } : {})}
-      >
-        {record.isLocked ? <LockIcon /> : <UnlockIcon />}
-      </button>
-      <button
-        type="button"
-        className={styles['deleteButton']}
-        aria-label={t('map.objectList.deleteAriaLabel', { label })}
-        disabled={locked}
-        onClick={onDelete}
-        {...lockedTitleProp}
-      >
-        <TrashIcon />
-      </button>
+        <Button
+          type="button"
+          variant="secondary"
+          aria-label={t(
+            record.isHidden ? 'map.objectList.showAriaLabel' : 'map.objectList.hideAriaLabel',
+            { label },
+          )}
+          aria-pressed={record.isHidden}
+          onClick={onToggleHidden}
+        >
+          {record.isHidden ? <EyeOffIcon /> : <EyeIcon />}
+          {t(record.isHidden ? 'map.objectList.show' : 'map.objectList.hide')}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          aria-label={t(
+            record.isLocked ? 'map.objectList.unlockAriaLabel' : 'map.objectList.lockAriaLabel',
+            { label },
+          )}
+          aria-pressed={record.isLocked}
+          disabled={layerLocked}
+          onClick={onToggleLocked}
+          {...(layerLocked ? { title: t('map.objectList.layerLockedTooltip') } : {})}
+        >
+          {record.isLocked ? <LockIcon /> : <UnlockIcon />}
+          {t(record.isLocked ? 'map.objectList.unlock' : 'map.objectList.lock')}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          aria-label={t('map.objectList.deleteAriaLabel', { label })}
+          disabled={locked}
+          onClick={onDelete}
+          {...lockedTitleProp}
+        >
+          <TrashIcon />
+          {t('map.objectList.delete')}
+        </Button>
+      </div>
     </li>
   );
 }

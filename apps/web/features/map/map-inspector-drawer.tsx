@@ -1,12 +1,17 @@
 'use client';
 
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useRef, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 
 import { useLocalization } from '@/shared/localization/public';
-import { Button, ChevronDownIcon, classNames } from '@/shared/ui/public';
+import { Button, FitIcon, MinusIcon, PlusIcon, classNames } from '@/shared/ui/public';
 import type { MessageKey } from '@/shared/localization/public';
 
 import styles from './map-inspector-drawer.module.css';
+import {
+  narrowerInspectorWidth,
+  widerInspectorWidth,
+  type MapInspectorWidth,
+} from './map-inspector-layout';
 
 export type InspectorTabId = 'properties' | 'objects' | 'backdrop' | 'warnings';
 
@@ -26,6 +31,8 @@ export interface MapInspectorDrawerProps {
    */
   readonly activeTab: InspectorTabId;
   readonly onSelectTab: (tab: InspectorTabId) => void;
+  readonly width: MapInspectorWidth;
+  readonly onWidthChange: (width: MapInspectorWidth) => void;
 }
 
 /**
@@ -38,39 +45,62 @@ export interface MapInspectorDrawerProps {
  * is not the drawing now lives either on the canvas as floating chrome or
  * here, one thing at a time.
  *
- * Collapsible, because a person tracing a lot wants the whole window for it;
- * the collapsed state keeps the tab strip, so nothing becomes unreachable.
+ * The four sections stay explicit tabs. The panel deliberately has no generic
+ * chevron/collapse control: that affordance was mistaken for a section menu
+ * and did not make the workspace easier to understand. Desktop users can
+ * instead choose a narrow, standard, or wide readable panel width.
  *
  * Source: architecture/web-application-design.md, section "5. Application
  * Structure"; architecture/map-rendering-and-editing.md, section "13. Web
  * Rendering".
  */
-export function MapInspectorDrawer({ tabs, activeTab, onSelectTab }: MapInspectorDrawerProps) {
+export function MapInspectorDrawer({
+  tabs,
+  activeTab,
+  onSelectTab,
+  width,
+  onWidthChange,
+}: MapInspectorDrawerProps) {
   const { t } = useLocalization();
-  const [expanded, setExpanded] = useState(true);
   const panelId = useId();
   const active = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const moveTabFocus = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number) => {
+    let nextIndex: number | null = null;
+    if (event.key === 'ArrowRight') nextIndex = (index + 1) % tabs.length;
+    if (event.key === 'ArrowLeft') nextIndex = (index - 1 + tabs.length) % tabs.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = tabs.length - 1;
+    if (nextIndex === null) return;
+
+    event.preventDefault();
+    const next = tabs[nextIndex];
+    tabRefs.current[nextIndex]?.focus();
+    if (next !== undefined) onSelectTab(next.id);
+  };
 
   return (
-    <aside
-      className={classNames(styles['drawer'], !expanded && styles['drawerCollapsed'])}
-      aria-label={t('map.inspector.ariaLabel')}
-    >
+    <aside className={styles['drawer']} aria-label={t('map.inspector.ariaLabel')}>
       <div className={styles['header']}>
         <div className={styles['tabs']} role="tablist" aria-label={t('map.inspector.ariaLabel')}>
-          {tabs.map((tab) => (
+          {tabs.map((tab, index) => (
             <button
+              ref={(node) => {
+                tabRefs.current[index] = node;
+              }}
               key={tab.id}
               type="button"
               role="tab"
               id={`${panelId}-${tab.id}`}
               aria-selected={tab.id === active?.id}
               aria-controls={`${panelId}-panel-${tab.id}`}
+              tabIndex={tab.id === active?.id ? 0 : -1}
               className={classNames(styles['tab'], tab.id === active?.id && styles['tabActive'])}
               onClick={() => {
                 onSelectTab(tab.id);
-                setExpanded(true);
               }}
+              onKeyDown={(event) => moveTabFocus(event, index)}
             >
               {t(tab.labelKey)}
               {tab.badge !== undefined && tab.badge > 0 && (
@@ -79,19 +109,39 @@ export function MapInspectorDrawer({ tabs, activeTab, onSelectTab }: MapInspecto
             </button>
           ))}
         </div>
-        <Button
-          variant="secondary"
-          iconOnly
-          aria-expanded={expanded}
-          aria-controls={`${panelId}-panel-${active?.id ?? 'properties'}`}
-          aria-label={t(expanded ? 'map.inspector.collapse' : 'map.inspector.expand')}
-          title={t(expanded ? 'map.inspector.collapse' : 'map.inspector.expand')}
-          onClick={() => setExpanded((current) => !current)}
-        >
-          <span className={classNames(styles['toggleIcon'], expanded && styles['toggleIconOpen'])}>
-            <ChevronDownIcon />
-          </span>
-        </Button>
+        <div className={styles['widthControls']} role="group" aria-label={t('map.inspector.width')}>
+          <span className={styles['widthLabel']}>{t('map.inspector.width')}</span>
+          <Button
+            variant="secondary"
+            iconOnly
+            disabled={width === 'narrow'}
+            aria-label={t('map.inspector.narrow')}
+            title={t('map.inspector.narrow')}
+            onClick={() => onWidthChange(narrowerInspectorWidth(width))}
+          >
+            <MinusIcon />
+          </Button>
+          <Button
+            variant="secondary"
+            iconOnly
+            disabled={width === 'standard'}
+            aria-label={t('map.inspector.resetWidth')}
+            title={t('map.inspector.resetWidth')}
+            onClick={() => onWidthChange('standard')}
+          >
+            <FitIcon />
+          </Button>
+          <Button
+            variant="secondary"
+            iconOnly
+            disabled={width === 'wide'}
+            aria-label={t('map.inspector.widen')}
+            title={t('map.inspector.widen')}
+            onClick={() => onWidthChange(widerInspectorWidth(width))}
+          >
+            <PlusIcon />
+          </Button>
+        </div>
       </div>
 
       {/*
@@ -105,19 +155,18 @@ export function MapInspectorDrawer({ tabs, activeTab, onSelectTab }: MapInspecto
        * drawer existed all five panels were mounted at once, so keeping them
        * mounted is also what restores the behaviour people already had.
        */}
-      {expanded &&
-        tabs.map((tab) => (
-          <div
-            key={tab.id}
-            className={styles['panel']}
-            id={`${panelId}-panel-${tab.id}`}
-            role="tabpanel"
-            aria-labelledby={`${panelId}-${tab.id}`}
-            hidden={tab.id !== active?.id}
-          >
-            {tab.content}
-          </div>
-        ))}
+      {tabs.map((tab) => (
+        <div
+          key={tab.id}
+          className={classNames(styles['panel'], tab.id === 'backdrop' && styles['panelComfort'])}
+          id={`${panelId}-panel-${tab.id}`}
+          role="tabpanel"
+          aria-labelledby={`${panelId}-${tab.id}`}
+          hidden={tab.id !== active?.id}
+        >
+          {tab.content}
+        </div>
+      ))}
     </aside>
   );
 }

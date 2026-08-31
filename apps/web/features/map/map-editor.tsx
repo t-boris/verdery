@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
@@ -18,6 +18,12 @@ import { backdropStateFor } from './backdrop-state';
 import { AerialTracingPanel } from './aerial-tracing-panel';
 import { useTraceAerial } from './aerial-tracing-queries';
 import { MapInspectorDrawer, type InspectorTabId } from './map-inspector-drawer';
+import {
+  loadInspectorWidth,
+  MAP_INSPECTOR_WIDTH_CSS,
+  saveInspectorWidth,
+  type MapInspectorWidth,
+} from './map-inspector-layout';
 import { CalibrationPanel } from './calibration-panel';
 import { categoryLabelKey, toolLabelKey } from './labels';
 import { MapEditorStoreProvider, useMapEditorStore } from './editor-store';
@@ -82,6 +88,15 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
    * another tab is never overridden until the next selection.
    */
   const [inspectorTab, setInspectorTab] = useState<InspectorTabId>('properties');
+  const [inspectorWidth, setInspectorWidth] = useState<MapInspectorWidth>('standard');
+  useEffect(() => {
+    setInspectorWidth(loadInspectorWidth(window.localStorage, gardenId));
+  }, [gardenId]);
+
+  const changeInspectorWidth = (width: MapInspectorWidth) => {
+    setInspectorWidth(width);
+    saveInspectorWidth(window.localStorage, gardenId, width);
+  };
   const selectedObjectId = store.state.selectedObjectId;
   useEffect(() => {
     if (selectedObjectId !== null) {
@@ -169,7 +184,14 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
         <FailureAlert failure={mapQuery.error.failure} />
       )}
       {mapDraft.recovered && <RecoveredDraftNotice onDiscard={mapDraft.discardRecoveredDraft} />}
-      <div className={styles['body']}>
+      <div
+        className={styles['body']}
+        style={
+          {
+            '--map-inspector-width': MAP_INSPECTOR_WIDTH_CSS[inspectorWidth],
+          } as CSSProperties
+        }
+      >
         <div className={styles['canvasWrapper']}>
           <MapCanvas
             actions={actions}
@@ -237,6 +259,8 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
         </div>
 
         <MapInspectorDrawer
+          width={inspectorWidth}
+          onWidthChange={changeInspectorWidth}
           activeTab={inspectorTab}
           onSelectTab={setInspectorTab}
           tabs={[

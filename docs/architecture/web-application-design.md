@@ -184,11 +184,12 @@ The map editor is a bounded subsystem containing:
 
 The editor receives immutable map snapshots and emits typed edit commands. It does not issue API mutations for every pointer movement. Commands are committed at stable interaction boundaries.
 
-On desktop, the route uses a wide three-region workspace: utility controls, a flexible canvas, and a
-dedicated object/property inspector. The object list and selected-object properties remain adjacent
-and visible independently of the utility-panel height. Responsive layouts preserve canvas priority,
-move utilities below the canvas and inspector at intermediate widths, and stack all regions on
-narrow screens.
+On desktop, the route uses a flexible canvas and a dedicated tabbed inspector. Properties, Objects,
+Backdrop & layers, and Warnings are explicit tabs rather than an ambiguous collapsible menu. The
+inspector offers persisted narrow, standard, and wide presets on desktop; below the tablet
+breakpoint it overlays the canvas, and on phones it becomes a bounded bottom sheet. Object rows show
+their full wrapping identity and localized type before secondary visibility, lock, and delete
+actions.
 
 Drawing tools use category-specific icons, short labels, and stable category colors. Common actions
 with established symbols may be icon-only when accessible names and tooltips are present. Exact

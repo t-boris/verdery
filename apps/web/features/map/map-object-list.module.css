@@ -45,7 +45,8 @@
 
 .item {
   display: flex;
-  align-items: stretch;
+  flex-direction: column;
+  min-inline-size: 0;
   border-block-end: var(--border-width) solid var(--color-border);
 }
 
@@ -56,14 +57,14 @@
  * it.
  */
 .itemButton {
-  flex: 1;
+  inline-size: 100%;
   min-inline-size: 0;
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-2);
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3);
   min-block-size: var(--control-min-size);
-  padding-inline: var(--space-2);
+  padding: var(--space-3);
   border: 0;
   border-inline-start: 3px solid transparent;
   background-color: transparent;
@@ -97,7 +98,31 @@
   opacity: 0.55;
 }
 
-/* The ordinal: the same number the canvas chip prints for this object. */
+.categoryIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  gap: var(--space-1);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+
 .ordinal {
   font-family: var(--font-family-mono);
   font-size: var(--label-size);
@@ -111,59 +136,34 @@
 }
 
 .label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.35;
 }
 
 .category {
-  font-family: var(--font-family-mono);
-  font-size: var(--label-size);
-  letter-spacing: var(--label-letter-spacing);
-  text-transform: uppercase;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  white-space: nowrap;
 }
 
-.deleteButton,
-.stateButton {
-  flex: none;
-  inline-size: var(--control-min-size);
-  border: 0;
-  border-inline-start: var(--border-width) solid var(--color-border);
-  background-color: transparent;
-  color: var(--color-text-muted);
-  font: inherit;
-  cursor: pointer;
-  transition:
-    background-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: 0 var(--space-3) var(--space-3) calc(2rem + var(--space-6));
 }
 
-.stateButton[aria-pressed='true'] {
-  color: var(--color-accent);
-  background-color: var(--color-accent-quiet);
+.rowActions button {
+  min-block-size: 2rem;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
 }
 
-.deleteButton:hover:not(:disabled) {
-  background-color: var(--color-negative-quiet);
-  color: var(--color-negative);
-}
-
-.deleteButton:focus-visible {
-  outline: 2px solid var(--color-focus);
-  outline-offset: -2px;
-}
-
-.stateButton:hover:not(:disabled) {
-  background-color: var(--color-surface-sunken);
-  color: var(--color-text);
-}
-
-.stateButton:focus-visible {
-  outline: 2px solid var(--color-focus);
-  outline-offset: -2px;
+@media (max-width: 24rem) {
+  .rowActions {
+    padding-inline-start: var(--space-3);
+  }
 }
 
 .joinBar {

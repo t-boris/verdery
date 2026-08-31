@@ -81,6 +81,13 @@ Normalized weather data records:
 
 Recommendations check freshness and degrade when data is stale.
 
+The web Today surface preserves these source semantics. It presents the latest point observation,
+the nearest forecast point, the latest provider precipitation interval, and completed-day rainfall
+as separate windows; it never turns a missing measurement into zero or calls one interval a
+current-day total. Temperature remains stored in provider Celsius. A localized °C/°F control only
+converts display values and persists the preference in the first-party
+`verdery_temperature_unit` cookie so the server and hydrated client render the same unit.
+
 **One batch holds two shapes of observation, and "latest" means two different things.**
 A single provider response yields a point reading (temperature, humidity, wind, the last hour's
 rain) and one rain-only total per elapsed day. Both are stored as `record_kind = 'observation'` —
