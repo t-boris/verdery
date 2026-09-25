@@ -161,6 +161,27 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     return { token, garden: asGarden(created) };
   }
 
+  /**
+   * `randomUUID()` — a UUID **v4**, exactly what the seed migration's own
+   * `gen_random_uuid()` gives every `system_catalog` taxon. A v7 id here
+   * would let a transport or contract that assumes version 7 pass.
+   */
+  async function insertSeededTaxon(scientificName: string, commonName: string): Promise<string> {
+    const taxonomyReferenceId = randomUUID();
+    await db
+      .insertInto('plants_inventory.taxonomy_reference')
+      .values({
+        id: taxonomyReferenceId,
+        scientific_name: scientificName,
+        common_name: commonName,
+        variety_name: null,
+        source: 'system_catalog',
+        created_by_profile_id: null,
+      })
+      .execute();
+    return taxonomyReferenceId;
+  }
+
   it('rejects adding a plant missing the Idempotency-Key header with 400', async () => {
     const { token, garden } = await createGardenAsOwner();
 
@@ -296,6 +317,33 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     });
   });
 
+  it('updates plant details to a seeded catalog taxon, whose id is version 4', async () => {
+    const { token, garden } = await createGardenAsOwner();
+    const added = await app.inject({
+      method: 'POST',
+      url: `/v1/gardens/${garden.id}/plants`,
+      headers: { ...bearer(token), 'idempotency-key': generateUuidV7() },
+      payload: { displayName: 'Basil', groupingKind: 'individual' },
+    });
+    expect(added.statusCode).toBe(201);
+    const plant = asPlant(added);
+    const taxonomyReferenceId = await insertSeededTaxon('Ocimum basilicum', 'Basil');
+
+    const updated = await app.inject({
+      method: 'PATCH',
+      url: `/v1/gardens/${garden.id}/plants/${plant.id}`,
+      headers: {
+        ...bearer(token),
+        'idempotency-key': generateUuidV7(),
+        'if-match': `"${String(plant.revision)}"`,
+      },
+      payload: { taxonomyReferenceId },
+    });
+
+    expect(updated.statusCode).toBe(200);
+    expect(asPlant(updated).taxonomyReferenceId).toBe(taxonomyReferenceId);
+  });
+
   it('404s a plant with no pending identification', async () => {
     const { token, garden } = await createGardenAsOwner();
     const added = await app.inject({
@@ -369,18 +417,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       .insertInto('plants_inventory.plant_photo')
       .values({ id: plantPhotoId, plant_id: plant.id, media_id: media.id, is_primary: true })
       .execute();
-    const taxonomyId = generateUuidV7();
-    await db
-      .insertInto('plants_inventory.taxonomy_reference')
-      .values({
-        id: taxonomyId,
-        scientific_name: 'Ocimum basilicum',
-        common_name: 'Basil',
-        variety_name: null,
-        source: 'system_catalog',
-        created_by_profile_id: null,
-      })
-      .execute();
+    const taxonomyId = await insertSeededTaxon('Ocimum basilicum', 'Basil');
     const identificationId = generateUuidV7();
     await db
       .insertInto('plants_inventory.plant_identification')
