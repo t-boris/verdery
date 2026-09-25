@@ -21,7 +21,7 @@
     "@fastify/under-pressure": "^9.1.0",
     "@google-cloud/cloud-sql-connector": "^1.11.3",
     "@google-cloud/opentelemetry-cloud-trace-exporter": "^3.1.0",
-    "@google-cloud/storage": "^7.21.0",
+    "@google-cloud/storage": "^8.2.0",
     "@google/genai": "^2.19.0",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/instrumentation-fastify": "^0.57.0",
@@ -35,7 +35,7 @@
     "@verdery/geometry-contracts": "workspace:*",
     "fastify": "^5.12.1",
     "firebase-admin": "^14.3.0",
-    "google-auth-library": "^9.15.1",
+    "google-auth-library": "^11.1.0",
     "kysely": "^0.29.5",
     "node-pg-migrate": "^9.0.0",
     "pg": "^8.23.0",
@@ -50,6 +50,6 @@
     "@verdery/test-fixtures": "workspace:*",
     "testcontainers": "^12.1.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.2"
   }
 }

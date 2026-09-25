@@ -1,6 +1,6 @@
 {
   "name": "@verdery/web",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "private": true,
   "type": "module",
   "description": "Verdery web application: a first-class product surface for managing a garden from a larger screen",
@@ -39,7 +39,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "jsdom": "^29.1.1",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.11"
+    "vitest": "^5.0.2"
   },
   "browserslist": [
     "last 2 Chrome versions",
