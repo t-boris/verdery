@@ -12,7 +12,7 @@
 
 import { createHash, type Hash } from 'node:crypto';
 import { Transform, type Writable } from 'node:stream';
-import archiver, { type Archiver } from 'archiver';
+import { ZipArchive, type Archiver } from 'archiver';
 
 export interface FinalizedZipPackage {
   readonly byteSize: number;
@@ -29,7 +29,7 @@ export class ZipPackageWriter {
     this.hash = createHash('sha256');
     // Deflate at default level: the structured sections compress well, and
     // already-compressed media (JPEG/PNG) costs little extra CPU.
-    this.archive = archiver('zip', { zlib: { level: 6 } });
+    this.archive = new ZipArchive({ zlib: { level: 6 } });
 
     const tee = new Transform({
       transform: (chunk: Buffer, _encoding, callback) => {
