@@ -19,8 +19,12 @@ updates:
     commit-message:
       prefix: ci
 
-  # Grouped into a single pull request so that routine dependency movement costs
-  # one review rather than one review per package.
+  # Minor and patch updates are grouped into a single pull request so that
+  # routine dependency movement costs one review rather than one per package.
+  # Major updates stay out of the group: each one arrives as its own pull
+  # request, because one breaking major inside the group blocks every routine
+  # update with it (2026-09: `@types/archiver` 8 failed the build of a
+  # 41-package group that also carried six other majors).
   - package-ecosystem: npm
     directory: /
     schedule:
@@ -28,6 +32,7 @@ updates:
     groups:
       workspace:
         patterns: ['*']
+        update-types: ['minor', 'patch']
     commit-message:
       prefix: deps
     ignore:

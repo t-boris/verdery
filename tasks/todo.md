@@ -9812,3 +9812,117 @@ Swift alone would break the equivalence the fixture exists to guarantee, and
 adding them to the fixture is a contract change to both runtimes rather than an
 iOS parity fix. Undoing a properties change restores the label and the details
 and leaves hide and lock as they are.
+
+# Repository hygiene, Epic 0 verification, and Foundation gates G2–G8 (2026-09-25)
+
+Owner direction: do step 1 (repository hygiene), then step 2 (verify what is already fixed),
+then option A (close the Foundation release gates G2–G8 toward US private beta and GA).
+Approved by the owner on 2026-09-25 with every proposed default in "Decisions needed before
+starting" (D1 split #13, D2 archive the aerial branch, D3–D5 as proposed).
+
+Sources: `docs/implementation-plan.md` §2.4 and §8, `docs/development/ga-checklist.md`,
+`docs/development/issues/IMPLEMENTATION-PLAN.md` (Epic 0), `tasks/remaining-work.md` §4, and the
+G9 review in this file (format to reuse for gate reviews).
+
+## Decisions needed before starting
+
+| #   | Decision                                                                                                                                                                                                                                                                                                          | Proposed default                                                                                                                                      |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | PR #13 (41 updates) fails CI: `@types/archiver` 8 has no default export (`services/workers/src/exports/zip-package-writer.ts:15`). It also carries seven breaking majors: `archiver` 8, `@google-cloud/storage` 8, `google-auth-library` 11, `@google-cloud/tasks` 7, `jsdom` 30, `@types/yauzl` 3, `sharp` 0.35. | Close #13; land all minor/patch updates as one PR; land each major as its own PR with its own review. Pin the group config so majors come separately. |
+| D2  | `codex/aerial-garden-tracing` (3 commits, 103 files, +4k lines, 2026-08-06) adds Vertex AI extraction of garden objects from NAIP imagery. That conflicts with the recorded Stage 2 decision "yards drawn by hand — no automatic derivation" and with the spirit of ADR-0015.                                     | Do not merge. Keep the remote branch as an archive and delete the local copy.                                                                         |
+| D3  | `.dde/` (untracked tool state: `state.db`, `cache/`, `overlays/`) in the repository root.                                                                                                                                                                                                                         | Add `.dde/` to `.gitignore`.                                                                                                                          |
+| D4  | Local Node is 22.22.3; the repository requires `>=24 <25`.                                                                                                                                                                                                                                                        | `nvm install 24` and run every gate on it.                                                                                                            |
+| D5  | Browser and device verification needs an authenticated session on `dev`.                                                                                                                                                                                                                                          | The owner signs in once in Chrome; the agent drives that tab. Device steps are done by the owner with a script the agent writes.                      |
+
+## Step 1 — repository hygiene
+
+- [ ] Merge dependabot #10, #11, #12 (CI green) one at a time, re-checking `master` CI after each.
+- [ ] D1: minor/patch update PR from #13 without the majors; run `pnpm format:check`, `pnpm lint`,
+      `pnpm typecheck`, `pnpm test`, `node scripts/check-file-size.mjs` on Node 24; merge on green CI.
+- [ ] D1: one PR per major, each with a code change where needed (starting with `archiver` 8 +
+      `@types/archiver` 8), the full gate set, and a dev deploy check for the Google SDK majors
+      (storage, auth, tasks) because only a deployed run exercises real credentials.
+- [ ] D2: delete merged local branches (`codex/candidate-reference-photos`, `codex/fix-map-command-400`,
+      `codex/fix-photo-identification-retry`, `codex/fix-property-plan-delete`,
+      `codex/fix-provider-contract-boundary`, `codex/professional-field-console`,
+      `web-session-and-app-check-recovery`) after confirming `git rev-list master..<branch>` is empty
+      for each. Apply the chosen action for `codex/aerial-garden-tracing`.
+- [ ] D3: `.gitignore` entry for `.dde/`; `git status` clean.
+
+## Step 2 — verify what is already fixed (Epic 0 and care-engine leftovers)
+
+- [ ] Node 24: run the full CI script set (not a scoped subset) and record the numbers.
+- [ ] GG-0003: browser pass per `IMPLEMENTATION-PLAN.md` Epic 0 (active and archived garden,
+      desktop above and below 68rem, EN/RU, long names, keyboard, focus, zoom).
+- [ ] GG-0005: browser pass (width persistence, no collapse chevron, tab roving focus, every
+      preserved editor action, overlay below 80rem, phone and tablet reflow, long Russian names).
+- [ ] GG-0007: browser pass (complete, partial, zero, unavailable, stale states; °C/°F cookie
+      survives reload and a server render; no hydration mismatch; EN/RU; contrast).
+- [ ] Record evidence in each issue record, advance `fixed → verified`, sync the registry index
+      and `IMPLEMENTATION-PLAN.md`. A failed check reopens the issue with its observation instead.
+- [ ] Care engine: accept one taxon's seasonal timing on `dev` and observe a sowing-window
+      recommendation appear (or record why it does not).
+- [ ] Care engine: re-read `watering.dry-spell-check@2` inputs for garden
+      `019fcd29-ef99-720b-a64f-526eb3a3474d` from the dev database, read-only.
+- [ ] Contract audit: list every `Uuid`-typed field that can name a row seeded by SQL migration
+      (`gen_random_uuid()`, v4); switch the ones that cross a validating boundary to `CatalogUuid`
+      with an HTTP-level test per route. Report findings before changing anything outside that class.
+
+## Option A — Foundation gates G2–G8
+
+Finding from the gap analysis: G2–G6 are mostly missing evidence and sign-off, not missing
+features. G7 depends on named people and owner accounts. G8 depends on money, legal review, and
+staging/production environments. The work is ordered so every agent-doable item lands before the
+sessions that need the owner.
+
+### A0 — make the status documents true (agent)
+
+- [ ] `ga-checklist.md`: restore drill 2026-07-26 PASS (gates 24–25), workers deployed (gate 60),
+      real-device builds 156/157 (gate 16), gate 4 closed; recompute the summary counts.
+- [ ] `implementation-plan.md` §2.1/§2.4: current workers, providers, Vertex, and TestFlight build.
+
+### A1 — engineering gaps an agent can close
+
+- [ ] G3: server-side cross-object map validation (detached gates, overlaps, plants inside
+      structures) so `get-garden-map.ts` stops returning an always-empty `validationSummary`.
+      Written as a short tech spec first, since it defines domain rules.
+- [ ] G2/G3/G4: run the existing Playwright suite in CI; add web e2e for map editing and for
+      plant/observation/task records.
+- [ ] G2: native first-garden UI test under `apps/ios`.
+- [ ] G2: App Check telemetry dashboard (currently only logged).
+- [ ] G4: decide whether `GET /plants` needs a client caller or is removed from the contract (report).
+- [ ] G8: link checker (gate 43), deploy by image digest (gate 46), per-revision metrics and canary
+      thresholds (gate 48), dev-side post-deploy checks (gates 51–59), point-in-time recovery drill
+      script (gates 26–27; running it is an owner call).
+
+### A2 — owner-assisted verification sessions (agent writes the script, owner runs the device)
+
+- [ ] G2: the same garden created on web appears once on iOS and back.
+- [ ] G3: iPhone map editing pass.
+- [ ] G5: offline field test (airplane mode, force-quit, reconnect, conflict) per
+      `ios-distribution.md` §11.5.
+- [ ] G6: interrupted upload and recovery from browser and phone on the deployed stack.
+- [ ] G7: push notification device check after the APNs key is uploaded.
+
+### A3 — gate reviews
+
+- [ ] One review per gate G2–G6 in the G9 format (exit criteria with evidence, QA findings, open
+      gaps, deployment state). Each review ends with "Awaiting owner approval". The agent never
+      writes "approved" on the owner's behalf.
+
+### A4 — owner actions for G7 (private beta), to be scheduled by the owner
+
+- Named horticultural reviewer for the 7 rules; human evaluation of AI explanations.
+- Upload APNs key `F3BLFGAB32` to Firebase; vendor decision record (P0-PROV-01) for current providers.
+- Consent model P0-SEC-01; beta cohort, support intake, privacy URL.
+
+### A5 — owner actions for G8 (US GA), to be scheduled by the owner
+
+- Staging/production projects, domain, budget (~$150/month), downtime window.
+- Threat-register signature, SLO approval, privacy legal review, support rota.
+- Apple: tax/banking agreement, internal testers, demo account, screenshots.
+- ADR-0020 (EU residency) decision, since it changes scope.
+
+## Review
+
+(Filled in as each step completes.)
