@@ -247,7 +247,9 @@ PlantIdentification:
           required: [id, scientificName, commonName]
           properties:
             id:
-              $ref: '../../components/schemas/shared.yaml#/Uuid'
+              allOf:
+                - $ref: '../../components/schemas/shared.yaml#/CatalogUuid'
+              description: A `taxonomy_reference` id, which a seeded catalog row carries as version 4. Any UUID version — see `CatalogUuid`.
             scientificName:
               type: string
             commonName:

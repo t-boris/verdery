@@ -365,7 +365,10 @@ real fact was therefore rejected with `400`, including ids the queue had just ha
 the gate could not have been passed from any client at all. The same pattern was applied to
 `taxonomyReferenceId`, which meant no plant could be attached to a catalog taxon either. Both now use
 `CatalogUuid`/`CATALOG_UUID_PATTERN`: a UUID's version is a property of who minted it, and a shared
-catalog id is not this application's to constrain.
+catalog id is not this application's to constrain. A later audit of every field naming a seeded row
+found one more, on a response: `PlantIdentification.suggestedTaxonomy.id` now uses `CatalogUuid` as
+well. HTTP tests seed catalog taxa as version 4, the way the migration does, for every route that
+accepts or returns a taxon id.
 
 ### 5.9 Cross-rule behavior (reviewed as content, not per rule)
 

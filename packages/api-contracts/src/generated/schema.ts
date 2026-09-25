@@ -6447,7 +6447,8 @@ export interface components {
             createdAt: components["schemas"]["Timestamp"];
             /** @description Null when the identification pass found no confident candidate, or a confident candidate had no catalog match (see suggestedCommonName in that case). */
             suggestedTaxonomy: {
-                id: components["schemas"]["Uuid"];
+                /** @description A `taxonomy_reference` id, which a seeded catalog row carries as version 4. Any UUID version — see `CatalogUuid`. */
+                id: components["schemas"]["CatalogUuid"];
                 scientificName: string;
                 commonName: string | null;
             } | null;

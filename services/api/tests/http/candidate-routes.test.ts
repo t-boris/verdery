@@ -191,6 +191,27 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     return asCandidate(response);
   }
 
+  /**
+   * `randomUUID()` — a UUID **v4**, exactly what the seed migration's own
+   * `gen_random_uuid()` gives every `system_catalog` taxon. A v7 id here
+   * would let a transport that rejects every real catalog taxon pass.
+   */
+  async function insertSeededTaxon(scientificName: string, commonName: string): Promise<string> {
+    const taxonomyReferenceId = randomUUID();
+    await db
+      .insertInto('plants_inventory.taxonomy_reference')
+      .values({
+        id: taxonomyReferenceId,
+        scientific_name: scientificName,
+        common_name: commonName,
+        variety_name: null,
+        source: 'system_catalog',
+        created_by_profile_id: null,
+      })
+      .execute();
+    return taxonomyReferenceId;
+  }
+
   it('rejects adding a candidate missing the Idempotency-Key header with 400', async () => {
     const { token, garden } = await createGardenAsOwner();
 
@@ -217,6 +238,15 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
       priority: 'high',
       revision: 1,
     });
+  });
+
+  it('adds a candidate naming a seeded catalog taxon, whose id is version 4', async () => {
+    const { token, garden } = await createGardenAsOwner();
+    const taxonomyReferenceId = await insertSeededTaxon('Ficus carica', 'Common fig');
+
+    const candidate = await addCandidate(token, garden.id, { taxonomyReferenceId });
+
+    expect(candidate.taxonomyReferenceId).toBe(taxonomyReferenceId);
   });
 
   it('conceals a candidate that exists but belongs to a different garden as a 404', async () => {
@@ -334,6 +364,26 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
     });
   });
 
+  it('updates candidate details to a seeded catalog taxon, whose id is version 4', async () => {
+    const { token, garden } = await createGardenAsOwner();
+    const candidate = await addCandidate(token, garden.id);
+    const taxonomyReferenceId = await insertSeededTaxon('Ficus carica', 'Common fig');
+
+    const updated = await app.inject({
+      method: 'PATCH',
+      url: `/v1/gardens/${garden.id}/plant-candidates/${candidate.id}`,
+      headers: {
+        ...bearer(token),
+        'idempotency-key': generateUuidV7(),
+        'if-match': `"${String(candidate.revision)}"`,
+      },
+      payload: { taxonomyReferenceId },
+    });
+
+    expect(updated.statusCode).toBe(200);
+    expect(asCandidate(updated).taxonomyReferenceId).toBe(taxonomyReferenceId);
+  });
+
   it('404s a suitability read before any assessment has ever been computed', async () => {
     const { token, garden } = await createGardenAsOwner();
     const candidate = await addCandidate(token, garden.id);
@@ -419,18 +469,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
   it('returns an empty profile envelope when no facts or images have been assembled', async () => {
     const { token } = await createGardenAsOwner();
-    const taxonomyReferenceId = generateUuidV7();
-    await db
-      .insertInto('plants_inventory.taxonomy_reference')
-      .values({
-        id: taxonomyReferenceId,
-        scientific_name: 'Acer saccharum',
-        common_name: 'Sugar maple',
-        variety_name: null,
-        source: 'system_catalog',
-        created_by_profile_id: null,
-      })
-      .execute();
+    const taxonomyReferenceId = await insertSeededTaxon('Acer saccharum', 'Sugar maple');
 
     const response = await app.inject({
       method: 'GET',
@@ -452,18 +491,7 @@ describe.skipIf(!dockerAvailable)(SUITE_NAME, () => {
 
   it('serves a taxon materialized profile over real HTTP once one has been assembled', async () => {
     const { token } = await createGardenAsOwner();
-    const taxonomyReferenceId = generateUuidV7();
-    await db
-      .insertInto('plants_inventory.taxonomy_reference')
-      .values({
-        id: taxonomyReferenceId,
-        scientific_name: 'Ficus carica',
-        common_name: 'Common fig',
-        variety_name: null,
-        source: 'system_catalog',
-        created_by_profile_id: null,
-      })
-      .execute();
+    const taxonomyReferenceId = await insertSeededTaxon('Ficus carica', 'Common fig');
 
     const profileVersions = new KyselyPlantProfileVersionRepository(db);
     await profileVersions.insert({

@@ -10995,7 +10995,9 @@ components:
                 - commonName
               properties:
                 id:
-                  $ref: '#/components/schemas/Uuid'
+                  allOf:
+                    - $ref: '#/components/schemas/CatalogUuid'
+                  description: A `taxonomy_reference` id, which a seeded catalog row carries as version 4. Any UUID version — see `CatalogUuid`.
                 scientificName:
                   type: string
                 commonName:

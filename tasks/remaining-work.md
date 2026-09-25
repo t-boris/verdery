@@ -127,9 +127,21 @@ A UUID's version is a property of who minted it.
   25 mm norm, so the rule's silence was most likely correct — but that has not
   been re-read from the database, and the failure direction (under-firing on a
   dry garden) is the one that costs a plant.
-- **Audit the rest of the contract for seeded-content ids.** Only the ids that
-  cross a validating boundary were changed. Other `Uuid`-typed fields may name
-  rows a SQL migration minted; nobody has enumerated them.
+- **Audit the rest of the contract for seeded-content ids — RESOLVED
+  2026-09-25.** Migration-minted (v4) ids live in three tables:
+  `taxonomy_reference`, `taxonomy_seasonal_fact`, and the
+  `membership_period` backfill (never exposed). Every request field and route
+  parameter naming the first two already used `CatalogUuid` /
+  `CATALOG_UUID_PATTERN`. One response field did not:
+  `PlantIdentification.suggestedTaxonomy.id` was declared as the v7 `Uuid`
+  and now uses `CatalogUuid`. Nothing validates responses at runtime, so no
+  user saw a failure, but a generated or strict client would have rejected
+  every real identification. Five HTTP tests now seed catalog taxa as v4 the
+  way the migration does: adding a candidate, updating candidate or plant
+  details, and both taxon-profile reads. Each was checked by temporarily
+  restoring the v7 pattern, and all five failed. Sync-command payloads carry
+  `taxonomyReferenceId` without transport validation by design; a malformed
+  id reaches the database rather than earning a clean 400.
 - **`SERVICE_VERSION` is a commit SHA, not a semantic release identifier.** A
   build is now identifiable, which is what the gates needed. When tagged
   releases exist, the tag is what the deploy scripts should be handed.

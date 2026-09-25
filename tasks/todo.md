@@ -9864,7 +9864,7 @@ G9 review in this file (format to reuse for gate reviews).
       recommendation appear (or record why it does not).
 - [ ] Care engine: re-read `watering.dry-spell-check@2` inputs for garden
       `019fcd29-ef99-720b-a64f-526eb3a3474d` from the dev database, read-only.
-- [ ] Contract audit: list every `Uuid`-typed field that can name a row seeded by SQL migration
+- [x] Contract audit: list every `Uuid`-typed field that can name a row seeded by SQL migration
       (`gen_random_uuid()`, v4); switch the ones that cross a validating boundary to `CatalogUuid`
       with an HTTP-level test per route. Report findings before changing anything outside that class.
 
