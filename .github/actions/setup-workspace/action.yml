@@ -10,7 +10,7 @@ runs:
     # Source: ADR-0009, "Package manager: pnpm 10 workspaces, enforced by the
     # `packageManager` field".
     - name: Install pnpm
-      uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
 
     # `.nvmrc` carries the Node.js baseline. Reading the file instead of
     # repeating the number here keeps a single source of truth.
