@@ -16,7 +16,7 @@
     "@verdery/geometry-contracts": "workspace:*",
     "archiver": "^7.0.1",
     "file-type": "^22.0.1",
-    "google-auth-library": "^9.15.1",
+    "google-auth-library": "^11.1.0",
     "image-size": "^2.0.2",
     "kysely": "^0.29.4",
     "pg": "^8.22.0",
