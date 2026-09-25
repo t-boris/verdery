@@ -39,7 +39,7 @@
     "@vitejs/plugin-react": "^6.0.4",
     "jsdom": "^29.1.1",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.10"
+    "vitest": "^5.0.1"
   },
   "browserslist": [
     "last 2 Chrome versions",
