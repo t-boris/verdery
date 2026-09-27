@@ -29,6 +29,7 @@ RUN pnpm install --frozen-lockfile
 
 COPY packages/api-contracts packages/api-contracts
 COPY packages/geometry-contracts packages/geometry-contracts
+COPY packages/test-fixtures packages/test-fixtures
 COPY apps/web apps/web
 
 ARG NEXT_PUBLIC_API_ORIGIN
@@ -47,6 +48,9 @@ ARG NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY
 
 RUN pnpm --filter @verdery/api-contracts build
 RUN pnpm --filter @verdery/geometry-contracts build
+# Next.js type-checks the web test files as well as application sources.
+# Their workspace fixture import needs the package's generated declarations.
+RUN pnpm --filter @verdery/test-fixtures build
 RUN pnpm --filter @verdery/web build
 
 FROM base AS runtime

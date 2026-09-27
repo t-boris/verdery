@@ -153,6 +153,19 @@ commit's own CI is what deploys the newer commit. A `workflow_dispatch` still de
 given, with no CI check, which is what makes it useful in an incident and what makes it a deliberate
 choice rather than the normal path.
 
+**September 25 web image failure.** In
+[deploy run 36182621797](https://github.com/t-boris/verdery/actions/runs/36182621797), API migration,
+API deployment and health verification, and worker deployment succeeded. The web image then
+failed during Next.js type-checking because its Dockerfile installed the `@verdery/test-fixtures`
+manifest without copying the package sources or building its exported declarations. This was a
+partial deployment: successful workspace CI did not establish that the web image could build.
+
+The web Dockerfile now copies and builds fixtures before the web build. CI also builds that same
+Dockerfile from a clean checkout and requests `/auth/sign-in` from the standalone image; the
+aggregate `All gates` check includes this image gate. See [ci-gates.md](ci-gates.md) for local
+reproduction. Shipping the correction requires a successful CI run for the corrected commit and
+the subsequent development deploy; the earlier failed run remains historical incident evidence.
+
 Migrations run as a Cloud Run Job rather than directly from the invoking machine, whether that
 machine is a laptop or a GitHub-hosted runner: Cloud SQL has no public IP, so only Direct VPC egress
 — which only a Cloud Run workload can use — can reach it.

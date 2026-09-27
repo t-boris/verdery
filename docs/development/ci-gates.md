@@ -10,18 +10,20 @@ sections "7. Change Detection" and "17. Supply Chain".
 
 ## The jobs
 
-| Job                      | Runs when                             | Reproduce locally                                                           |
-| ------------------------ | ------------------------------------- | --------------------------------------------------------------------------- |
-| Detect affected surfaces | Always                                | —                                                                           |
-| Formatting and file size | Always                                | `pnpm format:check` and `pnpm check:file-size`                              |
-| Lint, types, and tests   | TypeScript surfaces changed           | `pnpm build && pnpm lint && pnpm typecheck && pnpm test`                    |
-| API contract             | `packages/api-contracts` changed      | `pnpm --filter @verdery/api-contracts lint:contract` and `… generate:check` |
-| Secret scan              | Always                                | —                                                                           |
-| Swift package            | `apps/ios` or shared fixtures changed | `cd apps/ios && swift build && swift test`                                  |
-| All gates                | Always                                | —                                                                           |
+| Job                      | Runs when                             | Reproduce locally                                                                  |
+| ------------------------ | ------------------------------------- | ---------------------------------------------------------------------------------- |
+| Detect affected surfaces | Always                                | —                                                                                  |
+| Formatting and file size | Always                                | `pnpm format:check` and `pnpm check:file-size`                                     |
+| Lint, types, and tests   | TypeScript surfaces changed           | `pnpm build && pnpm lint && pnpm typecheck && pnpm test`                           |
+| Web deployment image     | TypeScript or deploy workflow changed | Build `apps/web/Dockerfile` and request `/auth/sign-in` from its standalone server |
+| API contract             | `packages/api-contracts` changed      | `pnpm --filter @verdery/api-contracts lint:contract` and `… generate:check`        |
+| Secret scan              | Always                                | —                                                                                  |
+| Swift package            | `apps/ios` or shared fixtures changed | `cd apps/ios && swift build && swift test`                                         |
+| All gates                | Always                                | —                                                                                  |
 
 `pnpm check:all` covers the first three rows in one command, minus the `pnpm build` that CI needs on
 a fresh checkout. The contract gates are not part of `check:all` and must be run separately.
+The web image gate is also separate from `check:all` and requires Docker.
 
 ## Why two gates never use change detection
 
@@ -55,6 +57,39 @@ Workspace packages are consumed through their compiled `dist/`, which is not com
 CI checkout nothing resolves `@verdery/geometry-contracts` or `@verdery/api-contracts` until
 `pnpm build` has run. Locally this step is usually invisible because `dist/` already exists from a
 previous build.
+
+## Why CI also builds the web deployment image
+
+The `web-image` job uses the same Dockerfile as development deployment, from a clean checkout,
+then starts the standalone image and requests `/auth/sign-in`. It runs for the TypeScript
+change filter, which also includes the deploy workflow. `All gates` depends on this job so a
+container build or startup failure blocks the aggregate check before deployment begins.
+
+The image build includes `@verdery/test-fixtures`: Next.js type-checks web test files, and those
+files import the package's compiled declarations. The package is a build dependency; the runtime
+image still contains only the traced standalone output, static assets, and public files.
+
+This check addresses the September 25 deployment failure where `pnpm build` passed in CI but the web
+Dockerfile omitted fixture sources and their build. The deploy failed with `TS2307` in
+`map-document-fixtures.test.ts` after API and worker deployment had already succeeded.
+
+To reproduce the image gate locally from the repository root:
+
+```bash
+docker build --platform linux/amd64 -f apps/web/Dockerfile -t verdery-web:ci \
+  --build-arg NEXT_PUBLIC_API_ORIGIN=same-origin \
+  --build-arg API_PROXY_ORIGIN=http://127.0.0.1:8080 \
+  --build-arg VERDERY_DEPLOYMENT_ID="$(git rev-parse HEAD)" .
+docker run --detach --name verdery-web-ci --publish 127.0.0.1:3080:8080 verdery-web:ci
+curl --fail --silent --show-error --max-time 10 --retry 20 --retry-delay 2 \
+  --retry-all-errors --retry-max-time 60 --output /dev/null \
+  http://127.0.0.1:3080/auth/sign-in
+docker logs verdery-web-ci
+docker rm --force verdery-web-ci
+```
+
+The gate uses a local proxy target and needs no Google Cloud credentials or running API. It
+validates image construction and HTTP startup, not Firebase sign-in or a deployed care loop.
 
 ## Why the contract job runs before anything builds
 
