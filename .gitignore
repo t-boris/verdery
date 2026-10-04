@@ -62,3 +62,7 @@ ds-bundle/
 
 # Local agent tool state
 .dde/
+
+# Reproducible browser and simulator verification artifacts.
+apps/web/e2e-logs/
+apps/ios/test-results/

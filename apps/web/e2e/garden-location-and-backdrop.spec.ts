@@ -43,6 +43,7 @@ test('a located garden draws its map over a backdrop, with the grid stood down',
 
   // Somewhere in Iowa — a real place in the product's first market.
   await page.goto(`/application/gardens/${gardenId}`);
+  await page.locator('summary').filter({ hasText: 'Coordinates and north' }).click();
   await page.getByLabel(copy.latitudeLabel).fill('41.59');
   await page.getByLabel(copy.longitudeLabel).fill('-93.63');
   await page.getByRole('button', { name: copy.saveLocation }).click();

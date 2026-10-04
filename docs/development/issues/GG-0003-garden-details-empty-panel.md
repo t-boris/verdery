@@ -2,12 +2,12 @@
 
 | Field          | Value        |
 | -------------- | ------------ |
-| Status         | `fixed`      |
+| Status         | `closed`     |
 | Severity       | `SEV-4`      |
 | Surface        | `web`        |
 | Code finding   | `supported`  |
 | First reported | `2026-08-31` |
-| Last updated   | `2026-08-31` |
+| Last updated   | `2026-10-04` |
 
 ## Summary
 
@@ -21,6 +21,8 @@ garden metrics.
 | Observation | Date       | Surface and version             | Expected                            | Actual                                                                                     | Reproducibility |
 | ----------- | ---------- | ------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------ | --------------- |
 | OBS-003     | 2026-08-31 | Web 0.6.1, deployed development | A compact, purposeful summary card. | The grid stretched the short garden summary to match the much taller location editor card. | always          |
+
+| OBS-R02-003 | 2026-10-04 | Web 0.6.4, deployed development; Chrome, macOS | Compact summary, real metadata, localized labels, and single-column dates on narrow screens. | Passed: at 1507px the summary ended above the adjacent location card; only name, Active/Owner, creation and update timestamps appeared. English and Russian labels were checked. At 400% browser zoom (about 377 CSS pixels), creation and update dates occupied separate vertical rows. | Repeated on an existing garden and a disposable garden; narrow layout reproduced with zoom. |
 
 ## Code analysis
 
@@ -78,6 +80,14 @@ Fixed for web 0.6.2:
 - no calculated scores, counts, or decorative metrics were introduced;
 - the metadata becomes a single column on narrow screens.
 
+## R02 manual verification and closure
+
+The dated deployed-browser observation above verifies every resolution criterion.
+The summary is compact, uses existing metadata, localizes its labels, and stacks
+metadata on narrow screens. Status progressed from fixed through verified to
+closed on 2026-10-04. This decision concerns GG-0003 only, not the adjacent
+location setup flow. Browser zoom and language were restored after verification.
+
 ## Relationships
 
 - Duplicate of: none
@@ -90,3 +100,5 @@ Fixed for web 0.6.2:
 | Date       | Change                                                           |
 | ---------- | ---------------------------------------------------------------- |
 | 2026-08-31 | OBS-003 analyzed and fixed in web 0.6.2; targeted checks passed. |
+
+| 2026-10-04 | R02 deployed manual verification recorded; all criteria verified and issue closed. |

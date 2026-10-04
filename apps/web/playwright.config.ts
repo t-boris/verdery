@@ -32,7 +32,7 @@ export default defineConfig({
   workers: 1,
   retries: isCI ? 1 : 0,
 
-  reporter: [['list']],
+  reporter: [['list'], ['html', { open: 'never' }]],
 
   use: {
     baseURL,

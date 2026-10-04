@@ -14,6 +14,11 @@ swift build
 swift test
 ```
 
+The native first-garden UI gate uses a fresh simulator and the production local
+creation flow. Generate the project, then run `bash scripts/run-ui-tests.sh`.
+See [reproducible verification](../../docs/development/reproducible-verification.md)
+for launch isolation, CI path filters, prerequisites, and xcresult evidence.
+
 Requires the toolchain pinned by ADR-0009: Xcode 26.6 / Swift 6.3, iOS 26 SDK. The deployment target
 is iOS and iPadOS 18.0. `macOS 15` is declared as a second platform only so `swift build` and
 `swift test` run on a developer machine and in CI; no macOS product ships. One consequence: Firebase's

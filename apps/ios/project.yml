@@ -299,3 +299,28 @@ targets:
         # Widget extensions are not applications and must not carry a launch
         # screen or a main storyboard; Xcode rejects an archive that does.
         SKIP_INSTALL: YES
+
+
+  VerderyUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: Verdery
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.verdery.app.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Verdery
+
+schemes:
+  Verdery:
+    build:
+      targets:
+        Verdery: all
+        VerderyUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - VerderyUITests

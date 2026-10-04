@@ -25,7 +25,7 @@ import { randomBytes } from 'node:crypto';
  */
 
 /** Must match `run-e2e.sh`'s `DB_CONTAINER_NAME` / `DB_USER` / `DB_NAME`. */
-const DB_CONTAINER_NAME = 'verdery-e2e-postgres';
+const DB_CONTAINER_NAME = process.env['E2E_DB_CONTAINER_NAME'] ?? 'verdery-e2e-postgres';
 const DB_USER = 'verdery';
 const DB_NAME = 'verdery_e2e';
 

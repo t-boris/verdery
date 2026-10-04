@@ -1,5 +1,5 @@
 import { onlineManager } from '@tanstack/react-query';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { LocalizationProvider } from '@/shared/localization/public';
@@ -88,5 +88,19 @@ describe('AddPlantForm — offline behavior', () => {
     act(() => onlineManager.setOnline(true));
     expect(submit.disabled).toBe(false);
     expect(mutateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('AddPlantForm — creation', () => {
+  it('submits a named individual plant with the default lifecycle stage', async () => {
+    renderForm();
+    fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'R02 plant' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add plant' }));
+    await waitFor(() =>
+      expect(mutateMock).toHaveBeenCalledWith(
+        { displayName: 'R02 plant', groupingKind: 'individual', lifecycleStage: 'planned' },
+        expect.objectContaining({ onSuccess: expect.any(Function) }),
+      ),
+    );
   });
 });

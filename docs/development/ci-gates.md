@@ -10,20 +10,21 @@ sections "7. Change Detection" and "17. Supply Chain".
 
 ## The jobs
 
-| Job                      | Runs when                             | Reproduce locally                                                           |
-| ------------------------ | ------------------------------------- | --------------------------------------------------------------------------- |
-| Detect affected surfaces | Always                                | —                                                                           |
-| Formatting and file size | Always                                | `pnpm format:check` and `pnpm check:file-size`                              |
-| Lint, types, and tests   | TypeScript surfaces changed           | `pnpm build && pnpm lint && pnpm typecheck && pnpm test`                    |
-| API contract             | `packages/api-contracts` changed      | `pnpm --filter @verdery/api-contracts lint:contract` and `… generate:check` |
-| Secret scan              | Always                                | —                                                                           |
-| Swift package            | `apps/ios` or shared fixtures changed | `cd apps/ios && swift build && swift test`                                  |
-| All gates                | Always                                | —                                                                           |
+| Job                      | Runs when                             | Reproduce locally                                                                               |
+| ------------------------ | ------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Detect affected surfaces | Always                                | —                                                                                               |
+| Formatting and file size | Always                                | `pnpm format:check` and `pnpm check:file-size`                                                  |
+| Lint, types, and tests   | TypeScript surfaces changed           | `pnpm build && pnpm lint && pnpm typecheck && pnpm test`                                        |
+| API contract             | `packages/api-contracts` changed      | `pnpm --filter @verdery/api-contracts lint:contract` and `… generate:check`                     |
+| Secret scan              | Always                                | —                                                                                               |
+| Swift package            | `apps/ios` or shared fixtures changed | `cd apps/ios && swift build && swift test && xcodegen generate && bash scripts/run-ui-tests.sh` |
+| Browser journeys         | Always                                | `bash apps/web/e2e/run-e2e.sh`                                                                  |
+| All gates                | Always                                | —                                                                                               |
 
 `pnpm check:all` covers the first three rows in one command, minus the `pnpm build` that CI needs on
 a fresh checkout. The contract gates are not part of `check:all` and must be run separately.
 
-## Why two gates never use change detection
+## Gates without change detection
 
 **Formatting and file size** apply to the whole repository, not to a surface. Prettier formats
 Markdown as well as TypeScript, and the 600-line rule from [AGENTS.md](../../AGENTS.md) covers source
@@ -33,7 +34,11 @@ change to any path may still violate formatting; code changes may also violate f
 **The secret scan** is not scoped either, because a credential can be committed in any file, in any
 directory, in any language.
 
-The remaining gates are scoped, and the filters are deliberately over-inclusive: each one also
+The browser journey gate also runs on every PR and master push. It uses an isolated local API,
+PostGIS, Auth emulator, and web server with no real credentials. See the
+[reproduction instructions](reproducible-verification.md).
+
+The TypeScript, contract, and Swift gates are scoped, and the filters are deliberately over-inclusive: each one also
 matches the workspace manifests, the lockfile, and the workflow file itself, because any of those
 can change the gate's outcome. A gate that runs unnecessarily costs runner minutes; a gate that is
 skipped when it was affected lets a defect merge.
@@ -44,6 +49,11 @@ The Swift package can only be built with the Apple toolchain, which exists only 
 and macOS runners are billed at a large multiple of the Linux rate. It is the one job worth keeping
 off most pull requests, which is why its filter is the narrowest — `apps/ios/**` plus
 `packages/test-fixtures/fixtures/**`, because the Swift suite reads those fixtures.
+
+The job also generates the app project, builds the Release iOS app, and executes the native
+first-garden UI test on a fresh simulator. Its filter remains `apps/ios/**`,
+`packages/test-fixtures/fixtures/**`, and `.github/workflows/ci.yml`. UI-test failure is a job failure;
+the simulator runner preserves xcresult evidence on failure.
 
 The job selects Xcode 26.6 explicitly rather than accepting the runner image default, since
 [ADR-0009](../architecture/decisions/ADR-0009-toolchain-and-platform-baseline.md) pins the iOS 26
@@ -93,9 +103,11 @@ fails only when a dependency failed or was cancelled — a skipped gate is a cor
 
 **Configure branch protection to require `All gates` and nothing else.**
 
-Current repository state, verified July 27, 2026: `master` has neither branch protection nor a
-repository ruleset, so `All gates` reports correctly but is not enforced before a direct push or
-merge.
+Current repository state, verified October 4, 2026: `master` requires `All gates` from GitHub
+Actions (app 15368), requires an up-to-date branch, and enforces the rule for administrators.
+Force pushes and branch deletion are disabled. This supersedes the unprotected July 27 and
+September 25 observations. See the [dated R02 evidence](../features/r02-reproducible-verification/implementation/verification.md)
+for execution and merge-blocking evidence; the new workflow still requires its first remote run.
 
 ## Reproducing a failure locally
 
@@ -116,13 +128,13 @@ runner provides. Locally the same tests need a running Docker daemon.
 
 ## Gates the architecture requires that do not exist yet
 
-| Required gate                           | Status                                                                                                                             |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Provisioning-script validation          | `infrastructure/gcloud/scripts/` is authoritative, but CI has no dedicated shell/static/idempotency gate                           |
-| Container vulnerability scan            | Images build and publish to Artifact Registry, but no blocking image scan is configured                                            |
-| End-to-end tests for release candidates | Feature-specific browser suites exist, but they are not a blocking release-candidate gate; real-device iOS evidence remains manual |
-| Dependency vulnerability scan           | Dependabot proposes updates; no blocking audit gate is configured                                                                  |
-| Documentation link checking             | Formatting is gated; nothing yet verifies that links resolve                                                                       |
+| Required gate                           | Status                                                                                                                                            |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Provisioning-script validation          | `infrastructure/gcloud/scripts/` is authoritative, but CI has no dedicated shell/static/idempotency gate                                          |
+| Container vulnerability scan            | Images build and publish to Artifact Registry, but no blocking image scan is configured                                                           |
+| End-to-end tests for release candidates | The complete local-stack browser suite is wired into All gates; higher-environment release-candidate and real-device iOS evidence remain separate |
+| Dependency vulnerability scan           | Dependabot proposes updates; no blocking audit gate is configured                                                                                 |
+| Documentation link checking             | Formatting is gated; nothing yet verifies that links resolve                                                                                      |
 
 The first three are follow-up quality work rather than missing infrastructure — see
 [deferred-capabilities.md](deferred-capabilities.md). The fourth is a deliberate choice: a blocking

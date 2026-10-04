@@ -251,6 +251,9 @@ export function AddPlantForm({
 
   return (
     <CommandSurface className={styles['form']} onCommit={() => void onSubmit()}>
+      {/* Button-driven required fields must stay registered when optional panels unmount. */}
+      <input type="hidden" {...register('groupingKind')} />
+      <input type="hidden" {...register('lifecycleStage')} />
       {draft.recovered && <RecoveredDraftNotice onDiscard={discardRecoveredDraft} />}
       <div className={styles['commandRow']}>
         <TextField

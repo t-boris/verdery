@@ -11,11 +11,11 @@ the product has a defect.
 | ------- | -------- | -------- | ----------------- | ------------ | --------------------------------------------------------------------------- | ------------ | ---------------------------------------------------------- |
 | GG-0001 | analyzed | SEV-4    | web               | supported    | Sign-in composition obscures its image and lacks responsive visual coverage | 1            | [GG-0001](GG-0001-sign-in-composition.md)                  |
 | GG-0002 | analyzed | SEV-5    | web / API / data  | supported    | Archive-first permanent deletion without a mandatory recovery delay         | 1            | [GG-0002](GG-0002-archive-first-permanent-deletion.md)     |
-| GG-0003 | fixed    | SEV-4    | web               | supported    | Garden details card stretches into an empty panel                           | 1            | [GG-0003](GG-0003-garden-details-empty-panel.md)           |
+| GG-0003 | closed   | SEV-4    | web               | supported    | Garden details card stretches into an empty panel                           | 2            | [GG-0003](GG-0003-garden-details-empty-panel.md)           |
 | GG-0004 | analyzed | SEV-3    | web / API / data  | supported    | Garden environment facts lack a usable setup and summary flow               | 1            | [GG-0004](GG-0004-garden-environment-setup-flow.md)        |
-| GG-0005 | fixed    | SEV-3    | web               | supported    | Garden Map inspector and object list are difficult to read and operate      | 2            | [GG-0005](GG-0005-map-workspace-and-inspector.md)          |
+| GG-0005 | fixed    | SEV-3    | web               | supported    | Garden Map inspector and object list are difficult to read and operate      | 3            | [GG-0005](GG-0005-map-workspace-and-inspector.md)          |
 | GG-0006 | analyzed | SEV-3    | web               | supported    | Garden Map canvas labels, controls, and Fit behavior compete with the plan  | 1            | [GG-0006](GG-0006-map-canvas-density-and-fit.md)           |
-| GG-0007 | fixed    | SEV-3    | web / API         | supported    | Today weather periods and missing measurements are difficult to interpret   | 1            | [GG-0007](GG-0007-today-weather-hierarchy-and-coverage.md) |
+| GG-0007 | fixed    | SEV-3    | web / API         | supported    | Today weather periods and missing measurements are difficult to interpret   | 2            | [GG-0007](GG-0007-today-weather-hierarchy-and-coverage.md) |
 | GG-0008 | analyzed | SEV-3    | web / API         | supported    | Automatic Checks overstate readiness and hide per-target eligibility        | 1            | [GG-0008](GG-0008-automatic-checks-claims.md)              |
 | GG-0009 | analyzed | SEV-4    | web / API / media | supported    | Plant photos load through per-image request waterfalls and original assets  | 1            | [GG-0009](GG-0009-plant-image-loading.md)                  |
 | GG-0010 | analyzed | SEV-3    | web / API         | supported    | Observation capture exposes implementation fields before the primary task   | 1            | [GG-0010](GG-0010-observation-quick-capture.md)            |
@@ -54,3 +54,5 @@ otherwise create and relate a new record.
 [IMPLEMENTATION-PLAN.md](IMPLEMENTATION-PLAN.md) turns every current registry record into an
 ordered implementation, verification, rollout, and decision plan. The issue records remain the
 source of truth for scope and acceptance criteria.
+
+R02 deployed verification on 2026-10-04 (web 0.6.4) closed GG-0003. GG-0005 and GG-0007 remain open: see their dated observations for failures and unverified states.

@@ -39,23 +39,24 @@ fail() {
 }
 
 # --- Fixed, non-default ports for this run ----------------------------------
-DB_PORT=55432
+DB_PORT=${E2E_DB_PORT:-55432}
 DB_NAME=verdery_e2e
 DB_USER=verdery
 DB_PASSWORD=verdery
-API_PORT=8090
-WEB_PORT=3100
+API_PORT=${E2E_API_PORT:-8090}
+WEB_PORT=${E2E_WEB_PORT:-3100}
 AUTH_EMULATOR_PORT=9099 # Fixed by firebase.json; not this script's to choose.
 FIREBASE_PROJECT_ID=demo-verdery-e2e
 
-DB_CONTAINER_NAME=verdery-e2e-postgres
+DB_CONTAINER_NAME="verdery-e2e-postgres-$$"
 POSTGIS_IMAGE=postgis/postgis:17-3.5
 # The image ships amd64 only; Testcontainers-based integration tests
 # (services/api/tests/integration/gardens-mapping.test.ts) hit the same
 # constraint and pin the same platform for the same reason.
 POSTGIS_PLATFORM=linux/amd64
 
-LOG_DIR="$(mktemp -d)"
+LOG_DIR="${E2E_LOG_DIR:-$(mktemp -d)}"
+mkdir -p "${LOG_DIR}"
 FIREBASE_LOG="${LOG_DIR}/firebase-emulator.log"
 API_LOG="${LOG_DIR}/api.log"
 WEB_LOG="${LOG_DIR}/web.log"
@@ -65,14 +66,23 @@ FIREBASE_PID=""
 API_PID=""
 WEB_PID=""
 
+stop_process_tree() {
+  local pid="$1"
+  local child
+  for child in $(pgrep -P "${pid}" || true); do
+    stop_process_tree "${child}"
+  done
+  kill "${pid}" 2>/dev/null || true
+}
+
 cleanup() {
   local exit_code=$?
 
   log "Cleaning up (exit code ${exit_code})"
 
-  [[ -n "${WEB_PID}" ]] && kill "${WEB_PID}" 2>/dev/null || true
-  [[ -n "${API_PID}" ]] && kill "${API_PID}" 2>/dev/null || true
-  [[ -n "${FIREBASE_PID}" ]] && kill "${FIREBASE_PID}" 2>/dev/null || true
+  [[ -n "${WEB_PID}" ]] && stop_process_tree "${WEB_PID}" || true
+  [[ -n "${API_PID}" ]] && stop_process_tree "${API_PID}" || true
+  [[ -n "${FIREBASE_PID}" ]] && stop_process_tree "${FIREBASE_PID}" || true
 
   # Give each a moment to release its port before the container goes too;
   # none of this is load-bearing for correctness, only for a clean re-run.
@@ -95,7 +105,7 @@ wait_for_http() {
   local timeout_seconds="$3"
   local waited=0
 
-  until curl --silent --fail --output /dev/null "${url}"; do
+  until curl --silent --fail --max-time 2 --output /dev/null "${url}"; do
     if [[ "${waited}" -ge "${timeout_seconds}" ]]; then
       fail "${name} did not become ready at ${url} within ${timeout_seconds}s. See ${LOG_DIR}."
     fi
@@ -111,7 +121,6 @@ command -v firebase >/dev/null || fail "The Firebase CLI is required (firebase e
 
 # --- 1. Throwaway Postgres ---------------------------------------------------
 log "Starting Postgres (${POSTGIS_IMAGE}) on port ${DB_PORT}"
-docker rm -f "${DB_CONTAINER_NAME}" >/dev/null 2>&1 || true
 docker run -d \
   --name "${DB_CONTAINER_NAME}" \
   --platform "${POSTGIS_PLATFORM}" \
@@ -216,7 +225,8 @@ wait_for_http "Web app" "http://localhost:${WEB_PORT}/auth/sign-in" 60
 # --- 5. The suite itself -----------------------------------------------------
 log "Running Playwright"
 set +e
-E2E_WEB_BASE_URL="http://localhost:${WEB_PORT}" \
+E2E_DB_CONTAINER_NAME="${DB_CONTAINER_NAME}" \
+  E2E_WEB_BASE_URL="http://localhost:${WEB_PORT}" \
   pnpm --filter @verdery/web test:e2e
 PLAYWRIGHT_EXIT_CODE=$?
 set -e
