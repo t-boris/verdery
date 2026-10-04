@@ -21,3 +21,12 @@ A. Ручная проверка в браузере на deployed development �
 ### AI updated the requirements · 2026-10-04
 
 DEC-001, DEC-002, DEC-003 written into the overview.
+
+## 2026-10-04 - Implementation evidence and Q-004
+
+The first hosted native UI test passed. A red required All gates check blocked
+non-draft PR #31. Dated manual observations closed GG-0003; GG-0005 and GG-0007
+remain open. The complete local browser run reached 52 passed and one existing
+GG-0005 tabpanel assertion failure. Q-004 asks for resolution of the conflict
+between the passing-suite requirement and DEC-003's fix exclusion. No prior
+answer was re-asked, and no new answer or exception has yet been inferred.

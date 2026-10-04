@@ -18,13 +18,10 @@ test('map drawing and property edits persist after reloading', async ({ page }) 
   await canvas.click({ position: { x: 120, y: 240 } });
   await page.getByRole('button', { name: 'Finish shape', exact: true }).click();
 
-  await page.getByRole('tab', { name: 'Objects', exact: true }).click();
-  const object = page.getByRole('button', { name: /^Select .*Bed/ });
-  await expect(object).toHaveCount(1);
-  await object.click();
-  await page.getByRole('tab', { name: 'Properties', exact: true }).click();
+  // The successful create command selects the new bed and opens Properties.
+  await expect(page.getByText('Bed · Revision 1', { exact: true })).toBeVisible();
   await page.getByLabel('Label', { exact: true }).fill('R02 North bed');
-  await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+  await page.getByLabel('Label', { exact: true }).press('Enter');
   await expect(page.getByText('Changes saved.', { exact: true })).toBeVisible();
 
   await page.reload();
@@ -40,8 +37,9 @@ test('plant, observation, and manual task remain available after reloading', asy
   const base = `/application/gardens/${garden.gardenId}`;
 
   await page.goto(`${base}/plants`);
-  await expect(page.getByRole('link', { name: garden.plantName, exact: true })).toBeVisible();
-  await page.getByRole('link', { name: garden.plantName, exact: true }).click();
+  const plant = page.getByRole('link').filter({ hasText: garden.plantName });
+  await expect(plant).toBeVisible();
+  await plant.click();
   await expect(page.getByText('E2E leaves look healthy.', { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByText('E2E leaves look healthy.', { exact: true })).toBeVisible();

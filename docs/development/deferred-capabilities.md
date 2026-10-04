@@ -999,15 +999,17 @@ identical missing-offline-gate shape but were not part of this documented follow
 were deliberately left untouched — a real, adjacent, still-open gap, flagged here rather than fixed
 unilaterally.
 
-**The Phase 2 E2E suite does not run in CI.** `apps/web/e2e/` (Playwright against a real Postgres,
-the Firebase Auth emulator, the real API, and the real web app, orchestrated by
-`apps/web/e2e/run-e2e.sh`) is verified locally but not wired into `.github/workflows/ci.yml`: it
-needs Docker and the Firebase CLI on the runner and takes noticeably longer than the existing gates,
-the same cost/benefit reasoning already applied to the `swift` job's narrow path filter. Also
-unverified: whether `services/api/src/main.ts`'s `firebase-admin` initialization
-(`initializeApp({ credential: applicationDefault() })`) still works with no Application Default
-Credentials provisioned at all, which a from-scratch CI runner may not have — this was only proven
-against this development machine's own `gcloud auth application-default login` session.
+**R02 closes the browser CI wiring gap.** The complete `apps/web/e2e/` suite now
+runs in the `Browser journeys` job against disposable PostGIS, Auth emulator,
+real API and web servers. The required `All gates` check includes it, preserves
+failure/cancellation semantics and retains browser/stack evidence. Fresh Ubuntu
+runner startup and emulator-backed commands execute without provisioned cloud
+Application Default Credentials. Native first-garden creation also has a
+simulator gate inside the existing path-filtered Swift job. See
+[reproduction instructions](reproducible-verification.md) and the
+[dated acceptance ledger](../features/r02-reproducible-verification/implementation/verification.md)
+for exact local/hosted execution results and outstanding evidence. This does not
+close higher-environment, cross-device or provider acceptance gaps.
 
 **Data-export residuals (P8-EXPORT-01 scope boundaries).** The export request/generation/delivery
 pipeline is implemented and tested end to end (see `data-export-and-deletion.md` sections 5.1, 7.1,

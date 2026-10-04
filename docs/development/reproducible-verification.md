@@ -61,7 +61,7 @@ The script creates a fresh compatible iPhone simulator from the newest installed
 iOS runtime and deletes only that simulator afterward. It runs the explicit
 `VerderyUITests/FirstGardenCreationTests` target, serially, with no automatic
 UI-test retry. A failure returns a nonzero exit code and blocks the Swift job.
-xcresult bundles remain under `apps/ios/test-results/`; CI retains them as
+xcresult bundles and `xcodebuild.log` remain under `apps/ios/test-results/`; CI retains them as
 `ios-ui-test-failure` for 14 days on failure/cancellation.
 
 The test checks the real offline-capable garden creation flow: empty list,
@@ -94,3 +94,15 @@ in GG-0003, GG-0005, and GG-0007. No new Playwright assertions are added for tho
 issues. Close only when every issue-specific criterion is verified; otherwise
 keep the issue open and record the failure or missing evidence. Fixing discovered
 issue failures is outside R02.
+
+## Core verification repairs
+
+Web 0.6.6 retains required button-driven plant/task defaults during conditional
+field unmounts and omits an absent task time window. Creation regression tests
+verify actual command inputs. Browser setup follows the current disclosures;
+existing audits use scoped navigation, the mobile bottom rail, and direct or
+containing-row focus changes. Mobile application links and garden-name suggestions
+meet the existing 44px control minimum. Generated reports and trace resources
+are excluded from the source-size rule, so a failed browser run can be followed
+by repository checks without deleting its evidence. See R02
+[F-001](../features/r02-reproducible-verification/findings/F-001.md).

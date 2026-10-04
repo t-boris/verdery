@@ -107,7 +107,9 @@ Current repository state, verified October 4, 2026: `master` requires `All gates
 Actions (app 15368), requires an up-to-date branch, and enforces the rule for administrators.
 Force pushes and branch deletion are disabled. This supersedes the unprotected July 27 and
 September 25 observations. See the [dated R02 evidence](../features/r02-reproducible-verification/implementation/verification.md)
-for execution and merge-blocking evidence; the new workflow still requires its first remote run.
+for execution and merge-blocking evidence. The first hosted native UI test passed;
+a red required All gates check blocked PR #31. Final complete browser acceptance
+awaits the recorded Q-004 scope conflict.
 
 ## Reproducing a failure locally
 

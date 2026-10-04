@@ -35,7 +35,7 @@ understanding_notes:
   Analytics: Не затрагивается.
   Dependencies: 'Факт проекта: playwright.config.ts и specs уже есть (register-and-create-garden, care-loop и др.) и запускаются через e2e/run-e2e.sh, но в ci.yml job для них нет. UI-test target в project.yml отсутствует. Default-ветка — master.'
   Acceptance Criteria: 'REQ-001 обновлён: Playwright-job входит в «All gates», required check на master зафиксирован с датой, iOS UI-тест идёт в swift-job, у каждого GG-issue есть датированная строка в Observations.'
-questions_left: 0
+questions_left: 1
 ---
 
 # R02 - Reproducible Verification
@@ -76,8 +76,11 @@ Use the current R00 baseline when choosing fixtures. This card does not claim th
 
 ## Intake State
 
-This is a draft record of planned work. Feature intake has not performed discovery, implementation,
-verification, or release approval for this feature. All acceptance criteria remain pending.
+Implementation and verification are recorded in the
+[ledger](implementation/verification.md). Native CI execution, required-check merge
+blocking and deployed issue observations are verified. The complete browser suite
+currently has one GG-0005 failure; Q-004 resolves the conflict between REQ-001 and
+DEC-003. No release approval or exception to DEC-003 is inferred.
 
 ## Source
 

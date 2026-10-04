@@ -108,8 +108,9 @@ test.describe.serial('keyboard operability', () => {
     for (const route of auditedRoutes(garden.gardenId)) {
       await page.goto(route.path);
       await waitForRouteContent(page, route.path);
+      await page.keyboard.press('Tab');
 
-      const withoutIndicator = await page.evaluate(() => {
+      const withoutIndicator = await page.evaluate(async () => {
         const results: string[] = [];
         const focusable = document.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
@@ -118,15 +119,38 @@ test.describe.serial('keyboard operability', () => {
           if (element.getBoundingClientRect().height === 0) {
             continue;
           }
+          const container = element.parentElement;
+          const borderBefore = getComputedStyle(element).borderColor;
+          const containerShadowBefore =
+            container === null ? 'none' : getComputedStyle(container).boxShadow;
+          const containerBorderBefore =
+            container === null ? '' : getComputedStyle(container).borderColor;
           element.focus();
+          if (document.activeElement !== element) {
+            continue; // Closed native disclosures can retain descendant geometry.
+          }
           const style = getComputedStyle(element);
           const outlined =
             style.outlineStyle !== 'none' && Number.parseFloat(style.outlineWidth) > 0;
           const shadowed = style.boxShadow !== 'none' && style.boxShadow.trim() !== '';
           if (!outlined && !shadowed) {
-            results.push(
-              `${element.tagName.toLowerCase()} "${(element.textContent ?? '').trim().slice(0, 40)}"`,
-            );
+            // Composite fields can put the focus ring on their containing row.
+            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+            const borderChanged = getComputedStyle(element).borderColor !== borderBefore;
+            const containerStyle = container === null ? null : getComputedStyle(container);
+            const containerRing =
+              containerStyle !== null &&
+              ((containerStyle.outlineStyle !== 'none' &&
+                Number.parseFloat(containerStyle.outlineWidth) > 0) ||
+                (containerStyle.boxShadow !== 'none' &&
+                  containerStyle.boxShadow !== containerShadowBefore) ||
+                containerStyle.borderColor !== containerBorderBefore);
+            if (!containerRing && !borderChanged) {
+              results.push(
+                `${element.tagName.toLowerCase()} "${(element.textContent ?? '').trim().slice(0, 40)}"`,
+              );
+            }
           }
         }
         return results;

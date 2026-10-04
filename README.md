@@ -48,9 +48,10 @@ every fact names the source that asserted it, and shareable filter links on the 
 
 The development API and web application are deployed to `verdery-dev`, and the automatic
 post-CI deployment verifies database migrations plus live API and web responses. Verdery 1.0 build
-192 was uploaded successfully to TestFlight and entered Apple processing. CI is operational, but
-`master` currently has no branch protection or repository ruleset requiring the aggregate
-`All gates` check.
+192 was uploaded successfully to TestFlight and entered Apple processing. The September 25 handoff recorded no required merge gate. On October 4, 2026,
+`master` protection was configured and read back to require GitHub Actions `All gates`,
+with strict checks and administrator enforcement. See the
+[R02 verification ledger](docs/features/r02-reproducible-verification/implementation/verification.md).
 
 The product is not GA-ready. Only the development environment exists; staging and production remain
 unprovisioned. App Check enforcement and optional AI/notification providers remain disabled pending
@@ -191,8 +192,10 @@ pnpm --filter @verdery/api-contracts generate:check   # generated client matches
 
 Every gate above also runs in CI, plus a secret scan and the Swift build.
 [docs/development/ci-gates.md](docs/development/ci-gates.md) maps each CI job to the command that
-reproduces it locally. CI reports `All gates`, but that check is not yet enforced by branch
-protection on `master`.
+reproduces it locally. `All gates` is required by branch protection on `master` as of October 4, 2026.
+R02 adds the complete browser suite and the path-filtered native first-garden simulator
+test; execution evidence is in the
+[verification ledger](docs/features/r02-reproducible-verification/implementation/verification.md).
 
 ## Developer documentation
 

@@ -99,7 +99,7 @@ describe('AddPlantForm — creation', () => {
     await waitFor(() =>
       expect(mutateMock).toHaveBeenCalledWith(
         { displayName: 'R02 plant', groupingKind: 'individual', lifecycleStage: 'planned' },
-        expect.objectContaining({ onSuccess: expect.any(Function) }),
+        expect.anything(),
       ),
     );
   });

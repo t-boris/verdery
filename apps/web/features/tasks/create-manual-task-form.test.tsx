@@ -1,5 +1,5 @@
 import { onlineManager } from '@tanstack/react-query';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { LocalizationProvider } from '@/shared/localization/public';
@@ -32,6 +32,20 @@ afterEach(() => {
   window.localStorage.clear();
   mutateMock.mockClear();
   act(() => onlineManager.setOnline(true));
+});
+
+describe('CreateManualTaskForm — creation', () => {
+  it('submits a named garden task with default urgency', async () => {
+    renderForm();
+    fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'R02 garden task' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create task' }));
+    await waitFor(() =>
+      expect(mutateMock).toHaveBeenCalledWith(
+        { target: { kind: 'garden' }, title: 'R02 garden task', urgency: 'normal' },
+        expect.anything(),
+      ),
+    );
+  });
 });
 
 describe('CreateManualTaskForm — recoverable local draft', () => {

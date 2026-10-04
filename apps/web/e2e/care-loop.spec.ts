@@ -124,7 +124,8 @@ test.describe.serial('care loop: Today set, feedback controls, and task conversi
     // Postpone the observation reminder with an explicit horizon.
     const observation = card(page, OBSERVATION_TITLE);
     await observation.getByRole('button', { name: copy.todayPostpone }).click();
-    await observation.getByLabel(copy.todayPostponeUntilLabel).fill('2027-01-01T09:00');
+    const futureHorizon = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
+    await observation.getByLabel(copy.todayPostponeUntilLabel).fill(futureHorizon);
     await observation.getByRole('button', { name: copy.todayPostpone }).last().click();
     await expect(card(page, OBSERVATION_TITLE)).toHaveCount(0);
 

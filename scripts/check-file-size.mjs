@@ -39,6 +39,8 @@ const IGNORED_DIRECTORIES = new Set([
   '.build',
   '.swiftpm',
   'DerivedData',
+  'test-results',
+  'playwright-report',
   'generated',
   '.dde',
   // Locally generated design-sync output. Gitignored, so CI never sees it;

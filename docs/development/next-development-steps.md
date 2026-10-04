@@ -1,5 +1,11 @@
 # Next development steps
 
+> October 4 R02 update: required browser and path-filtered native first-garden
+> verification is implemented in [PR 31](https://github.com/t-boris/verdery/pull/31).
+> Use its [verification ledger](../features/r02-reproducible-verification/implementation/verification.md)
+> for execution evidence. GG-0003 is closed; GG-0005 and GG-0007 retain the exact
+> failed/unverified manual criteria. The earlier engineering sequence below is history.
+
 > Snapshot: September 25, 2026. This is a handoff for the next development session, not a release
 > approval. Recheck live state before changing a gate status.
 

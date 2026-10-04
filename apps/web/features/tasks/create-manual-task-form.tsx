@@ -70,7 +70,7 @@ function buildTarget(values: CreateTaskValues): CreateManualTaskRequest['target'
 }
 
 function buildTimeWindow(values: CreateTaskValues): CreateManualTaskRequest['timeWindow'] {
-  if (values.timeWindowStart === '' && values.timeWindowEnd === '') {
+  if ((values.timeWindowStart ?? '') === '' && (values.timeWindowEnd ?? '') === '') {
     return undefined;
   }
   return {
@@ -169,6 +169,8 @@ export function CreateManualTaskForm({ gardenId }: { readonly gardenId: string }
 
   return (
     <CommandSurface className={styles['form']} onCommit={() => void onSubmit()}>
+      <input type="hidden" {...register('targetKind')} />
+      <input type="hidden" {...register('urgency')} />
       {draft.recovered && <RecoveredDraftNotice onDiscard={discardRecoveredDraft} />}
       <div className={styles['commandRow']}>
         <TextField
