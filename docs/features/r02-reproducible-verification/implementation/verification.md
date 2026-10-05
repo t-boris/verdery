@@ -249,6 +249,8 @@ The required All gates check succeeded at 2026-10-05 06:21:24 UTC.
 [PR #31](https://github.com/t-boris/verdery/pull/31) merged at
 2026-10-05 06:23:28 UTC as `f0b9017c85bfdeeb6c18a0b215f837aacbcb3338`,
 whose tree matches the tested head exactly. PR #26 was closed as superseded.
+The successful corrected web deployment closes the OPS-011 incident; October 3
+baseline classifications remain a dated snapshot.
 GG-0003 remains closed. GG-0007 was closed after a complete live forecast and
 an explicitly synthetic stale UI response were verified manually on deployed
 web 0.6.4; the override was removed and the ordinary response restored.

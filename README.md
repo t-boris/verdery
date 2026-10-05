@@ -197,6 +197,14 @@ R02 adds the complete browser suite and the path-filtered native first-garden si
 test; execution evidence is in the
 [verification ledger](docs/features/r02-reproducible-verification/implementation/verification.md).
 
+October 5 follow-up: PR #31 merged and development deployment
+[37272200473](https://github.com/t-boris/verdery/actions/runs/37272200473) succeeded.
+The web header displays 0.6.7, and API readiness identifies the same merge commit.
+All nine gates passed in CI 37269957184 and again on master in CI 37272172624.
+The web image incident OPS-011 is closed; PR #26 is closed as superseded.
+GG-0003 and GG-0007 are closed. GG-0005's repaired deployed checks passed;
+actual deletion and Undo remain pending the specifically requested confirmation.
+
 ## Developer documentation
 
 - [Local setup](docs/development/local-setup.md)

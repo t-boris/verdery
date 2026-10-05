@@ -1,5 +1,12 @@
 # Infrastructure and deployment
 
+> October 5 deployment observation: web 0.6.7 and API readiness identify
+> `f0b9017c85bfdeeb6c18a0b215f837aacbcb3338`; deployment 37272200473 succeeded.
+> OPS-011 is closed after the corrected web image and CI gate were integrated
+> into merged PR 31. PR 26 is closed as superseded. Earlier environment readings
+> below retain their dates; this evidence does not imply staging, production,
+> cross-device, or complete asynchronous-workflow acceptance.
+
 How `verdery-dev` came to exist, how to deploy to it, and how it was verified. The scripts
 themselves are documented in
 [../../infrastructure/gcloud/README.md](../../infrastructure/gcloud/README.md); this document is

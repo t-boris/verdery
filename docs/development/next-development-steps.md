@@ -1,10 +1,12 @@
 # Next development steps
 
-> October 4 R02 update: required browser and path-filtered native first-garden
-> verification is implemented in [PR 31](https://github.com/t-boris/verdery/pull/31).
-> Use its [verification ledger](../features/r02-reproducible-verification/implementation/verification.md)
-> for execution evidence. GG-0003 is closed; GG-0005 and GG-0007 retain the exact
-> failed/unverified manual criteria. The earlier engineering sequence below is history.
+> October 5 completion update: R02 is implemented, PR 31 is merged, and
+> development deployment 37272200473 serves web 0.6.7. OPS-011 is closed: the
+> corrected web image and its CI gate were integrated from PR 26, which is now
+> closed as superseded. GG-0003 and GG-0007 are closed; GG-0005 remains fixed
+> pending actual deletion and Undo after the requested operational confirmation.
+> Use the [verification ledger](../features/r02-reproducible-verification/implementation/verification.md)
+> for dated evidence. Earlier plans and observations below retain their dates.
 
 > Snapshot: September 25, 2026. This is a handoff for the next development session, not a release
 > approval. Recheck live state before changing a gate status.
