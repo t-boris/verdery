@@ -81,9 +81,21 @@ This addresses the September 25 development deployment failure, where workspace 
 web image failed with `TS2307` after API and worker deployment. The earlier failure is recorded in
 [infrastructure.md](infrastructure.md).
 
-To reproduce locally, build `apps/web/Dockerfile` with
-`NEXT_PUBLIC_API_ORIGIN=same-origin`, `API_PROXY_ORIGIN=http://127.0.0.1:8080`, and a
-`VERDERY_DEPLOYMENT_ID`, then start the image on port 8080 and request `/auth/sign-in`.
+To reproduce locally from the repository root:
+
+```bash
+docker build --platform linux/amd64 -f apps/web/Dockerfile -t verdery-web:ci \
+  --build-arg NEXT_PUBLIC_API_ORIGIN=same-origin \
+  --build-arg API_PROXY_ORIGIN=http://127.0.0.1:8080 \
+  --build-arg VERDERY_DEPLOYMENT_ID="$(git rev-parse HEAD)" .
+docker run --detach --name verdery-web-ci --publish 127.0.0.1:3080:8080 verdery-web:ci
+curl --fail --silent --show-error --max-time 10 --retry 20 --retry-delay 2 \
+  --retry-all-errors --retry-max-time 60 --output /dev/null \
+  http://127.0.0.1:3080/auth/sign-in
+docker logs verdery-web-ci
+docker rm --force verdery-web-ci
+```
+
 This smoke check proves image construction and HTTP startup; the full browser job verifies
 authenticated journeys against its local stack.
 
@@ -134,6 +146,24 @@ a red required All gates check blocked PR #31. CI 37247309803 verified all five
 named core journeys; the complete browser result is 52 passed / 1 failed. The existing
 GG-0005 responsive failure is retained under R02's explicit fix exclusion;
 Q-004 was withdrawn after the requirement audit found no contradiction.
+
+## Follow-up closure evidence on October 5, 2026
+
+The separately requested GG-0005 repair and web image gate passed
+[CI 37269957184](https://github.com/t-boris/verdery/actions/runs/37269957184)
+for `3963f9acefe8aeea55b6223123822b7da3d81a7d`. All nine jobs passed:
+53 browser tests with no skips or retries, 1,297 web tests, 3,064 API tests,
+1226 native package tests, and the first-garden UI test with zero failures in
+54.156 seconds. The worker suite passed 146 tests and retained six existing
+external-tool/cloud-dependent skips. Formatting, file size, lint, types,
+contract checks, secret scanning, and the standalone image HTTP smoke check
+also passed.
+
+PR #31 merged at 2026-10-05 06:23:28 UTC as
+`f0b9017c85bfdeeb6c18a0b215f837aacbcb3338`; its tree is identical to the tested
+PR head. PR #26 was closed as superseded after its web-image fix was included.
+The earlier red run remains historical evidence that the required aggregate
+blocks regressions. These follow-up fixes do not rewrite R02's original scope.
 
 ## Reproducing a failure locally
 

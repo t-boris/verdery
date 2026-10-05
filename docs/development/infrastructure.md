@@ -160,8 +160,12 @@ deployed the API and workers, then failed to build the web image: Next.js type-c
 that imported `@verdery/test-fixtures`, but the Dockerfile had neither copied nor built that
 package. The web Dockerfile now includes its sources and declarations. CI builds the deployment
 image and starts its standalone server before `All gates` can pass. The
-[CI gate guide](ci-gates.md) describes the check and its local reproduction. This repair needs a
-successful deploy run before the development environment can claim the new version.
+[CI gate guide](ci-gates.md) describes the check and its local reproduction. [Deployment 37272200473](https://github.com/t-boris/verdery/actions/runs/37272200473)
+completed successfully on October 5, 2026 for `f0b9017c85bfdeeb6c18a0b215f837aacbcb3338`.
+Its tree matches the fully passing PR source from CI 37269957184. The web revision
+`verdery-web-dev-00185-lhw` serves web 0.6.7; the authenticated header was checked
+manually. Public API readiness reports the same merge commit and an available
+database. This was a deliberate manual dispatch of the tested merge tree.
 
 Migrations run as a Cloud Run Job rather than directly from the invoking machine, whether that
 machine is a laptop or a GitHub-hosted runner: Cloud SQL has no public IP, so only Direct VPC egress

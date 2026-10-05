@@ -9851,12 +9851,16 @@ G9 review in this file (format to reuse for gate reviews).
 
 ## Step 2 — verify what is already fixed (Epic 0 and care-engine leftovers)
 
-- [ ] Node 24: run the full CI script set (not a scoped subset) and record the numbers.
-- [x] GG-0003: browser pass per `IMPLEMENTATION-PLAN.md` Epic 0 (active and archived garden,
+- [x] Node 24: run the full CI script set (not a scoped subset) and record the numbers.
+      CI 37269957184 passed all gates; counts and existing worker skips are recorded in
+      `docs/development/ci-gates.md`.
+- [ ] GG-0003: browser pass per `IMPLEMENTATION-PLAN.md` Epic 0 (active and archived garden,
       desktop above and below 68rem, EN/RU, long names, keyboard, focus, zoom).
+      The issue's own acceptance is closed by OBS-R02-003; the broader historical matrix above
+      still includes states not evidenced by that observation.
 - [ ] GG-0005: browser pass (width persistence, no collapse chevron, tab roving focus, every
       preserved editor action, overlay below 80rem, phone and tablet reflow, long Russian names).
-- [ ] GG-0007: browser pass (complete, partial, zero, unavailable, stale states; °C/°F cookie
+- [x] GG-0007: browser pass (complete, partial, zero, unavailable, stale states; °C/°F cookie
       survives reload and a server render; no hydration mismatch; EN/RU; contrast).
 - [ ] Record evidence in each issue record, advance `fixed → verified`, sync the registry index
       and `IMPLEMENTATION-PLAN.md`. A failed check reopens the issue with its observation instead.
