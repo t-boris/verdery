@@ -29,7 +29,10 @@ import type { MapEditorActions } from './use-map-editor-actions';
 export interface MapObjectListProps {
   readonly actions: MapEditorActions;
   readonly selectedObjectId: string | null;
-  readonly onSelect: (objectId: string) => void;
+  readonly onSelect: (
+    objectId: string,
+    interaction: 'row' | 'keyboard-navigation' | 'multi-select',
+  ) => void;
 }
 
 /** True for the two categories `joinLinework` accepts — see `use-map-editor-linework-actions.ts`. */
@@ -96,7 +99,7 @@ export function MapObjectList({ actions, selectedObjectId, onSelect }: MapObject
       });
       return;
     }
-    onSelect(record.id);
+    onSelect(record.id, 'keyboard-navigation');
   };
 
   const focusAndSelect = (index: number) => {
@@ -167,11 +170,11 @@ export function MapObjectList({ actions, selectedObjectId, onSelect }: MapObject
                   return;
                 }
                 if (event.shiftKey) {
-                  onSelect(record.id);
+                  onSelect(record.id, 'multi-select');
                   store.toggleMultiSelect(record.id);
                   return;
                 }
-                onSelect(record.id);
+                onSelect(record.id, 'row');
               }}
               onDelete={() => void actions.deleteObject(record.id)}
               onToggleHidden={() => void actions.setObjectHidden(record.id, !record.isHidden)}

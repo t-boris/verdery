@@ -725,6 +725,9 @@ Canvas content is accompanied by:
 
 - A structured object tree or list.
 - Keyboard selection and movement controls on web.
+- In the web object list, Up/Down selection keeps focus and the Objects tab visible;
+  Shift multi-selection also keeps that tab visible for join and clear actions. Activating a
+  row normally opens Properties.
 - Accessible property editing.
 - Announced validation and save status.
 - Non-color confidence and state indicators.

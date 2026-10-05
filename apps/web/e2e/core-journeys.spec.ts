@@ -29,9 +29,26 @@ test('map drawing and property edits persist after reloading', async ({ page }) 
   await page.reload();
   await waitForRouteContent(page, '/map');
   await page.getByRole('tab', { name: 'Objects', exact: true }).click();
-  await expect(
-    page.getByRole('button', { name: 'Select R02 North bed, Bed', exact: true }),
-  ).toBeVisible();
+  const row = page.getByRole('button', { name: 'Select R02 North bed, Bed', exact: true });
+  await expect(row).toBeVisible();
+  await row.focus();
+  await row.press('ArrowDown');
+  await expect(page.getByRole('tab', { name: 'Objects', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(row).toBeFocused();
+
+  await page.reload();
+  await waitForRouteContent(page, '/map');
+  await page.getByRole('tab', { name: 'Objects', exact: true }).click();
+  await row.click({ modifiers: ['Shift'] });
+  await expect(page.getByRole('tab', { name: 'Objects', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(row).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: 'Clear selection', exact: true })).toBeVisible();
 });
 
 test('plant, observation, and manual task remain available after reloading', async ({ page }) => {

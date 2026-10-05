@@ -26,8 +26,8 @@ export interface InspectorTab {
 export interface MapInspectorDrawerProps {
   readonly tabs: readonly InspectorTab[];
   /**
-   * Which tab to show. The editor decides: selecting an object opens
-   * Properties, because that is what the person just asked a question about.
+   * Which tab to show. The editor opens Properties for ordinary selection,
+   * while list navigation and multi-selection keep Objects visible.
    */
   readonly activeTab: InspectorTabId;
   readonly onSelectTab: (tab: InspectorTabId) => void;

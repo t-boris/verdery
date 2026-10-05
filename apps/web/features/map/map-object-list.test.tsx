@@ -98,7 +98,7 @@ describe('MapObjectList object display controls', () => {
     fireEvent.keyDown(oak, { key: 'ArrowDown' });
 
     expect(document.activeElement).toBe(maple);
-    expect(onSelect).toHaveBeenCalledWith(second.id);
+    expect(onSelect).toHaveBeenCalledWith(second.id, 'keyboard-navigation');
   });
 
   it('keeps deletion available as a named row action', () => {

@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 
 import { isConnectivityFailure } from '@/core/api/public';
 import { useLocalization } from '@/shared/localization/public';
@@ -83,11 +83,12 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
   const aerialTracing = useTraceAerial(gardenId);
 
   /*
-   * Which drawer tab is showing. Selecting an object moves it to Properties —
-   * that is the question the person just asked — but a deliberate switch to
-   * another tab is never overridden until the next selection.
+   * Canvas selection and ordinary row activation open Properties. Arrow
+   * navigation and Shift selection keep Objects visible so focus and group
+   * actions remain available.
    */
   const [inspectorTab, setInspectorTab] = useState<InspectorTabId>('properties');
+  const keepObjectsTabForSelection = useRef(false);
   const [inspectorWidth, setInspectorWidth] = useState<MapInspectorWidth>('standard');
   useEffect(() => {
     setInspectorWidth(loadInspectorWidth(window.localStorage, gardenId));
@@ -99,10 +100,23 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
   };
   const selectedObjectId = store.state.selectedObjectId;
   useEffect(() => {
-    if (selectedObjectId !== null) {
+    if (selectedObjectId !== null && !keepObjectsTabForSelection.current) {
       setInspectorTab('properties');
     }
+    keepObjectsTabForSelection.current = false;
   }, [selectedObjectId]);
+
+  const selectFromObjectList = (
+    objectId: string,
+    interaction: 'row' | 'keyboard-navigation' | 'multi-select',
+  ) => {
+    keepObjectsTabForSelection.current =
+      interaction !== 'row' && objectId !== store.state.selectedObjectId;
+    if (interaction === 'row' && objectId === store.state.selectedObjectId) {
+      setInspectorTab('properties');
+    }
+    store.select(objectId);
+  };
 
   // The shell's footer is mounted above this route and cannot take props, so
   // the readouts are published into it — see `usePublishStatusBarFields`.
@@ -282,7 +296,7 @@ function MapEditorContent({ gardenId }: { readonly gardenId: string }) {
                 <MapObjectList
                   actions={actions}
                   selectedObjectId={store.state.selectedObjectId}
-                  onSelect={store.select}
+                  onSelect={selectFromObjectList}
                 />
               ),
             },
