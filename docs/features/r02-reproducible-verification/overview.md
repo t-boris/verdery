@@ -77,17 +77,22 @@ gates and their dated execution results are recorded in the verification ledger.
 
 ## Implementation State
 
-All seven REQ-001 criteria and all six plan items are verified in the
-[ledger](implementation/verification.md). CI 37247309803 executed all 53 browser
-tests: the five named core journeys and 52 tests passed; the retained GG-0005
-assertion failed and correctly made required All gates fail. Native first-garden
-creation/relaunch passed in CI. Master protection, failure/cancellation
-propagation, the unchanged Swift filter, and dated deployed issue observations
-are documented with evidence. GG-0003 is closed; GG-0005 and GG-0007 remain open.
+All seven REQ-001 criteria and all six plan items are complete; their original
+scoped evidence is in the [ledger](implementation/verification.md). The original
+R02 run correctly blocked PR #31 on the excluded GG-0005 regression while all
+five named core journeys and native first-garden creation passed.
 
-Q-004 was withdrawn without a user answer after a direct requirement audit found
-no contradiction. Recorded answers and decisions remain unchanged. No GG fix,
-merge or release approval is inferred.
+The owner's separately requested closure follow-up repaired GG-0005 in web
+0.6.7 and added the web deployment image gate. CI 37269957184 passed all nine
+jobs, including 53 browser tests and the native first-garden test. PR #31 is
+merged and development deployment 37272200473 succeeded. GG-0003 and GG-0007
+are closed. GG-0005's deployed tab, focus, group-selection, visibility and lock
+checks passed; actual deletion and Undo remain pending the specifically
+requested operational confirmation, so the issue stays `fixed`.
+
+Q-004 remains withdrawn and unanswered. The original answers and decisions stay
+binding; follow-up authorization comes from the new closure request. The feature
+retains `status: implemented`, with no unfinished R02 plan items.
 
 ## Source
 

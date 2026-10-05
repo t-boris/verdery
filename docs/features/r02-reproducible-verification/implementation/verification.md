@@ -6,9 +6,9 @@ existed at the start. Recorded answers remain binding; no new product answer has
 been inferred. Q-004 was asked but withdrawn without an answer after the direct
 requirement audit found no contradiction; see F-002.
 
-## Final requirement audit
+## Original R02 requirement audit — 2026-10-04
 
-| Requirement / plan item              | Current evidence                                                                                                                                                                                                                 | Acceptance result                                                                                                                         |
+| Requirement / plan item              | Scoped R02 evidence                                                                                                                                                                                                              | Acceptance result                                                                                                                         |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | Playwright job and aggregation / I-1 | `ci.yml` runs the complete suite on an Auth-emulator/local-stack job with read-only contents permission; `gates.needs` includes `playwright`. Failure artifacts include traces, HTML report, screenshots, video, and stack logs. | First hosted red run and local aggregation matrix verified; all specs remain required, including the known excluded GG-0005 failure.      |
 | Five core web journeys / I-2         | Existing registration and care-loop specs plus `core-journeys.spec.ts`; fixtures use current R00 CORE-005–010 behavior and isolated accounts.                                                                                    | All five named core journeys passed in hosted CI 37247309803; the complete run executed all 53 tests, with only excluded GG-0005 failing. |
