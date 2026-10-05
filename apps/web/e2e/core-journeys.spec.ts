@@ -12,10 +12,12 @@ test('map drawing and property edits persist after reloading', async ({ page }) 
   await page.getByRole('button', { name: copy.mapDrawBedTool, exact: true }).click();
 
   const canvas = page.getByRole('application');
-  await canvas.click({ position: { x: 120, y: 120 } });
-  await canvas.click({ position: { x: 260, y: 120 } });
-  await canvas.click({ position: { x: 260, y: 240 } });
-  await canvas.click({ position: { x: 120, y: 240 } });
+  // Konva treats rapid clicks on the stage as a double-click even at different
+  // vertices. Separate gestures beyond its 400ms window to finish explicitly.
+  await canvas.click({ position: { x: 120, y: 120 }, delay: 500 });
+  await canvas.click({ position: { x: 260, y: 120 }, delay: 500 });
+  await canvas.click({ position: { x: 260, y: 240 }, delay: 500 });
+  await canvas.click({ position: { x: 120, y: 240 }, delay: 500 });
   await page.getByRole('button', { name: 'Finish shape', exact: true }).click();
 
   // The successful create command selects the new bed and opens Properties.

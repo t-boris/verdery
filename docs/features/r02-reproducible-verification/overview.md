@@ -35,7 +35,7 @@ understanding_notes:
   Analytics: Не затрагивается.
   Dependencies: 'Факт проекта: playwright.config.ts и specs уже есть (register-and-create-garden, care-loop и др.) и запускаются через e2e/run-e2e.sh, но в ci.yml job для них нет. UI-test target в project.yml отсутствует. Default-ветка — master.'
   Acceptance Criteria: 'REQ-001 обновлён: Playwright-job входит в «All gates», required check на master зафиксирован с датой, iOS UI-тест идёт в swift-job, у каждого GG-issue есть датированная строка в Observations.'
-questions_left: 1
+questions_left: 0
 ---
 
 # R02 - Reproducible Verification
@@ -71,16 +71,19 @@ Use the current R00 baseline when choosing fixtures. This card does not claim th
 ## Acceptance Criteria
 
 - [ ] The browser suite is an obligatory CI gate with the named core journeys.
-- [ ] The first-garden iOS UI test executes successfully as part of the path-filtered `swift` job in "All gates".
-- [ ] Each of GG-0003, GG-0005, and GG-0007 has dated acceptance evidence, not just implementation status.
+- [x] The first-garden iOS UI test executes successfully as part of the path-filtered `swift` job in "All gates".
+- [x] Each of GG-0003, GG-0005, and GG-0007 has dated acceptance evidence, not just implementation status.
 
 ## Intake State
 
 Implementation and verification are recorded in the
 [ledger](implementation/verification.md). Native CI execution, required-check merge
 blocking and deployed issue observations are verified. The complete browser suite
-currently has one GG-0005 failure; Q-004 resolves the conflict between REQ-001 and
-DEC-003. No release approval or exception to DEC-003 is inferred.
+currently has one GG-0005 failure, which remains outside the authorized fix
+scope. Q-004 was withdrawn after the requirement audit found no contradiction:
+the five named core journeys must pass, while the complete gate must retain and
+block on other failures. Hosted core-journey verification is still in progress.
+No release approval or exception to DEC-003 is inferred.
 
 ## Source
 

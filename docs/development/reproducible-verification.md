@@ -19,7 +19,10 @@ bash apps/web/e2e/run-e2e.sh
 
 Linux runners install Chromium with `playwright install --with-deps chromium`.
 The workflow runs all `apps/web/e2e/*.spec.ts`, on one Chromium worker, with one
-retry in CI. The shell script owns the real API, PostGIS migrations, Auth
+retry in CI. Each test has a 60-second total budget in CI (30 seconds locally);
+assertions retain their 10-second timeout. Multi-route audits and complete
+creation/edit/reload journeys need that total budget on a cold Linux runner.
+The shell script owns the real API, PostGIS migrations, Auth
 emulator, and Next development server with an enforcing CSP. Recommendation
 fixtures seed catalog-shaped candidates in the disposable database; no provider,
 OIDC worker, or production credential is needed.

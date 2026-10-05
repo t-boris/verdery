@@ -30,3 +30,14 @@ remain open. The complete local browser run reached 52 passed and one existing
 GG-0005 tabpanel assertion failure. Q-004 asks for resolution of the conflict
 between the passing-suite requirement and DEC-003's fix exclusion. No prior
 answer was re-asked, and no new answer or exception has yet been inferred.
+
+## 2026-10-04 - Q-004 withdrawn after direct requirement audit
+
+No user answer was received. Q-004 incorrectly assumed that R02 must make every
+existing browser assertion pass. REQ-001 acceptance criterion 2 and plan I-2
+require passing specs for garden creation, map editing, plants, observations,
+and tasks; criterion 1 and I-1 require all specs to run and failures to propagate.
+REQ-001 and I-6 explicitly exclude fixing failed GG-issues. Thus no contradiction
+exists. Q-004 is withdrawn; F-002 records the resolution. The existing GG-0005
+assertion and red gate remain intact. No recorded answer has been changed or
+new permission inferred. Hosted evidence for the named core journeys is pending.

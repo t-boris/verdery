@@ -3,18 +3,19 @@
 Specification read in full on 2026-10-04: overview, REQ-001, implementation plan,
 SRC-001, Q-001–Q-003, DEC-001–DEC-003, and discussion.md. No findings directory
 existed at the start. Recorded answers remain binding; no new product answer has
-been requested or inferred.
+been inferred. Q-004 was asked but withdrawn without an answer after the direct
+requirement audit found no contradiction; see F-002.
 
 ## Requirement audit
 
-| Requirement / plan item              | Current evidence                                                                                                                                                                                                                 | Remaining verification                                                                                                   |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Playwright job and aggregation / I-1 | `ci.yml` runs the complete suite on an Auth-emulator/local-stack job with read-only contents permission; `gates.needs` includes `playwright`. Failure artifacts include traces, HTML report, screenshots, video, and stack logs. | First hosted red run and local aggregation matrix verified; final complete passing run pending Q-004.                    |
-| Five core web journeys / I-2         | Existing registration and care-loop specs plus `core-journeys.spec.ts`; fixtures use current R00 CORE-005–010 behavior and isolated accounts.                                                                                    | Named core journeys pass locally; final hosted browser success awaits the GG-0005 scope conflict in Q-004.               |
-| Required master check / I-3          | GitHub REST readback on 2026-10-04 confirms required `All gates`, GitHub Actions app 15368, strict up-to-date checks, and enforcement for administrators. No rulesets existed before configuration.                              | Verified on non-draft PR #31: All gates FAILURE, mergeStateStatus BLOCKED, mergeable MERGEABLE.                          |
-| Native UI target / I-4               | `VerderyUITests` target and explicit Verdery scheme; first-garden test starts empty, rejects an empty submit, creates a named active owner garden and reads it after relaunch.                                                   | Verified in CI 37243669761: one native UI test passed on Xcode 26.6 / iOS 26.5.                                          |
-| Path-filtered Swift UI gate / I-5    | Existing Swift filter is unchanged. `swift` runs `scripts/run-ui-tests.sh`; failure propagates, and failure xcresult artifacts are retained.                                                                                     | Affected R02 run passed native UI; unaffected PR #30 skipped Swift and passed All gates under the byte-identical filter. |
-| Manual deployed evidence / I-6       | Chrome manual checks against deployed development show web 0.6.4 on 2026-10-04.                                                                                                                                                  | Completed: GG-0003 closed; GG-0005/GG-0007 remain open with dated failures/unverified states.                            |
+| Requirement / plan item              | Current evidence                                                                                                                                                                                                                 | Remaining verification                                                                                                               |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Playwright job and aggregation / I-1 | `ci.yml` runs the complete suite on an Auth-emulator/local-stack job with read-only contents permission; `gates.needs` includes `playwright`. Failure artifacts include traces, HTML report, screenshots, video, and stack logs. | First hosted red run and local aggregation matrix verified; all specs remain required, including the known excluded GG-0005 failure. |
+| Five core web journeys / I-2         | Existing registration and care-loop specs plus `core-journeys.spec.ts`; fixtures use current R00 CORE-005–010 behavior and isolated accounts.                                                                                    | Named core journeys pass locally; hosted results for latest source are pending.                                                      |
+| Required master check / I-3          | GitHub REST readback on 2026-10-04 confirms required `All gates`, GitHub Actions app 15368, strict up-to-date checks, and enforcement for administrators. No rulesets existed before configuration.                              | Verified on non-draft PR #31: All gates FAILURE, mergeStateStatus BLOCKED, mergeable MERGEABLE.                                      |
+| Native UI target / I-4               | `VerderyUITests` target and explicit Verdery scheme; first-garden test starts empty, rejects an empty submit, creates a named active owner garden and reads it after relaunch.                                                   | Verified in CI 37243669761: one native UI test passed on Xcode 26.6 / iOS 26.5.                                                      |
+| Path-filtered Swift UI gate / I-5    | Existing Swift filter is unchanged. `swift` runs `scripts/run-ui-tests.sh`; failure propagates, and failure xcresult artifacts are retained.                                                                                     | Affected R02 run passed native UI; unaffected PR #30 skipped Swift and passed All gates under the byte-identical filter.             |
+| Manual deployed evidence / I-6       | Chrome manual checks against deployed development show web 0.6.4 on 2026-10-04.                                                                                                                                                  | Completed: GG-0003 closed; GG-0005/GG-0007 remain open with dated failures/unverified states.                                        |
 
 ## Native execution
 
@@ -52,7 +53,7 @@ Repository: `t-boris/verdery`, branch: `master`, checked 2026-10-04.
 
 This setting is already applied remotely, and PR #31 publishes the workflow.
 The first hosted run below verifies native execution and red-check merge blocking;
-it does not establish final passing browser acceptance.
+it does not establish hosted passing evidence for the latest core-journey source.
 
 ## Aggregation and filter checks
 
@@ -118,5 +119,40 @@ failed. At 23:47 UTC, GitHub reported `isDraft: false`, `mergeable: MERGEABLE`,
 This demonstrates check-based merge blocking with no content conflict and without
 attempting to merge. Browser failure artifacts were retained. Core form/default
 and audit repairs are now ready locally; the complete local suite reached
-52 passed / 1 failed. The remaining tabpanel failure matches GG-0005 and needs
-[Q-004](../questions/Q-004.md) to resolve REQ-001 versus DEC-003 before R02 can finish.
+52 passed / 1 failed. The remaining tabpanel failure matches GG-0005 and stays
+open under the explicit fix exclusion in REQ-001 and plan I-6.
+[Q-004](../questions/Q-004.md) was withdrawn without a user answer: acceptance
+requires passing named core specs and failure propagation for the full suite,
+not fixes to every failure it detects. F-002 records this scope correction.
+The red PR remains unmergeable until GG-0005 is corrected in separately
+authorized work; this ledger does not grant merge or release approval.
+
+## Second hosted run: harness timing diagnosis
+
+[CI 37245483547](https://github.com/t-boris/verdery/actions/runs/37245483547)
+ran commit `b502a7a8403a62646629c9fb485201b04f3c7d5b`. Browser execution
+finished at 2026-10-05 00:07:58 UTC (October 4 in the repository timezone):
+44 passed, three failed, one flaky, five did not run because of serial-suite
+failures. Registration/reopening, plant, observation, manual task and the
+existing care loop passed. The map scenario failed before its persistence
+assertions: its trace shows an already created Bed while the test waited for
+Finish shape, which rapid Konva double-click detection had removed. Multi-route
+light axe and desktop responsiveness hit the 30-second total test timeout.
+The retained phone tabpanel assertion also detected the excluded GG-0005 failure.
+
+The harness repairs separate map click gestures beyond Konva's double-click
+window and use a 60-second CI total test budget, retaining 10-second assertion
+timeouts, all existing assertions and complete-suite execution. Final hosted
+core verification is pending. Lint, types, unit/integration tests, formatting,
+file size, secret scan and API contract passed in this second run.
+
+## Local verification of the Linux harness repairs
+
+On 2026-10-05 at 00:17:40 UTC (October 4 locally), the complete suite ran with
+`CI=true E2E_DB_PORT=55433 E2E_LOG_DIR=/tmp/r02-stack-logs-ci bash apps/web/e2e/run-e2e.sh`.
+All 53 tests executed: 52 passed, one failed, none skipped or flaky. The
+60-second CI budget and separated map gestures were active. All five named
+core journeys passed; map drawing/property persistence completed in 11.9 seconds.
+The sole failure remained the existing GG-0005 tabpanel count assertion after
+its configured retry. The stack was cleaned up with exit status 1; the unrelated
+developer Postgres on port 55432 was preserved. Hosted confirmation is pending.
