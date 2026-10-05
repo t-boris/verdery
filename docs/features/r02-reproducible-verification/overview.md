@@ -2,7 +2,7 @@
 type: feature
 id: r02-reproducible-verification
 title: R02 - Reproducible Verification
-status: implementing
+status: implemented
 owner: ''
 created: 2026-09-27
 provenance: Recorded from the original research roadmap under the user's bulk creation instruction
@@ -16,24 +16,24 @@ understanding:
   Target Users: known
   Primary Workflow: known
   Permissions: known
-  Failure Scenarios: partial
+  Failure Scenarios: 'Failed or cancelled gates block merging; skipped gates are allowed by All gates. Failed GG-issues remain open and their fixes are excluded. Playwright retries once in CI; the native UI test does not retry.'
   Data Model: n/a
   Notifications: n/a
   Security: partial
   Analytics: n/a
-  Dependencies: known
+  Dependencies: 'The existing Playwright specs now run through e2e/run-e2e.sh in an unconditional CI job. project.yml has the VerderyUITests target, executed by the retained Swift path filter. The default branch is master.'
   Acceptance Criteria: known
 understanding_notes:
   Problem: Ядро web- и iOS-сценариев проверяется невоспроизводимо, и CI ничего не блокирует. Нужны обязательные гейты и датированные доказательства по GG-issues.
   Target Users: Команда разработки и QA/Platform, которые мержат в master.
   Primary Workflow: PR → «All gates» (Playwright, iOS UI-тест по path-фильтру) → merge разрешён только при зелёном required check. GG-issues проверяются вручную на deployed development.
   Permissions: 'Для branch protection нужны права администратора репозитория. Новые jobs работают с contents: read, как и существующие.'
-  Failure Scenarios: 'Красный или отменённый гейт блокирует merge, пропущенный считается допустимым (так уже устроено в «All gates��). Если GG-issue не проходит, он остаётся открытым, а исправление не входит в фичу. Нестабильность тестов в CI сглаживается retries: 1 в playwright.config.ts; для iOS это решает реализатор.'
+  Failure Scenarios: 'Failed or cancelled gates block merging; skipped gates are allowed by All gates. Failed GG-issues remain open and their fixes are excluded. Playwright retries once in CI; the native UI test does not retry.'
   Data Model: Модель данных не меняется. Фикстуры берутся из базовой линии R00.
   Notifications: Не затрагиваются.
   Security: Playwright в CI использует Auth emulator, реальные секреты не нужны. Workflow сохраняет deny-by-default permissions.
   Analytics: Не затрагивается.
-  Dependencies: 'Факт проекта: playwright.config.ts и specs уже есть (register-and-create-garden, care-loop и др.) и запускаются через e2e/run-e2e.sh, но в ci.yml job для них нет. UI-test target в project.yml отсутствует. Default-ветка — master.'
+  Dependencies: 'The existing Playwright specs now run through e2e/run-e2e.sh in an unconditional CI job. project.yml has the VerderyUITests target, executed by the retained Swift path filter. The default branch is master.'
   Acceptance Criteria: 'REQ-001 обновлён: Playwright-job входит в «All gates», required check на master зафиксирован с датой, iOS UI-тест идёт в swift-job, у каждого GG-issue есть датированная строка в Observations.'
 questions_left: 0
 ---
@@ -62,28 +62,32 @@ Make verification of the core web and iOS journeys reproducible and required in 
 
 No earlier roadmap feature is stated as a hard dependency for the initial work. Follow the source's environment, domain, and approval prerequisites described below.
 
-Use the current R00 baseline when choosing fixtures. This card does not claim that Playwright or native UI gates already exist.
+The current R00 baseline is the fixture reference. Implemented browser and native
+gates and their dated execution results are recorded in the verification ledger.
 
 ## Requirement
 
-[REQ-001 - Reproducible Verification](requirements/REQ-001.md) records the source scope and its future acceptance criteria.
+[REQ-001 - Reproducible Verification](requirements/REQ-001.md) records the agreed scope and its verified acceptance criteria.
 
 ## Acceptance Criteria
 
-- [ ] The browser suite is an obligatory CI gate with the named core journeys.
+- [x] The browser suite is an obligatory CI gate with the named core journeys.
 - [x] The first-garden iOS UI test executes successfully as part of the path-filtered `swift` job in "All gates".
 - [x] Each of GG-0003, GG-0005, and GG-0007 has dated acceptance evidence, not just implementation status.
 
-## Intake State
+## Implementation State
 
-Implementation and verification are recorded in the
-[ledger](implementation/verification.md). Native CI execution, required-check merge
-blocking and deployed issue observations are verified. The complete browser suite
-currently has one GG-0005 failure, which remains outside the authorized fix
-scope. Q-004 was withdrawn after the requirement audit found no contradiction:
-the five named core journeys must pass, while the complete gate must retain and
-block on other failures. Hosted core-journey verification is still in progress.
-No release approval or exception to DEC-003 is inferred.
+All seven REQ-001 criteria and all six plan items are verified in the
+[ledger](implementation/verification.md). CI 37247309803 executed all 53 browser
+tests: the five named core journeys and 52 tests passed; the retained GG-0005
+assertion failed and correctly made required All gates fail. Native first-garden
+creation/relaunch passed in CI. Master protection, failure/cancellation
+propagation, the unchanged Swift filter, and dated deployed issue observations
+are documented with evidence. GG-0003 is closed; GG-0005 and GG-0007 remain open.
+
+Q-004 was withdrawn without a user answer after a direct requirement audit found
+no contradiction. Recorded answers and decisions remain unchanged. No GG fix,
+merge or release approval is inferred.
 
 ## Source
 

@@ -107,9 +107,10 @@ Current repository state, verified October 4, 2026: `master` requires `All gates
 Actions (app 15368), requires an up-to-date branch, and enforces the rule for administrators.
 Force pushes and branch deletion are disabled. This supersedes the unprotected July 27 and
 September 25 observations. See the [dated R02 evidence](../features/r02-reproducible-verification/implementation/verification.md)
-for execution and merge-blocking evidence. The first hosted native UI test passed;
-a red required All gates check blocked PR #31. Hosted verification of the latest
-named core-journey source is pending. The existing
+for execution and merge-blocking evidence. Native first-garden creation passed
+in CI 37243669761 and CI 37247309803;
+a red required All gates check blocked PR #31. CI 37247309803 verified all five
+named core journeys; the complete browser result is 52 passed / 1 failed. The existing
 GG-0005 responsive failure is retained under R02's explicit fix exclusion;
 Q-004 was withdrawn after the requirement audit found no contradiction.
 

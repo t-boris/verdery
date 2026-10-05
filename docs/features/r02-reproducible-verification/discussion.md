@@ -41,3 +41,14 @@ REQ-001 and I-6 explicitly exclude fixing failed GG-issues. Thus no contradictio
 exists. Q-004 is withdrawn; F-002 records the resolution. The existing GG-0005
 assertion and red gate remain intact. No recorded answer has been changed or
 new permission inferred. Hosted evidence for the named core journeys is pending.
+
+## 2026-10-04 - Final implementation audit
+
+All seven REQ-001 acceptance criteria and all six implementation items are
+verified. CI 37247309803 passed all named web journeys, native first-garden
+creation/relaunch and supporting gates. The full browser result was 52 passed
+and one retained GG-0005 failure, with no skips or flaky tests; required All
+gates correctly failed. Dated manual deployed evidence closed GG-0003 and kept
+GG-0005/GG-0007 open. No user answer was received for withdrawn Q-004, no
+exception to the original decisions was applied, and no GG fix, merge or
+release approval was inferred. The ledger contains source hashes and run links.

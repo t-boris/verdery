@@ -79,3 +79,14 @@ Check each issue by hand in a browser on deployed development. In each issue, ad
 
 Requirements: REQ-001
 Decisions: DEC-003
+
+## Implementation and verification handoff
+
+All six plan items have concrete implementation and acceptance evidence in the
+[verification ledger](verification.md). The five named web journeys passed in
+CI 37247309803; the complete 53-test suite retains one excluded GG-0005 failure.
+The native first-garden test passed in CI 37243669761 and CI 37247309803. Required-check configuration,
+failed/cancelled aggregation, retained path-filter behavior, and the three
+manual deployed observations are recorded with dates and source references.
+The final native job passed and All gates correctly failed for GG-0005. This handoff does
+not authorize merging a red PR or fixing or closing failed GG-issues.
