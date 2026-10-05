@@ -33,7 +33,7 @@ issues:
     summary: Check each issue by hand in a browser on deployed development. In each issue, add a dated Observations row with "Web <version>, deployed development", the expected result, the actual result, and reproducibility. Close an issue only if all of its own acceptance criteria pass. Otherwise leave it open with the failing observation recorded. Fixing failures is out of scope.
     requirements: [REQ-001]
     decisions: [DEC-003]
-updated: 2026-10-04
+updated: 2026-10-05
 ---
 
 # Implementation plan — R02 - Reproducible Verification
@@ -80,7 +80,7 @@ Check each issue by hand in a browser on deployed development. In each issue, ad
 Requirements: REQ-001
 Decisions: DEC-003
 
-## Implementation and verification handoff
+## Original implementation and verification handoff — 2026-10-04
 
 All six plan items have concrete implementation and acceptance evidence in the
 [verification ledger](verification.md). The five named web journeys passed in
@@ -90,3 +90,13 @@ failed/cancelled aggregation, retained path-filter behavior, and the three
 manual deployed observations are recorded with dates and source references.
 The final native job passed and All gates correctly failed for GG-0005. This handoff does
 not authorize merging a red PR or fixing or closing failed GG-issues.
+
+## Completion state and separate follow-up — 2026-10-05
+
+All six R02 items are complete. The original handoff above records the scoped
+acceptance at that time. The owner's later closure request authorized a separate
+repair, which passed CI 37269957184 and deployed web 0.6.7 in run 37272200473.
+GG-0003 and GG-0007 are closed; GG-0005 remains fixed pending actual deployed
+deletion and Undo after the requested operational confirmation. See the
+[dated follow-up ledger](verification.md#separately-requested-closure-follow-up-on-2026-10-05).
+No original requirement, answer, or decision is retroactively changed.

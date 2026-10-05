@@ -27,9 +27,9 @@ after its own acceptance criteria are implemented and evidenced.
 | [GG-0002](GG-0002-archive-first-permanent-deletion.md)     | `analyzed`; garden/account delay and inconsistent delete semantics are code-confirmed                             | Archive-first, separately confirmed irreversible deletion for explicitly approved entity scope | XL     | B    |
 | [GG-0003](GG-0003-garden-details-empty-panel.md)           | `closed`; deployed web 0.6.4 acceptance passed on 2026-10-04                                                      | Complete                                                                                       | S      | 0    |
 | [GG-0004](GG-0004-garden-environment-setup-flow.md)        | `analyzed`; six storage-shaped editors and domain limitations are confirmed                                       | Guided Growing environment setup plus an honest compact summary                                | XL     | C    |
-| [GG-0005](GG-0005-map-workspace-and-inspector.md)          | `fixed`; web 0.6.7 repair passed 53/53 local browser tests; deployed matrix pending                               | Verify explicit tabs, width controls, long Russian rows, and preserved editor actions          | S      | 0/D  |
+| [GG-0005](GG-0005-map-workspace-and-inspector.md)          | `fixed`; web 0.6.7 deployed tab/focus/group checks passed; deletion and Undo pending approval                     | Verify explicit tabs, width controls, long Russian rows, and preserved editor actions          | S      | 0/D  |
 | [GG-0006](GG-0006-map-canvas-density-and-fit.md)           | `analyzed`; universal chips/control competition/combined Fit bounds confirmed, screenshot camera cause unresolved | Decluttered labels and explicit working versus complete Fit behavior                           | L      | D    |
-| [GG-0007](GG-0007-today-weather-hierarchy-and-coverage.md) | `fixed`; deployed web 0.6.4 passed observed states; stale and complete forecast states remain unverified          | Verify weather hierarchy, missing/zero/stale states, and cookie unit restoration               | S      | 0/E  |
+| [GG-0007](GG-0007-today-weather-hierarchy-and-coverage.md) | `closed`; complete live forecast and synthetic stale UI fixture passed on deployed web 0.6.4 on 2026-10-05        | Verify weather hierarchy, missing/zero/stale states, and cookie unit restoration               | S      | 0/E  |
 | [GG-0008](GG-0008-automatic-checks-claims.md)              | `analyzed`; all seven rules and readiness semantics audited                                                       | Truthful localized readiness/explanation surface with resolvable blockers and partial coverage | L      | E    |
 | [GG-0009](GG-0009-plant-image-loading.md)                  | `analyzed`; per-image status-to-access waterfall and original downloads confirmed                                 | Derivative-aware, bounded/batched access with measurable request and transfer budgets          | L/XL   | F    |
 | [GG-0010](GG-0010-observation-quick-capture.md)            | `analyzed`; storage-shaped controls, raw IDs, and downstream invariants confirmed                                 | One-prompt quick capture with named targets, direct symptoms, and progressive details          | L      | C    |
@@ -71,8 +71,9 @@ Recommended delivery sequence:
 ## Epic 0 — completed baselines and release verification
 
 The sections below retain the original verification plan. The portfolio snapshot above and the
-dated issue observations are the current status: GG-0003 is closed; GG-0005 and GG-0007 remain
-open pending their own complete deployed acceptance.
+dated issue observations are the current status: GG-0003 and GG-0007 are closed; GG-0005 remains
+open pending its own complete deployed acceptance. GG-0007 stale evidence is a temporary UI fixture,
+not a live-provider or rule-engine result.
 
 ### GG-0003 — compact Garden Settings summary
 

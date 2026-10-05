@@ -6,9 +6,9 @@ existed at the start. Recorded answers remain binding; no new product answer has
 been inferred. Q-004 was asked but withdrawn without an answer after the direct
 requirement audit found no contradiction; see F-002.
 
-## Final requirement audit
+## Original R02 requirement audit — 2026-10-04
 
-| Requirement / plan item              | Current evidence                                                                                                                                                                                                                 | Acceptance result                                                                                                                         |
+| Requirement / plan item              | Scoped R02 evidence                                                                                                                                                                                                              | Acceptance result                                                                                                                         |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | Playwright job and aggregation / I-1 | `ci.yml` runs the complete suite on an Auth-emulator/local-stack job with read-only contents permission; `gates.needs` includes `playwright`. Failure artifacts include traces, HTML report, screenshots, video, and stack logs. | First hosted red run and local aggregation matrix verified; all specs remain required, including the known excluded GG-0005 failure.      |
 | Five core web journeys / I-2         | Existing registration and care-loop specs plus `core-journeys.spec.ts`; fixtures use current R00 CORE-005–010 behavior and isolated accounts.                                                                                    | All five named core journeys passed in hosted CI 37247309803; the complete run executed all 53 tests, with only excluded GG-0005 failing. |
@@ -228,3 +228,41 @@ is inferred. Q-001–003 and DEC-001–003 remain binding. Q-004 was withdrawn
 without an answer; F-001/F-002 are resolved. The complete suite remains
 mandatory, the red PR cannot merge, and GG-0005/GG-0007 remain open under the
 explicit GG fix exclusion. This is R02 completion, not merge or release approval.
+
+## Separately requested closure follow-up on 2026-10-05
+
+After R02 completed, the owner requested closing the related bugs and work.
+Web 0.6.7 repairs the hidden Backdrop panel and retains Objects during arrow
+navigation and Shift multi-selection. The existing responsive assertion was
+preserved; the persisted-map journey adds integrated focus and group-action
+regression coverage. CI also builds and smoke-tests the actual web Docker image,
+including the test-fixture declarations required by Next.js.
+
+[CI 37269957184](https://github.com/t-boris/verdery/actions/runs/37269957184)
+passed all nine jobs for `3963f9acefe8aeea55b6223123822b7da3d81a7d`:
+53 browser tests passed with none skipped or flaky; native package tests passed
+1226 tests, and the first-garden UI test passed once with zero failures in
+54.156 seconds. The complete TypeScript gate passed 1,297 web and 3,064 API tests;
+the worker gate retained six existing external-tool/cloud-dependent skips.
+The required All gates check succeeded at 2026-10-05 06:21:24 UTC.
+
+[PR #31](https://github.com/t-boris/verdery/pull/31) merged at
+2026-10-05 06:23:28 UTC as `f0b9017c85bfdeeb6c18a0b215f837aacbcb3338`,
+whose tree matches the tested head exactly. PR #26 was closed as superseded.
+The successful corrected web deployment closes the OPS-011 incident; October 3
+baseline classifications remain a dated snapshot.
+GG-0003 remains closed. GG-0007 was closed after a complete live forecast and
+an explicitly synthetic stale UI response were verified manually on deployed
+web 0.6.4; the override was removed and the ordinary response restored.
+[Deployment 37272200473](https://github.com/t-boris/verdery/actions/runs/37272200473)
+succeeded for the merge commit; the authenticated header displays 0.6.7 and the
+public API readiness response reports that exact commit with the database
+available. GG-0005 tab containment, keyboard traversal, working-group selection,
+visibility, locking, and Delete focus/locked-state checks passed on this build.
+Actual deletion and Undo remain pending the specifically requested operational
+confirmation, so the issue remains `fixed`. No answer is inferred.
+
+R02 remains `implemented`, with all scoped work complete. The original
+DEC-003 exclusion and dated red-run results above are retained as history.
+Q-004 remains withdrawn and unanswered. The follow-up authorization comes from
+the owner's new closure request, not an inferred answer to Q-004.

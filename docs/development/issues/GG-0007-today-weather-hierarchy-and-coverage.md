@@ -2,12 +2,12 @@
 
 | Field          | Value        |
 | -------------- | ------------ |
-| Status         | `fixed`      |
+| Status         | `closed`     |
 | Severity       | `SEV-3`      |
 | Surface        | `web / API`  |
 | Code finding   | `supported`  |
 | First reported | `2026-08-31` |
-| Last updated   | `2026-10-04` |
+| Last updated   | `2026-10-05` |
 
 ## Summary
 
@@ -18,9 +18,11 @@ Web 0.6.4 clarifies every time window and preserves unavailable-versus-zero sema
 
 ## Observations
 
-| Observation | Date       | Surface and version                            | Expected                                                                                                                                                                                   | Actual                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Reproducibility                                                                          |
-| ----------- | ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| OBS-R02-007 | 2026-10-04 | Web 0.6.4, deployed development; Chrome, macOS | Distinct measured/forecast periods, explicit zero versus unavailable values, interval semantics, completed-day coverage, separate impact text, and persistent localized temperature units. | Passed for observed states: current 20.9 Celsius/0 mm and a distinct upcoming 0.8 mm rain-only forecast with unavailable temperature/wind/humidity; separate effective/retrieval times; latest interval explicitly not a whole-day total; six of seven completed days and 0.1 mm measured total; separate impact section. Fahrenheit displayed 69.6 and survived reload; Celsius was restored. English and Russian labels were checked. A new unlocated garden showed no weather, unavailable interval, and no measured rainfall without inventing zero. Stale-reading and complete four-measurement forecast states were not available for manual verification. | Existing garden plus disposable unlocated garden; unit persistence reproduced by reload. |
+| Observation   | Date       | Surface and version                            | Expected                                                                                                                                                                                   | Actual                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Reproducibility                                                                                                                                                                                                               |
+| ------------- | ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OBS-R02-007   | 2026-10-04 | Web 0.6.4, deployed development; Chrome, macOS | Distinct measured/forecast periods, explicit zero versus unavailable values, interval semantics, completed-day coverage, separate impact text, and persistent localized temperature units. | Passed for observed states: current 20.9 Celsius/0 mm and a distinct upcoming 0.8 mm rain-only forecast with unavailable temperature/wind/humidity; separate effective/retrieval times; latest interval explicitly not a whole-day total; six of seven completed days and 0.1 mm measured total; separate impact section. Fahrenheit displayed 69.6 and survived reload; Celsius was restored. English and Russian labels were checked. A new unlocated garden showed no weather, unavailable interval, and no measured rainfall without inventing zero. Stale-reading and complete four-measurement forecast states were not available for manual verification. | Existing garden plus disposable unlocated garden; unit persistence reproduced by reload.                                                                                                                                      |
+| OBS-CLOSE-007 | 2026-10-05 | Web 0.6.4, deployed development; Chrome, macOS | A complete forecast remains separate from measured conditions, with all four measurements and localized period labels.                                                                     | Passed: current 9.9 Celsius, 0 mm, 3.09 m/s, 63% humidity and the upcoming 9.8 Celsius, 0 mm, 3.05 m/s, 65% humidity appeared in separate cards with distinct effective times and a shared retrieval time. English and Russian labels were verified. Stale readings were not present.                                                                                                                                                                                                                                                                                                                                                                            | Observed from the live stored provider results; repeated after changing language and restoring English.                                                                                                                       |
+| OBS-STALE-007 | 2026-10-05 | Web 0.6.4, deployed development; Chrome, macOS | Stale current and forecast readings retain their values, show a localized stale label, and explain their lower confidence.                                                                 | Passed with an explicitly synthetic local response override: current 12.3 Celsius and forecast 11.5 Celsius each showed the English and Russian Out of date labels, separate effective and retrieval times, all four measurements, and the lower-confidence explanation.                                                                                                                                                                                                                                                                                                                                                                                         | Temporary override in the disposable R02 garden only; English and Russian checked, English restored, overrides disabled and configuration cleared, then the ordinary server response returned No weather for this garden yet. |
 
 ## Code analysis
 
@@ -79,6 +81,22 @@ manual acceptance evidence. The remaining states must be checked before closure.
 No provider refresh, production data mutation, issue-specific Playwright assertion,
 or GG-0007 fix was introduced by R02 (DEC-003).
 
+## Follow-up verification and closure on 2026-10-05
+
+The live development data includes a complete four-measurement forecast. The
+dated observation above passes that remaining state in English and Russian.
+The stale state was verified manually on the deployed UI with a temporary local
+DevTools response override, explicitly labelled as synthetic. This is UI fixture
+evidence, not evidence that the live provider returned stale data or that the
+rule engine processed the fixture. No stored provider data was changed.
+
+Both stale cards retained their measurements, separate period labels, and
+localized lower-confidence explanation. After checking English and Russian,
+English was restored, local overrides were disabled, the folder configuration
+was cleared, and reloading returned the garden's ordinary unavailable response.
+Together with OBS-R02-007 and OBS-CLOSE-007, this completes the issue's UI
+acceptance and closes GG-0007. The original R02 result above remains historical.
+
 ## Relationships
 
 - Duplicate of: none
@@ -88,8 +106,8 @@ or GG-0007 fix was introduced by R02 (DEC-003).
 
 ## History
 
-| Date       | Change                                                         |
-| ---------- | -------------------------------------------------------------- |
-| 2026-08-31 | Observation analyzed and weather hierarchy fixed in web 0.6.4. |
-
-| 2026-10-04 | R02 deployed manual verification recorded; issue remains open pending complete passing acceptance. |
+| Date       | Change                                                                                                                             |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-31 | Observation analyzed and weather hierarchy fixed in web 0.6.4.                                                                     |
+| 2026-10-04 | R02 deployed manual verification recorded; issue remained open pending complete passing acceptance.                                |
+| 2026-10-05 | Complete live forecast and temporary stale UI fixture passed on deployed development; ordinary response restored and issue closed. |
