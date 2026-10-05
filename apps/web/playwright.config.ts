@@ -21,7 +21,8 @@ const isCI = process.env['CI'] === 'true';
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.spec.ts',
-  timeout: 30_000,
+  // Serial journeys audit multiple routes on the slower, cold CI development server.
+  timeout: isCI ? 60_000 : 30_000,
   expect: { timeout: 10_000 },
 
   // Every spec drives the same Auth emulator and the same API/Postgres
@@ -32,7 +33,7 @@ export default defineConfig({
   workers: 1,
   retries: isCI ? 1 : 0,
 
-  reporter: [['list']],
+  reporter: [['list'], ['html', { open: 'never' }]],
 
   use: {
     baseURL,

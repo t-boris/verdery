@@ -30,8 +30,14 @@ const HARVEST_TITLE = 'Check ripeness and harvest what is ready';
 const OBSERVATION_TITLE = 'Record a quick condition check for this plant';
 const WATERING_TITLE = 'Check whether this plant needs watering';
 
+function recommendationCards(page: Page) {
+  return page.getByRole('listitem').filter({
+    has: page.getByRole('button', { name: copy.todayComplete, exact: true }),
+  });
+}
+
 function card(page: Page, actionTitle: string) {
-  return page.getByRole('listitem').filter({ hasText: actionTitle });
+  return recommendationCards(page).filter({ hasText: actionTitle });
 }
 
 test.describe.serial('care loop: Today set, feedback controls, and task conversion', () => {
@@ -65,6 +71,7 @@ test.describe.serial('care loop: Today set, feedback controls, and task conversi
     expect(gardenId).not.toBe('');
 
     await page.goto(`/application/gardens/${gardenId}/plants`);
+    await page.locator('summary').filter({ hasText: 'Add a plant' }).click();
     await page.getByLabel(copy.plantDisplayNameLabel).fill(plantName);
     await page.getByRole('button', { name: copy.plantAddSubmit }).click();
     await expect(page).toHaveURL(/\/plants\/[^/]+$/);
@@ -82,8 +89,8 @@ test.describe.serial('care loop: Today set, feedback controls, and task conversi
 
     // Priority order re-derived server-side from the seeded factors:
     // frost (75) > harvest (65) > observation (40) > watering (25).
-    await expect(page.getByRole('listitem')).toHaveCount(4);
-    await expect(page.getByRole('listitem').first()).toContainText(FROST_TITLE);
+    await expect(recommendationCards(page)).toHaveCount(4);
+    await expect(recommendationCards(page).first()).toContainText(FROST_TITLE);
 
     // The elevated-risk frost item carries its caution, with its reason
     // visible. The caution NOTE is asserted rather than the pill label:
@@ -108,7 +115,7 @@ test.describe.serial('care loop: Today set, feedback controls, and task conversi
   }) => {
     await signIn(page);
     await page.goto(`/application/gardens/${gardenId}/today`);
-    await expect(page.getByRole('listitem')).toHaveCount(4);
+    await expect(recommendationCards(page)).toHaveCount(4);
 
     // Complete the harvest check.
     await card(page, HARVEST_TITLE).getByRole('button', { name: copy.todayComplete }).click();
@@ -117,7 +124,8 @@ test.describe.serial('care loop: Today set, feedback controls, and task conversi
     // Postpone the observation reminder with an explicit horizon.
     const observation = card(page, OBSERVATION_TITLE);
     await observation.getByRole('button', { name: copy.todayPostpone }).click();
-    await observation.getByLabel(copy.todayPostponeUntilLabel).fill('2027-01-01T09:00');
+    const futureHorizon = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
+    await observation.getByLabel(copy.todayPostponeUntilLabel).fill(futureHorizon);
     await observation.getByRole('button', { name: copy.todayPostpone }).last().click();
     await expect(card(page, OBSERVATION_TITLE)).toHaveCount(0);
 
@@ -128,13 +136,13 @@ test.describe.serial('care loop: Today set, feedback controls, and task conversi
     await watering.getByRole('button', { name: copy.todayDismiss }).click();
     await expect(card(page, WATERING_TITLE)).toHaveCount(0);
 
-    await expect(page.getByRole('listitem')).toHaveCount(1);
+    await expect(recommendationCards(page)).toHaveCount(1);
   });
 
   test('converting the last item creates the linked task and empties Today', async ({ page }) => {
     await signIn(page);
     await page.goto(`/application/gardens/${gardenId}/today`);
-    await expect(page.getByRole('listitem')).toHaveCount(1);
+    await expect(recommendationCards(page)).toHaveCount(1);
 
     await card(page, FROST_TITLE).getByRole('button', { name: copy.todayConvertToTask }).click();
 

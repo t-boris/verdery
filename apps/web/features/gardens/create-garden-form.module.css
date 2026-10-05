@@ -92,7 +92,7 @@
 }
 
 .suggestion {
-  min-block-size: 1.75rem;
+  min-block-size: var(--control-min-size);
   padding: var(--space-1) var(--space-2);
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-pill);

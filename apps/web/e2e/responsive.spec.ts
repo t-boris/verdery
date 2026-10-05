@@ -115,6 +115,13 @@ test.describe.serial('responsive layout', () => {
           'button, [role="button"], nav a, a[class*="tab"], a[class*="link"]',
         );
         for (const element of candidates) {
+          const closedDisclosure = element.closest('details:not([open])');
+          if (
+            closedDisclosure !== null &&
+            !closedDisclosure.querySelector(':scope > summary')?.contains(element)
+          ) {
+            continue; // Native closed disclosures can retain descendant geometry.
+          }
           const box = element.getBoundingClientRect();
           if (box.width === 0 && box.height === 0) {
             continue; // Not rendered — a collapsed panel's contents.
@@ -133,12 +140,10 @@ test.describe.serial('responsive layout', () => {
   });
 
   /*
-   * On a phone the garden rail collapses to icons. The label leaves the
-   * layout but must stay in the accessibility tree: `display: none` on it
-   * left six links with no accessible name at all, which is a rail nobody
-   * using a screen reader can navigate, and which no visual check catches.
+   * On a phone the garden sections use the current horizontal bottom rail.
+   * Every section must remain named and reachable inside its scroll container.
    */
-  test('the collapsed garden rail keeps a column of named icons', async ({ page }) => {
+  test('the mobile bottom rail keeps every section named and reachable', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 780 });
     await signIn(page, garden.email);
     await page.goto(`/application/gardens/${garden.gardenId}/today`);
@@ -150,6 +155,8 @@ test.describe.serial('responsive layout', () => {
       const tabs = [...element.querySelectorAll('a')].map((tab) => tab.getBoundingClientRect());
       return {
         tabCount: tabs.length,
+        railTop: element.getBoundingClientRect().top,
+        viewportHeight: window.innerHeight,
         distinctLefts: new Set(tabs.map((box) => Math.round(box.left))).size,
         distinctTops: new Set(tabs.map((box) => Math.round(box.top))).size,
         widestTab: Math.max(...tabs.map((box) => box.width)),
@@ -164,13 +171,15 @@ test.describe.serial('responsive layout', () => {
     expect(measurements.tabCount).toBeGreaterThan(4);
     for (const link of await rail.getByRole('link').all()) {
       await expect(link).toHaveAccessibleName(/\S/u);
+      await link.scrollIntoViewIfNeeded();
+      await expect(link).toBeVisible();
     }
 
-    // One column of icons: stacked, not spread, and narrow enough that the
-    // rail costs the content almost nothing on a 360px screen.
-    expect(measurements.distinctLefts).toBe(1);
-    expect(measurements.distinctTops).toBe(measurements.tabCount);
-    expect(measurements.widestTab).toBeLessThan(measurements.viewportWidth / 4);
+    // Current shell: one compact row at the bottom, with internal scrolling.
+    expect(measurements.distinctTops).toBe(1);
+    expect(measurements.distinctLefts).toBe(measurements.tabCount);
+    expect(measurements.railTop).toBeGreaterThan(measurements.viewportHeight - 100);
+    expect(measurements.widestTab).toBeLessThan(measurements.viewportWidth / 2);
   });
 
   /*

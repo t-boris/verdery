@@ -64,6 +64,7 @@ jobs:
               - 'eslint.config.mjs'
               - '.github/actions/setup-workspace/**'
               - '.github/workflows/ci.yml'
+              - '.github/workflows/deploy-dev.yml'
             contract:
               - 'packages/api-contracts/**'
               - 'pnpm-lock.yaml'
@@ -131,6 +132,78 @@ jobs:
       # "Unit and integration tests".
       - name: Run unit and integration tests
         run: pnpm test
+
+  playwright:
+    name: Browser journeys
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up the workspace
+        uses: ./.github/actions/setup-workspace
+
+      - name: Build shared packages
+        run: pnpm --filter './packages/**' build
+
+      - name: Install the Auth emulator CLI
+        run: npm install --global firebase-tools@13.29.2
+
+      - name: Install Chromium and system dependencies
+        run: pnpm --filter @verdery/web exec playwright install --with-deps chromium
+
+      - name: Run every browser spec against the isolated stack
+        env:
+          E2E_LOG_DIR: ${{ github.workspace }}/apps/web/e2e-logs
+        run: bash apps/web/e2e/run-e2e.sh
+
+      - name: Preserve browser failure evidence
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-failure
+          path: |
+            apps/web/test-results/
+            apps/web/playwright-report/
+            apps/web/e2e-logs/
+          retention-days: 14
+
+  web-image:
+    name: Web deployment image
+    needs: changes
+    if: needs.changes.outputs.typescript == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build the web deployment image
+        run: |
+          docker build --platform linux/amd64 -f apps/web/Dockerfile -t verdery-web:ci \
+            --build-arg NEXT_PUBLIC_API_ORIGIN=same-origin \
+            --build-arg API_PROXY_ORIGIN=http://127.0.0.1:8080 \
+            --build-arg VERDERY_DEPLOYMENT_ID="${GITHUB_SHA}" .
+
+      - name: Verify the standalone server serves sign-in
+        run: |
+          docker run --detach --name verdery-web-ci \
+            --publish 127.0.0.1:3080:8080 verdery-web:ci
+          curl --fail --silent --show-error --max-time 10 --retry 20 --retry-delay 2 \
+            --retry-all-errors --retry-max-time 60 --output /dev/null \
+            http://127.0.0.1:3080/auth/sign-in
+
+      - name: Collect server logs and remove the container
+        if: always()
+        run: |
+          if docker container inspect verdery-web-ci > /dev/null 2>&1; then
+            docker logs verdery-web-ci
+            docker rm --force verdery-web-ci
+          fi
 
   contract:
     name: API contract
@@ -202,6 +275,7 @@ jobs:
 
   swift:
     name: Swift package
+    timeout-minutes: 45
     needs: changes
     if: needs.changes.outputs.swift == 'true'
     # This is the expensive gate. The Swift package can only be built with the
@@ -269,6 +343,21 @@ jobs:
             -configuration Release -destination 'generic/platform=iOS' \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
 
+      - name: Run the first-garden UI test on a fresh simulator
+        working-directory: apps/ios
+        run: bash scripts/run-ui-tests.sh
+
+      - name: Preserve native UI test evidence
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ios-ui-test-failure
+          path: |
+            apps/ios/test-results/*.xcresult/
+            apps/ios/test-results/*.log
+            apps/ios/test-results/simulators.json
+          retention-days: 14
+
   gates:
     name: All gates
     # Runs even when a gate fails, so that branch protection can require exactly
@@ -281,7 +370,8 @@ jobs:
     # broken change-detection step would present a green required check on a
     # pull request where nothing was actually verified.
     if: always()
-    needs: [changes, repository-policy, typescript, contract, secret-scan, swift]
+    needs:
+      [changes, repository-policy, typescript, web-image, contract, secret-scan, swift, playwright]
     runs-on: ubuntu-24.04
     permissions: {}
     steps:

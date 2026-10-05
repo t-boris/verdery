@@ -242,7 +242,7 @@
   }
 
   .rootLink {
-    min-block-size: 2rem;
+    min-block-size: var(--control-min-size);
     pointer-events: auto;
   }
 

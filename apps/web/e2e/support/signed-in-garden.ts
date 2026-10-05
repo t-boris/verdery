@@ -72,6 +72,7 @@ export async function createPopulatedGarden(page: Page, label: string): Promise<
   expect(gardenId).not.toBe('');
 
   await page.goto(`/application/gardens/${gardenId}/plants`);
+  await page.locator('summary').filter({ hasText: 'Add a plant' }).click();
   await page.getByLabel(copy.plantDisplayNameLabel).fill(plantName);
   await page.getByRole('button', { name: copy.plantAddSubmit }).click();
   await expect(page).toHaveURL(/\/plants\/[^/]+$/);
@@ -80,6 +81,8 @@ export async function createPopulatedGarden(page: Page, label: string): Promise<
   // already scoped to it.
   // `exact` matters: the plant page also shows "Condition note" and "Care
   // guidance note", both of which contain "Note".
+  await page.locator('summary').filter({ hasText: 'Record an observation' }).click();
+  await page.getByRole('button', { name: 'Note', exact: true }).click();
   await page
     .getByLabel(copy.observationNoteLabel, { exact: true })
     .fill('E2E leaves look healthy.');
@@ -87,6 +90,7 @@ export async function createPopulatedGarden(page: Page, label: string): Promise<
   await expect(page.getByText('E2E leaves look healthy.')).toBeVisible();
 
   await page.goto(`/application/gardens/${gardenId}/tasks`);
+  await page.locator('summary').filter({ hasText: 'Create a task' }).click();
   await page.getByLabel(copy.taskTitleLabel).fill(taskTitle);
   await page.getByRole('button', { name: copy.taskCreateSubmit }).click();
   await expect(page.getByRole('heading', { name: taskTitle })).toBeVisible();

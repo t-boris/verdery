@@ -14,6 +14,11 @@ swift build
 swift test
 ```
 
+The native first-garden UI gate uses a fresh simulator and the production local
+creation flow. Generate the project, then run `bash scripts/run-ui-tests.sh`.
+See [reproducible verification](../../docs/development/reproducible-verification.md)
+for launch isolation, CI path filters, prerequisites, and xcresult evidence.
+
 Requires the toolchain pinned by ADR-0009: Xcode 26.6 / Swift 6.3, iOS 26 SDK. The deployment target
 is iOS and iPadOS 18.0. `macOS 15` is declared as a second platform only so `swift build` and
 `swift test` run on a developer machine and in CI; no macOS product ships. One consequence: Firebase's
@@ -69,18 +74,17 @@ itself ships inside Xcode, so the `-sdk` form compiles fine without that downloa
 This was first done in Phase 8, and it immediately found two defects that had been latent for four
 phases — Swift 6 concurrency errors in the `#if os(iOS)` branch of
 `CoreAuthentication/FirebaseAuthenticationGateway.swift`, and a `Verdery.xcodeproj` that had drifted
-behind `project.yml` with `Sources/VerderyApp/AppDelegate.swift` missing from it entirely. CI now
-runs this exact command on every `apps/ios/**` change, and also fails if a fresh `xcodegen generate`
-would change the committed project.
+behind `project.yml` with `Sources/VerderyApp/AppDelegate.swift` missing from it entirely. CI generates the ignored Xcode project before building the Release app on each
+affected Swift run; R02 also runs the first-garden simulator UI test in that job.
 
 ### Known environment gap
 
-The iOS **device platform** component is not installed on this development machine, so
-`-destination 'generic/platform=iOS'` and therefore `xcodebuild archive` cannot run here; the
-`-sdk iphoneos` build above can, and does. The iOS Simulator platform and matching runtime are
-installed: an icon-bearing `generic/platform=iOS Simulator` build succeeds. Installing a missing
-platform on another machine is an Xcode setup action (`xcodebuild -downloadPlatform iOS`), not a
-project change.
+R02 verification on October 4, 2026 supersedes the earlier missing-device-SDK
+constraint: the unsigned Release build with `-destination 'generic/platform=iOS'`
+succeeded locally under Xcode 27.0, and the first-garden UI test passed on a fresh
+iPhone simulator. See the [dated ledger](../../docs/features/r02-reproducible-verification/implementation/verification.md).
+This proves the scoped local creation/persistence flow, not native authentication,
+remote synchronization, signed archives, or real-device acceptance.
 
 Earlier revisions of this file reported that `xcrun simctl` failed or hung and that a full,
 unfiltered `swift test` crashed nondeterministically with SIGBUS. **Neither reproduces as of Phase
@@ -277,7 +281,7 @@ performs, and the editor cannot let a user start moving shapes against geometry 
 current. See `MapEditorViewModel.swift`'s doc comment for the full reasoning.
 
 **Testability**: the work package asks for gesture and rendering *logic* to be independently testable
-even though a simulator cannot run here (see "Known environment gap" above) — `MapViewportTransform`
+without a live map UI acceptance run (R02 now verifies first-garden creation only) — `MapViewportTransform`
 (the local-metres ↔ screen-points conversion), `MapHitTesting` (point/line/polygon hit tests),
 `MapGestureCommands` (classifying a completed drag, building create/move commands, including the
 gate/fence precondition), `MapVertexEditCommands` (vertex move/insert/remove command construction and

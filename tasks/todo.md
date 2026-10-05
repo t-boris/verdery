@@ -9852,7 +9852,7 @@ G9 review in this file (format to reuse for gate reviews).
 ## Step 2 — verify what is already fixed (Epic 0 and care-engine leftovers)
 
 - [ ] Node 24: run the full CI script set (not a scoped subset) and record the numbers.
-- [ ] GG-0003: browser pass per `IMPLEMENTATION-PLAN.md` Epic 0 (active and archived garden,
+- [x] GG-0003: browser pass per `IMPLEMENTATION-PLAN.md` Epic 0 (active and archived garden,
       desktop above and below 68rem, EN/RU, long names, keyboard, focus, zoom).
 - [ ] GG-0005: browser pass (width persistence, no collapse chevron, tab roving focus, every
       preserved editor action, overlay below 80rem, phone and tablet reflow, long Russian names).
@@ -9886,9 +9886,9 @@ sessions that need the owner.
 - [ ] G3: server-side cross-object map validation (detached gates, overlaps, plants inside
       structures) so `get-garden-map.ts` stops returning an always-empty `validationSummary`.
       Written as a short tech spec first, since it defines domain rules.
-- [ ] G2/G3/G4: run the existing Playwright suite in CI; add web e2e for map editing and for
+- [x] G2/G3/G4: run the existing Playwright suite in CI; add web e2e for map editing and for
       plant/observation/task records.
-- [ ] G2: native first-garden UI test under `apps/ios`.
+- [x] G2: native first-garden UI test under `apps/ios`.
 - [ ] G2: App Check telemetry dashboard (currently only logged).
 - [ ] G4: decide whether `GET /plants` needs a client caller or is removed from the contract (report).
 - [ ] G8: link checker (gate 43), deploy by image digest (gate 46), per-revision metrics and canary

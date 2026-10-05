@@ -190,7 +190,9 @@ test.describe.serial('accessibility audit', () => {
       await expect(current).toHaveAttribute('aria-current', 'page');
 
       // Exactly one tab claims to be the current page.
-      await expect(page.locator('nav a[aria-current="page"]')).toHaveCount(1);
+      await expect(
+        page.getByRole('navigation', { name: 'Garden sections' }).locator('a[aria-current="page"]'),
+      ).toHaveCount(1);
     }
   });
 

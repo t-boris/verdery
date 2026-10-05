@@ -41,9 +41,16 @@ struct VerderyApp: App {
     // contract. `State` guarantees this value is created exactly once and
     // survives every subsequent `body` evaluation for the lifetime of this
     // `App` instance.
-    @State private var composition: AppCompositionRoot
+    @State private var composition: AppCompositionRoot?
 
     init() {
+        #if DEBUG && targetEnvironment(simulator)
+        if FirstGardenUITestView.isEnabled {
+            _composition = State(initialValue: nil)
+            return
+        }
+        #endif
+
         // Must run before FirebaseApp.configure(): the SDK reads the
         // provider factory during configuration and silently ignores one set
         // afterward.
@@ -138,6 +145,16 @@ struct VerderyApp: App {
     }
 
     var body: some Scene {
-        RootScene(composition: composition)
+        WindowGroup {
+            if let composition {
+                RootView(composition: composition)
+                    .onOpenURL { composition.handleIncomingURL($0) }
+            }
+            #if DEBUG && targetEnvironment(simulator)
+            if composition == nil {
+                FirstGardenUITestView()
+            }
+            #endif
+        }
     }
 }

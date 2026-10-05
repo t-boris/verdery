@@ -7,7 +7,7 @@
 | Surface        | `web / API`  |
 | Code finding   | `supported`  |
 | First reported | `2026-08-31` |
-| Last updated   | `2026-08-31` |
+| Last updated   | `2026-10-04` |
 
 ## Summary
 
@@ -15,6 +15,12 @@ The Today weather panel did not establish a clear hierarchy among the latest poi
 nearest forecast point, interval precipitation, and completed-day rainfall. A deployed forecast
 could also resolve to a rain-only daily record, leaving temperature, wind, and humidity absent.
 Web 0.6.4 clarifies every time window and preserves unavailable-versus-zero semantics.
+
+## Observations
+
+| Observation | Date       | Surface and version                            | Expected                                                                                                                                                                                   | Actual                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Reproducibility                                                                          |
+| ----------- | ---------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| OBS-R02-007 | 2026-10-04 | Web 0.6.4, deployed development; Chrome, macOS | Distinct measured/forecast periods, explicit zero versus unavailable values, interval semantics, completed-day coverage, separate impact text, and persistent localized temperature units. | Passed for observed states: current 20.9 Celsius/0 mm and a distinct upcoming 0.8 mm rain-only forecast with unavailable temperature/wind/humidity; separate effective/retrieval times; latest interval explicitly not a whole-day total; six of seven completed days and 0.1 mm measured total; separate impact section. Fahrenheit displayed 69.6 and survived reload; Celsius was restored. English and Russian labels were checked. A new unlocated garden showed no weather, unavailable interval, and no measured rainfall without inventing zero. Stale-reading and complete four-measurement forecast states were not available for manual verification. | Existing garden plus disposable unlocated garden; unit persistence reproduced by reload. |
 
 ## Code analysis
 
@@ -63,6 +69,16 @@ restore, provider nearest-hour mapping, and rainfall deduplication.
 - Open-Meteo supplies no confidence score. Freshness comes from retrieval time, not an invented
   confidence value.
 
+## R02 manual verification result
+
+Keep this issue open (`fixed`). Observed current, partial forecast, zero, missing
+interval, rainfall coverage, impact, localization and unit persistence behavior
+passed. Deployed stale readings and a full temperature/wind/humidity forecast
+were not observed; the previous automated coverage cannot replace the requested
+manual acceptance evidence. The remaining states must be checked before closure.
+No provider refresh, production data mutation, issue-specific Playwright assertion,
+or GG-0007 fix was introduced by R02 (DEC-003).
+
 ## Relationships
 
 - Duplicate of: none
@@ -75,3 +91,5 @@ restore, provider nearest-hour mapping, and rainfall deduplication.
 | Date       | Change                                                         |
 | ---------- | -------------------------------------------------------------- |
 | 2026-08-31 | Observation analyzed and weather hierarchy fixed in web 0.6.4. |
+
+| 2026-10-04 | R02 deployed manual verification recorded; issue remains open pending complete passing acceptance. |
