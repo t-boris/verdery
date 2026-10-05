@@ -107,6 +107,10 @@
   padding: var(--space-3);
 }
 
+.panel[hidden] {
+  display: none;
+}
+
 .panelComfort > * {
   min-inline-size: 0;
 }

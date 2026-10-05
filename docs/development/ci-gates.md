@@ -15,6 +15,7 @@ sections "7. Change Detection" and "17. Supply Chain".
 | Detect affected surfaces | Always                                | —                                                                                               |
 | Formatting and file size | Always                                | `pnpm format:check` and `pnpm check:file-size`                                                  |
 | Lint, types, and tests   | TypeScript surfaces changed           | `pnpm build && pnpm lint && pnpm typecheck && pnpm test`                                        |
+| Web deployment image     | TypeScript or deploy workflow changed | Build `apps/web/Dockerfile` and request `/auth/sign-in` from its standalone server              |
 | API contract             | `packages/api-contracts` changed      | `pnpm --filter @verdery/api-contracts lint:contract` and `… generate:check`                     |
 | Secret scan              | Always                                | —                                                                                               |
 | Swift package            | `apps/ios` or shared fixtures changed | `cd apps/ios && swift build && swift test && xcodegen generate && bash scripts/run-ui-tests.sh` |
@@ -23,6 +24,7 @@ sections "7. Change Detection" and "17. Supply Chain".
 
 `pnpm check:all` covers the first three rows in one command, minus the `pnpm build` that CI needs on
 a fresh checkout. The contract gates are not part of `check:all` and must be run separately.
+The web image gate is also separate from `check:all` and requires Docker.
 
 ## Gates without change detection
 
@@ -65,6 +67,25 @@ Workspace packages are consumed through their compiled `dist/`, which is not com
 CI checkout nothing resolves `@verdery/geometry-contracts` or `@verdery/api-contracts` until
 `pnpm build` has run. Locally this step is usually invisible because `dist/` already exists from a
 previous build.
+
+## Why CI builds the web deployment image
+
+The `web-image` job builds the actual deployment Dockerfile from a clean checkout, starts its
+standalone server, and requests `/auth/sign-in`. It runs when the TypeScript filter matches,
+including changes to the deployment workflow. `All gates` includes this job.
+
+Next.js type-checks web test files, which import generated declarations from
+`@verdery/test-fixtures`. The Dockerfile now copies and builds that package before the web build;
+the runtime image still contains only the traced standalone output, static assets, and public files.
+This addresses the September 25 development deployment failure, where workspace CI passed but the
+web image failed with `TS2307` after API and worker deployment. The earlier failure is recorded in
+[infrastructure.md](infrastructure.md).
+
+To reproduce locally, build `apps/web/Dockerfile` with
+`NEXT_PUBLIC_API_ORIGIN=same-origin`, `API_PROXY_ORIGIN=http://127.0.0.1:8080`, and a
+`VERDERY_DEPLOYMENT_ID`, then start the image on port 8080 and request `/auth/sign-in`.
+This smoke check proves image construction and HTTP startup; the full browser job verifies
+authenticated journeys against its local stack.
 
 ## Why the contract job runs before anything builds
 

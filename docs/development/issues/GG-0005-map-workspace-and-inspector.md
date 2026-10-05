@@ -89,6 +89,16 @@ consistent and contained; width was reset after checking its bounds. Test object
 were annotations in a disposable garden. No issue-specific Playwright assertions
 or GG-0005 fix was added by R02, as required by DEC-003.
 
+## Follow-up repair on 2026-10-05
+
+Web 0.6.7 adds an explicit `display: none` rule for hidden inspector panels. The
+Backdrop panel's flex display had overridden the browser's `[hidden]` rule, so
+Backdrop controls leaked into Objects, Properties, and Warnings. The existing
+responsive tabpanel assertion remains unchanged. The complete local browser
+suite passed 53/53 tests with the repair. The issue remains `fixed` until the
+deployed acceptance matrix, including selection, multi-selection, and deletion,
+passes and is recorded as a new dated observation.
+
 ## Relationships
 
 - Duplicate of: none

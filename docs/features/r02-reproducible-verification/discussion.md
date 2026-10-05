@@ -1,5 +1,15 @@
 # Discussion — R02 - Reproducible Verification
 
+## Follow-up direction — 2026-10-05
+
+The owner asked to close the remaining bugs and tasks, including this task, and
+to remove an in-progress label once work is finished. R02's original acceptance
+and DEC-003 remain historical records of its completed scope. The follow-up
+authorizes a separate GG-0005 repair on the same delivery branch to unblock
+the required browser gate. GG-0005 and GG-0007 still require their own deployed
+acceptance evidence before their issue statuses can advance. R02 already uses
+`status: implemented`; the follow-up does not restore an in-progress status.
+
 ### Answer to Q-001 · 2026-10-04
 
 Что значит «обязательный CI-гейт» для браузерного набора: достаточно ли добавить его в агрегирующий job «All gates», или фича также включает
